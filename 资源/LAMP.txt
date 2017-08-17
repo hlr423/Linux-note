@@ -1,0 +1,409 @@
+回顾：Mariadb基础
+	关系：二维关系（行，列）
+		表、索引、视图、……
+	设计范式：
+		第一范式：字段是原子性的；
+		第二范式：存在可用的主键；
+		第三范式：任何字段都不应该依赖于其它表的非主属性；
+	约束：primary key, unique key, foreign key, check
+	MariaDB安装方式：
+		通用二进制格式包
+		源码编译安装：cmake
+	SQL：
+		数据库、表、索引、视图、存储过程、存储函数、触发器、事件调度器、用户和权限
+
+		DDL，DML，DCL
+			DDL：CREATE，ALTER，DROP
+			DML：INSERT， DELETE，UPDATE，SELECT
+			DCL：GRANT，REVOKE
+
+MariaDB基础应用(2)
+
+	MariaDB程序组成：
+		C：Client
+			mysql
+			mysqladmin
+			mysqldump
+			mysqlbinlog
+			...
+		S：Server
+			mysqld
+			mysqld_safe：线程安全；
+			mysqld_multi：多实例；
+		管理工具程序：
+			myisampack, myisamchk
+
+		三类套接字地址：
+			IPV4:PORT
+			IPV6:PORT
+			Unix Sock：/var/lib/mysql/mysql.sock，/tmp/mysql.sock
+				基于内存共享的方式进行通信，减少了进入TPC/IP协议层的过程，加快速度
+
+	命令行交互式客户端程序：mysql
+		mysql [OPTIONS] [database]
+			常用选项：
+				-uUSERNAME
+				-hHOST
+				-p[PASSWORD]
+
+				-Ddb_name
+
+				--socket=path, -S path
+				--port=port_num, -P port_num
+
+				--execute=statement, -e statement
+
+			命令：
+				客户端命令
+					mysql> help
+						\u db_name：设定默认数据库；
+						\q：退出客户端；
+						\d CHAR：自定义语句结束符，默认为分号；
+						\g：语句结束标记，将命令发往服务端运行；
+						\G：语句结束标记，将命令发往服务端运行，行数据纵向显示；
+						\! SHELL_COMMAND：
+						\s：连接状态及服务器运行状态
+						\. /path/to/some_sql_script：运行SQL脚本
+						...
+				服务端命令：发往服务器端执行的SQL语句
+					(1) 语句结束符
+					(2) 建立了与某服务器有效通信连接
+
+		数据类型：
+			表：行、列
+				定义列时需要选定合适的数据类型
+				符合范式设计的要求
+				定义约束关系
+
+				column_name DATA_TYPE CONSTRAINT
+					UNSINGED
+
+			字符型：
+				定义字符型：CHAR(#)，BINARY(#)
+				变长字符型：VARCHAR(#) ,VARBINARY(#)
+				对象存储：TEXT，BLOB
+					TEXT：不区分字符大小写
+					BLOB：区分字符大小写
+				内建：ENUM，SET
+
+				注意：所有字符型数据要使用引号
+
+			数值型：
+				精确数值：INT
+				近似数值：FLOAT，DOUBLE
+
+				注意：不能使用引号
+
+			日期时间型：
+				DATE，TIME，DATETIME，TIMESTAMP，YEAR
+
+	SQL语句：
+		DDL：数据定义语言，主要用于管理库组件，例如数据库、表、索引、视图、用户、存储过程、存储函数、触发器、……
+			CREATE，ALTER，DROP
+		DML：数据操纵语言，主要用于管理表中数据，实现数据CRUD操作
+		DCL：管理授权
+
+		获取帮助：
+			mysql> help KEYWORD
+
+		数据库管理：
+			创建：
+				CREATE {DATABASE | SCHEMA} [IF NOT EXISTS] db_name [DEFAULT] CHARACTER SET [=] charset_name
+
+			修改：
+				ALTER DATABASE
+
+			删除：
+				DROP {DATABASE | SCHEMA} [IF EXISTS] db_name
+
+		表管理：
+			表创建：
+				CREATE TABLE [IF NOT EXISTS] tbl_name (create_defination) [table options]
+
+				create_defination：由逗号分隔的列表
+					col_name column_definition
+
+					字段定义：
+						colume_name column_definition
+					约束：
+						PRIMARY KEY
+						UNIQUE KEY
+						FOREIGN KEY
+						CHECK(expr)
+					索引：
+						{INDEX|KEY}
+						{FULLTEXT|SPATIAL}
+
+				column_definition:
+					data_type [NOT NULL | NULL] [DEFAULT default_value] [AUTO_INCREMENT] [UNIQUE [KEY] | [PRIMARY] KEY]
+
+				[table options]
+					ENGINE [=] engine_name
+					……
+
+				查看数据库所支持所有存储引擎类型：
+					mysql> SHOW ENGINES;
+
+			查看表的属性信息：
+				SHOW TABLE STATUS [WHERE Name='tbl_name'][LIKE PATTERN]
+
+			修改：
+				ALTER  TABLE tbl_name [alter_specification [, alter_specification] ...]
+
+				alter_specification：
+					（1） 表选项
+						table_options
+
+					（2）表组成
+						字段：
+							ADD col_name DATA_TYPE [FIRST|AFTER col_name]
+							DORP [COLUMN] col_name
+							CHANGE
+							MODIFY
+						索引：
+							ADD INDEX(col1, col2, ...)
+							DROP INDEX index_name;
+						键：
+							ADD {PRIMARY|UNIQUE|FOREIGN} key (col1, col2, ...)
+							DROP {PRIMARY|UNIQUE|FOREIGN} KEY key_name
+
+				删除：
+					DROP TABLE [IF EXISTS] tbl_name [, tbl_name]
+
+		索引管理：
+			创建：
+				CREATE [UNIQUE|FULLTEXT|SPATIAL] INDEX index_name  ON tbl_name (index_col_name,...)
+
+					index_col_name:
+						col_name [(length)] [ASC | DESC]
+
+			删除：
+				DROP INDEX index_name ON tbl_name
+
+			查看：
+				SHOW {INDEX | INDEXES | KEYS} {FROM | IN} tbl_name [{FROM | IN} db_name] [WHERE expr]
+
+		DML：INSERT， DELETE， UPDATE，SELECT
+
+			INSERT INTO：
+				INSERT  [INTO] tbl_name [(col_name,...)] {VALUES | VALUE} ({expr | DEFAULT},...),(...),...
+
+			SELECT：
+				(1) SELECT * FROM tbl_name;
+				(2) SELECT col1, col2, ... FROM tbl_name;
+					字段：column_name [AS Alias]
+				(3) SELECT col1, col2, ... FROM tbl_name WHERE CLUASE;
+					WHERE CLAUSE：过滤条件
+						col_name 操作符 value|col_name；
+
+							操作符：
+								>, <, >=, <=, =, !=
+
+							组合多个条件：
+								and, or, not
+
+							操作符(2)：
+								BETWEEN ... AND ...
+								LIKE 'PATTERN'：
+									通配符：
+										_：
+										%:
+								RLIKE 'PATTERN'
+									正则表达式模式；
+							IS NULL
+							IS NOT NULL
+				(4) SELECT col1, ... FROM tbl_name [WHERE CLAUSE] ORDER BY col1, col2, ... [ASC|DESC];
+
+			DELETE：
+				DELETE  FROM tbl_name [WHERE where_condition] [ORDER BY ...] [LIMIT row_count]
+
+			UPDATE：
+				UPDATE tbl_name SET col_name1={expr1|DEFAULT} [, col_name2={expr2|DEFAULT}] ...
+					[WHERE where_condition]
+					[ORDER BY ...]
+					[LIMIT row_count]
+
+		图形管理组件：
+			phpMyAdmin
+			Navicat
+			MySQL-Front
+			SQLyog
+			ToadForMySQL
+
+
+
+
+
+
+文件服务：
+	vsftpd：应用层，文件共享；
+	nfs：网络文件系统；
+	samba：cifs协议在Linux主机上的实现，跨平台实现文件系统共享；
+
+	网络存储：
+		NAS：Network Attached Storage，文件服务器，nfs或cifs，文件级别共享接口；
+		SAN：Storage Area NEtwork，存储区域网络，通过其它网络介质来传输SCSI协议，iSCSI(IP SAN), FC SAN, ...，块级别的共享接口；
+
+	ftp：
+		file transfer protocol, 21/tcp
+			C/S：
+				Client <--ftp-->Server
+					Server：Listen
+					Client: Connect
+
+		连接：
+			命令连接：传输命令；
+			数据连接：传输数据；
+
+			数据连接工作模式：
+				主动模式：服务器端通过20/tcp主动连接客户端的命令连接的端口+1的端口；PORT
+				被动模式：客户端发出数据请求后，服务端会响应一个打开的临时随机端口给客户端；PASV
+
+			数据传输模式：
+				文本格式
+				二进制格式
+
+			协议安全：
+				明文：认证时传输账号和密码的传输亦是明文
+
+				安全增强：
+					ftp over ssl/tls：ftps
+					ftp over ssh：sftp
+
+		C/S：
+			S：Serv-U, IIS, ...<windows上的>
+				开源解决方案：
+					wuftpd：Washington University  ftp daemon
+					vsftpd：very secure ftp daemon
+					proftpd, pureftpd, ...
+			C：
+				GUI：flashfxp, cuteftp, filezilla, gftp, ...
+				CLI：ftp, lftp, ...
+					ftp客户端工具的put命令有问题，建议使用lftp
+					ftp客户端只能put当前用户所在目录的文件到服务器
+
+		vsftpd：
+			程序环境：
+				配置文件：/etc/vsftpd/vsftpd.conf
+				主程序：/usr/sbin/vsftpd
+				Unit File：/usr/lib/systemd/system/vsftpd.service
+				文件路径映射：/var/ftp
+					ftp://ftp.magedu.com/pub/a.txt  --> /var/ftp/pub/a.txt
+					用户的家目录的映射：访问ftp必须以某个系统用户的身份，此用户的家目录即文档目录；
+					匿名用户:anonymous，要映射为一个系统用户，默认ftp；
+
+			用户种类：
+				匿名用户、系统用户、虚拟用户
+
+		配置vsftpd：
+			配置文件：vsftpd.conf
+				directive=value
+				注意：directive之前不能有任何字符；
+
+			匿名用户：
+				anonymous_enable=YES|NO ：允许匿名用户登录
+				anon_upload_enable=YES|NO ：允许匿名用户上传文件
+				anon_mkdir_write_enable=YES|NO ：允许匿名用户创建目录
+				anon_other_write_enable=YES|NO ：允许匿名用户删除文件和目录
+
+
+			系统用户：
+				local_enable=YES ：允许系统的普通用户登录，系统的系统用户不能登录
+				write_enable=YES ：允许系统的普通用户上传
+
+				辅助认证配置文件/etc/vsftpd/ftpusers：
+					修改文件内的用户，无须重启服务
+					pam认证的配置文件：/etc/pam.d/vsftpd
+
+				chroot_local_users=YES
+					禁锢所有的本地用户于自己的家目录中；但需要事先移除用户对家目录的写权限；
+
+				chroot_list_enable=YES
+				chroot_list_file=/etc/vsftpd/chroot_list
+					禁锢指定的文件中的用户于自己的家目录中；但需要事先移除用户对家目录的写权限；
+
+					注意：此处的2行配置文件不能同chroot_local_users=YES同时开启，否则chroot_list_file变成了白名单
+
+			数据传输日志：
+				xferlog_std_format=YES
+				xferlog_enable=YES
+				xferlog_file=/var/log/xferlog
+
+			控制可登录vsftpd服务的用户列表：
+				userlist_enable=YES
+					是否启用/etc/vsftpd/user_list文件来可登录的用户；
+				userlist_deny={YES|NO}
+					YES：黑名单
+					NO：白名单
+
+		虚拟用户：
+			用户账号存储于何处？
+				文件，MySQL，Redis, ...
+
+			vsftpd的认证功能托管给pam：
+				Pluggable Authencate Module，认证框架，认证库；
+				通过模块完成认证功能：/usr/lib64/security/
+
+			pam_mysql模块：
+				# yum -y install mariadb-devel pam-devel
+				# ./configure --with-pam=/usr --with-mysql=/usr --with-pam-mods-dir=/usr/lib64/security
+				# make
+				# make install
+
+			准备数据库：
+				mysql> CREATE DATABASE vsftpd;
+				mysql> CREATE TABLE vsftpd.users (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, name CHAR(30) NOT NULL UNIQUE KEY,password CHAR(48));
+				mysql> INSERT INTO vsftpd.users (name,password) VALUES ('tom',PASSWORD('mageedu')),('jerry',PASSWORD('mageedu'));
+
+				mysql> GRANT ALL ON vsftpd.* TO 'vsftpd'@'localhost' IDENTIFIED BY 'mageedu';
+				mysql> GRANT ALL ON vsftpd.* TO 'vsftpd'@'127.0.0.1' IDENTIFIED BY 'mageedu';
+				mysql> FLUSH PRIVILEGES;
+
+			vsftpd通过pam_mysql进行认证的配置文件：
+				# vim /etc/pam.d/vsftpd.mysql
+					auth required /usr/lib64/security/pam_mysql.so user=vsftpd passwd=mageedu host=127.0.0.1 db=vsftpd table=users usercolumn=name passwdcolumn=password crypt=2
+					account required /usr/lib64/security/pam_mysql.so user=vsftpd passwd=mageedu host=127.0.0.1 db=vsftpd table=users usercolumn=name passwdcolumn=password crypt=2
+
+					user：连接mysql服务器的用户名，此用户要有权限访问认证vsftpd服务的数据库
+					passwd：上面的用户的密码
+					host：mysql服务器主机地址
+					db：认证vsftpd服务的数据库名称
+					table：存放了用户和密码的表
+					usercolumn：用户名对应的字段
+					passwdcolumn：密码对应的字段
+					crypt：密码加密方法
+
+			准备匿名用户映射的系统用户账号：
+				# mkdir /ftproot
+				# useradd  -d /ftproot  vuser
+				# mkdir /ftproot/{pub,upload}
+				# setfacl -m u:vuser:rwx  /ftproot/upload
+
+			配置vsftpd：vsftpd.conf
+				pam_service_name=vsftpd.mysql
+				guest_enable=YES
+				guest_username=vuser
+
+			配置每匿名用户有单独的权限设定
+				vsftpd.conf，添加：
+					user_config_dir=/etc/vsftpd/vusers_conf
+
+				创建目录：
+					# mkdir /etc/vsftpd/vusers_conf
+
+				为每用户提供配置文件：
+					/etc/vsftpd/vusers_conf/{tom,jerry}
+
+					配置权限的指令：
+						anon_upload_enable=YES|NO
+						anon_mkdir_write_enable=YES|NO
+						anon_other_write_enable=YES|NO
+
+						注意不给指令：默认为NO
+
+	练习：完成vsftpd配置
+		(1) 禁锢系统用户于家目录；
+			chroot_local_user=YES
+		(2) 基于mysql进行用户认证；
+
+		(3) 不同的虚拟用户拥有不同的权限设定；

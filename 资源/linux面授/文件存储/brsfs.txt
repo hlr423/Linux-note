@@ -1,0 +1,84 @@
+Btrfs 文件系统：
+	Btrfs ( B-tree ，Butter FS ，Better FS )
+		GPL ，Oracle公司在2007年研发，支持CoW(对文件快照)，为了取代ext3,ext4,xfs
+
+	核心特点
+		多物理卷支持：btrfs可由多个底层物理卷组成，支持RAID，以及联机“添加”、“移除”，“修改”
+		写时复制更新机制(CoW) ：复制、更新及替换指针，而非“就地”更新
+		数据及元数据校验码：checksum
+		子卷：sub_volume
+		快照：支持快照的快照
+		透明压缩
+
+	文件系统的创建：
+		mkfs.btrfs
+			-L 'LABEL'：设定卷标
+			-d <type>：数据块组成type：raid0, raid1, raid5, raid6, raid10, single
+			-m <profile>：元数据块组成type：raid0, raid1, raid5, raid6, raid10, single, dup
+			-O <feature>
+				-O list-all:  列出支持的所有feature
+
+			例如：mkfs.btrfs -L mybtr /dev/sd{b,c,d}
+				把3块磁盘创建为一个btrfs系统
+
+	属性查看(filesystem)：
+		btrfs filesystem show
+			查看btrfs分区信息
+		btrfs filesytem df /挂载点
+			显示分区使用情况
+		btrfs filesystem resize <+|->#[MG] /挂载点
+			增加或减少挂载点多少空间
+		btrfs filesystem resize max /挂载点
+			增加全部空间至挂载点
+
+
+	挂载文件系统：
+		mount -t btrfs /dev/DEVICE MOUNT_POINT
+			/dev/DEVICE；可为btrfs中任意一块磁盘
+
+	扩展空间(向已存在的btrfs系统增加空间)(device)：
+		btrfs device add /dev/DEVICE /挂载点
+			向挂载点增加一个磁盘空间
+		btrfs device delete /dev/DEVICE /挂载点
+			把挂载点某个磁盘卸载
+		扩展空间后必须使用命令来平衡btrfs系统中数据存放
+			btrfs balance start /挂载点
+
+
+	改变btrfs系统属性(balance)：
+		btrfs banlance start MOUNT_POINT
+			平衡btrfs系统中数据
+		btrfs banlance status MOUNT_POINT
+			显示btrfs平衡数据过程（磁盘数据过少，不容易看到）
+		btrfs balance start -dconvert=single MOUNT_POINT
+			修改btrfs文件系统的数据存放格式
+		btrfs balance start -mconvert=raid1 MOUNT_POINT
+			修改btrfs文件系统的元数据存放格式
+
+	创建子卷和快照(subvolume)：
+		btrfs subvolume list MOUNT_POINT
+		btrfs subvolume show MOUNT_POINT
+			查看子卷ID等信息
+		btrfs subvolume create MOUNT_POINT/dir
+			创建名为dir的子卷
+		挂载子卷的方式：
+			mount -o subvol=dir /dev/sd# MOUNT_POINT<新挂载点>
+				/dev/sd#：为btrfs文件系统中的任意一个磁盘都可
+		btrfs subvolume delete MOUNT_POINT/dir
+			删除子卷
+
+		mount /dev/sdb /mydata  挂父卷，子卷自动挂载
+
+		btrfs subvolume snapshot MOUNT_POINT MOUNT_POINT/snapshot_dir
+			创建父卷或子卷的快照
+		btrfs subvolume delete MOUNT_POINT/snapshot_dir
+			删除快照
+
+	透明压缩机制：
+		mount -o compress={lzo|zlib} DEVICE MOUNT_POINT
+
+	如何升级为btrfs文件系统
+		btrfs-convert /dev/DEVICE
+			升级为btrfs文件系统
+		btrfs-convert -r /dev/DEVICE
+			降级成原来的系统

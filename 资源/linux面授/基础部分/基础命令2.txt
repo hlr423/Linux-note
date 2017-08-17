@@ -1,0 +1,131 @@
+pwd:显示当前工作目录
+	每个shell 和系统进程都有一个当前的工作目录
+	CWD:current work directory
+	显示当前shell当前工作目录
+		#pwd: printing working directory
+		$PWD：保存了当前工作目录
+		$OLDPWD：保存上一次所在工作目录
+			PWD=/PATH/TO/DIR 可以切换当前工作目录
+		-P 显示真实物理的路径
+			centos7：
+			#cd /bin
+			#pwd -P 显示的是/usr/bin而不是/bin目录,因为/bin是链接指向/usr/bin的
+
+cd：改变目录
+	dir:为绝对或相对路径
+		cd /home/joshua/work
+		cd project/docs
+	cd ..: 到当前目录的上一级目录
+	cd: 回到你的家目录
+	cd -: 到上一次的工作目录
+		存储当前工作目录和上一次工作目录的相关环境变量
+		PWD：保存了当前目录路径
+		OLDPWD：上一次所在目录路径
+
+ls: 列出当前目录的内容或指定目录
+	ls [options] [files_or_dirs]
+	Example:
+	    -a 显示所有文件包含隐藏文件
+		-A 显示除去.和..之外的所有文件
+		-l --long 显示文件的详细信息
+		-R 递归现在目录下的所有文件
+		-d 查看目录自身而非目录内的文件
+		-1 把显示的文件以每个文件一行的方式显示
+		–S 按文件的size大小从大到小排序文件
+		–u 配合-t选项，按atime时间从新到旧排序的排列文件
+		-i 查看文件的节点编号
+	ls -ld
+	ls -l
+
+stat：查看文件时间戳
+	文件两个属性：
+		metadata（元数据）文件的大小，类型，属主属组
+		data（数据）文件的内部内容
+		三个时间戳：
+		access time ：访问时间，读取文件内容被修改
+		modify time:  修改时间，改变文件内容（数据）被修改
+		change time:  改变时间, 改变了文件的元数据时被修改
+	atime 时间更新的条件
+		atime 是1天以前的时间
+		atime 比 mtime 时间更老
+	stat
+
+
+touch：创建空文件和刷新时间戳
+	touch [OPTION]... FILE...
+	-a: 仅改变 atime 时间
+	-m: 仅改变 mtime 时间
+	-c: 如果文件不存在，则不予创建
+	-t：STAMP 手动设置时间戳
+		[[CC]YY]MMDDhhmm[.ss]
+	touch -at 200808080808.08 FILE
+
+	如何创建一个空文件
+		#touch FILE
+		#> FILE 可以创建一个空文件，但如果文件存在，会把文件覆盖成空文件
+		#>> FILE 可以创建一个空文件，文件存在不会覆盖文件
+
+
+文件通配符
+	*  匹配零个或多个字符
+	?  匹配任何单个字符
+	~  当前用户家目录
+	~username  用户家目录
+	~+  当前工作目录
+	~-  前一个工作目录
+			ls ~-/   可以显示前一个目录的文件
+			ls -/   报错
+	[0-9] 匹配一个数字范围
+		[a-z] ：大写和小写字母  aAbBcCdDeEfF
+		[A-Z] ：大写字母
+	[wxc] 匹配列表中的任何的一个字符
+	[^wxc]  匹配列表中的所有字符以外的字符
+	预定义的字符类： ：#man 7 glob
+		[:digit:] ：任意一个数字，相当于0-9
+		[:lower:] ：任意小写字母
+		[:upper:]:  任意大写字母
+		[:alpha:]:  任意大小写字母
+		[:alnum:] ：任意数字或字母
+		[:space:] ：空格
+		[:punct:] ：标点符号
+
+练习:
+1、显示/var 目录下所有以l 开头，以一个小写字母结尾，且中间出现至少一位数字的文件或目录
+	ls -l /var/l*[0-9]*[[:lower:]]
+2、显示/etc 目录下以任意一位数字开头，且以非数字结尾的文件或目录
+	ls -l /etc/[0-9]*[^0-9]
+3、显示/etc/ 目录下以非字母开头，后面跟了一个字母及其它任意长度任意字符的文件或目录
+	ls -l /etc/[^[:alpha:]][[:alpha:]]*
+4、显示/etc 目录下所有以m 开头以非数字结尾的目录
+	ls -ld /etc/m*[^0-9]
+5、显示/etc 目录下，所有以.d 结尾的文件或目录
+	ls -ld /etc/*.d
+6、显示/etc 目录下，所有.conf 结尾，且以m,n,r,p 开头的文件或目录
+	ls -ld /etc/[mnrp]*.conf
+
+alias:命令别名
+	显示当前shell进程所有可用的命令别名
+		#alias
+
+	定义别名NAME，在命令行中定义的别名，仅对当前shell进程有效
+		#alias NAME='VALUE'
+	如果想永久有效，要定义在配置文件中
+		仅对当前用户：~/.bashrc
+		对所有用户有效：/etc/bashrc
+	编辑配置文件后不会立即生效；
+		1)：reboot
+		2)：bash进程重新读取配置文件：
+			a：source /path/to/config_file
+			b：. /path/to/config_file
+	撤消别名：unalias，仅对当前shell生效，重启后无效
+		unalias [-a] name [name ...]
+			-a 撤销所有别名
+	如果别名同原命令同名，要执行原命令可使用
+		"\COMMAND"
+		'COMMAND'
+		/PATH/COMMAND: 给全命令路径
+
+file：检查文件类型
+	file [options] <filename>...
+		-f：列出文件中文件名的文件类型
+		-L 查看对应软链接对应文件的文件类型

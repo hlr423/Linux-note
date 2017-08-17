@@ -1,0 +1,305 @@
+enable
+	查看所有的系统内部命令
+
+内部命令和外部命令的区别
+	内部命令执行更快
+	当病毒入侵后，外部命令更加可靠，可以使用md5校验命令的二进制文件是否被修改，来判断那命令是否可以使用
+
+uname：
+	-a：list all information
+	-s：显示系统名字
+	-n：显示主机名
+	-r：显示内核版本
+	-m：显示系统类型（x86/other）
+
+scp /path/to/somefile ip:/path/to/somefile
+	把当前主机某路径下的文件复制到主机地址为ip的主机某目录下
+
+lscpu
+	列出当前cpu信息，有cpu型号
+
+lsblk
+	列出当前磁盘信息
+
+cat /etc/centos-release
+	显示操作系统的信息
+
+free
+	查看系统内存信息
+
+netstat
+
+shell脚本
+	echo "\033[41;35m hello world \033[0m"
+	\033[41;35m hello world \033[0m
+		这条语句下入txt文本中不会显示颜色
+		把、033换成	ctrl+v+[
+			变成带颜色的脚本
+
+如何直接使用cut命令截取出df命令中的磁盘使用率
+	centos6:
+		df | grep "/dev/sd" | cut -c 45-47
+	centos7:
+		df | grep "/dev/sd" | cut -c 44-46
+
+seq num1 num2
+	生成从num1到num2的所有数
+
+	seq -s + 1 100 | bc
+
+echo {num1..num2}
+	生成从num1到num2的所有数
+
+	echo {1..100} | tr -t ' ' '+' | bc
+
+
+ping
+	ping 10.1.0.1 -c1 -W1 &> /dev/null
+		-c：设置发送多少个报文，
+		-W：设置不能ping通时的延迟时间
+
+true命令
+	真命令，永远返回真
+
+false命令
+	假命令，永远返回假
+
+IP地址的获取方法：
+	ifconfig | grep -oE "(\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>\.){3}\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|25[0-5])\>"
+
+	获取物理机使用的ip(取出网关，子网掩码)
+		grep -oE "(\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|25[0-5])\>.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|25[0-5])" | grep -vE "(^255.*\.0\>|.*\.255\>|^127.*|^169.254.*)"
+
+
+取路径名和基名的方法
+1：dirname,basename
+dirname /path/to/somefile
+basename /path/to/somefile
+
+2:grep
+echo "/etc/fstab" | grep -oE "^/.*/.{1}" | grep -oE "^/[^/]*"
+echo "/etc/fstab" | grep -oE "[^/]+/?$"
+
+3:sed
+echo "/etc/fstab" | sed -r 's@(.*)/([^/]+/?)$@\1@'
+echo "/etc/fstab" | sed -r 's@(.*)/([^/]+/?)$@\2@'
+
+4:awk
+
+[[]]
+	当括号内的符号为>，<符号时，使用[]运算符号会出错，必须使用[[]]运算符
+	使用=~ 匹配扩展的正则表达式
+
+字符串批准
+
+ldd：命令
+
+declare:命令
+
+. 和source 和 bash 区别
+	bash /path/to/somefile  会先开一个子进程，里面的变量会被释放
+	source 和 . 不会开子进程。或脚本有和系统变量重名的，会修改系统变量的值
+
+not A and not B == not ( A or B )
+not A or not B == not ( A and B )
+
+有些链接文件会被匹配能普通文件，或要查找链接文件和普通文件，链接文件的判断写在前面
+
+expr   总结   // 开始10分组
+
+echo gao:gao | chpasswd  //不会输出任何东西
+	修改用户密码	同passwd
+
+
+lftp ip
+	 登录远程服务器
+!mkdir -p /yum/repo
+	在服务器上对本地直接创建目录
+lcd /yum/repo
+	在服务器上，切换本地当前所在目录
+mget *.rpm
+	批量下载所有的.rpm包文件
+
+cat << EOF
+SDLKFJ
+SKDLF
+SDFKLJ
+EOF
+		用于脚本中输出默写特定信息，比之echo更加简洁
+
+ps axo user,ruser,cmd
+	查看命令的执行者，和实际调用改命令的用户，用于修改了SUID的程序进行查看
+
+ps axo user,ruser,group,rgroup,cmd
+	执行命令者，实际命令者，执行名字组，实际命令组，命令
+
+echo $[$RANDOM%80]
+	生产随机数1-80
+
+新加一块硬盘
+echo "- - -" > /sys/class/scsi_host/host2/scan
+	添加硬盘后，触发系统设备扫描
+
+du -sh DIR
+	查看文件大小
+
+centos7:
+	rpm -i /run/media/root/CentOS\ 7\ x86_64/Packages/hexedit-1.2.13-5.el7.x86_64.rpm
+		安装可以修改2进制文件的工具
+	rpm -i /run/media/root/CentOS\ 7\ x86_64/Packages/dos2unix-6.0.3-4.el7.x86_64.rpm
+		安装可转换Windows文本到linux文本的工具
+		dos2unix FILE
+dd if=/dev/zero of=f1 bs=1k count=2
+hexdump f1
+xxd f1
+	查看2进制文件，或者把文本文件以2进制打开
+
+
+ntpdate 10.1.0.1
+	与网络中服务器时间同步
+
+dd命令：
+	dd if=     of=     bs=      count=
+	skip=446 seek=446  跳过、忽略446字节
+
+外圈 内圈 都是63个扇区  ，磁道1024  磁头数256
+
+硬盘总容量 512*63*1024*256
+
+早期的标准：CHS标准   C  cylinder：柱面  H   head：磁头   S    secotr：扇区
+
+LBA标准：线性寻址
+
+uuidgen
+	随机生成uuid，用于修改uuid重名了（十分特殊的情况下使用）
+
+如何把一个文件做成磁盘：
+	dd if=/dev/zero of=/testdir/testdisk bs=1M count=500
+		500M的空间
+	mkfs.ext4 /testdir/testdisk
+	mount /testdir/testdisk /mnt
+
+如何把一个文件做成swap：
+	dd if=/dev/zero of=/testdir/testswap bs=1M count=500
+		500M的空间
+	mkswap /testdir/testswap
+	swapon /testdir/testswap
+
+如何自动挂载目录：
+	/etc 		/mnt		none 		bind 	0 0
+
+swap分区自动挂载优先级的设置
+	/testdir/testswap 		swap 		swap 		defaults,pri=100
+
+eject：弹出光盘
+eject -t：弹进光盘
+
+losetup  手工指定用文件做成的磁盘，映射在那个loop设备上
+	# losetup /dev/loop# /path/to/somefile
+	# losetup -a
+
+mkisofs -r -o /path/to/file.iso /path/to/dir
+	把一个目录制作成.iso的文件
+
+应用层		application
+表示层		presentation
+会话层		session
+传输层		transport
+网络层		network
+数据链路层	data link
+物理层		physical
+
+oracle 1521
+mysql 3306
+sql server 1433 1434
+https 80 443
+smtp tcp 25
+pop3 110
+imap4 143
+dhcp udp 67 68
+ftp 21
+DNS 53
+SSH 22
+SNMP 161
+NFS 2049
+
+（linux服务器）ttl - 50 =进过路由器
+
+修改系统的TTL值：（windows默认是128，linux默认是64）
+[root@CentOS7 ~]# echo 100  > /proc/sys/net/ipv4/ip_default_ttl
+
+google:DNS
+8.8.8.8
+8.8.4.4
+
+国内DNS：
+114.114.114.114
+
+HWADDR  ==>  MACADDR   则可以修改MAC地址
+	如果选项为HWADDR则无法修改设备MAC地址，改成MACADDR选项则可以修改MAC地址
+
+nohup  comd &   等价于screen
+
+]# grep -o "[^[:punct:]]" /etc/init.d/functions | sort -n | uniq -c
+	统计每个字母的出现次数
+
+FTP服务器：
+	lcd   运行本机命令
+	!ls   运行本机命令
+
+lftpget ftp://1.1.1.1/put/file
+	用于写在脚本中，非交互式的下载
+wget   		//也是非交互式的下载文件
+
+links  字符界面的浏览器
+	-source   看原代码
+	-dump   只抓文字包
+curl  纯字符界面，直接可以看到浏览器代码
+
+openssl passwd -1   最后是1，密码加密级别1<md5>
+	openssl passwd -salt "xxxx" -l
+grub-md5-crypt
+
+如何解压/boot/vmlinuz  文件
+	/boot/vmlinuz  是一个打包文件
+	cp /boot/initrd  /root/initrd
+	mv /root/initrd  /root/initrd.gz
+	gzip -d /root/vmlinuz....gz
+	cat /root/initramfs...   | cpio -id
+	cat /root/initramfs...   | cpio -id
+
+rhgb   设置启动过程是图像：centos6  是转圈的那个图像
+
+cat /var/log/boot.log  记录系统启动过程（Welcome to CentOS 之后的）
+
+内核参数  max_loop=100  	：加/dev/loop设备为100个（默认为8个）
+
+cat /proc/cmdline   ：本次启动的内核参数
+
+init /path/to/file   指定启动内核后的第一个进程
+
+
+注释掉/etc/inittab
+	ctrlaltdel  行，防止按了快捷键后，服务器重启
+
+ntsysv  图像界面下开关服务
+	--level ：指定模式
+
+wall [语句]
+	广播
+
+readlink COMMAND    ：查看文件或命令的真实文件，只对软连接有效
+
+logger this a test log
+	logger命令触发日志
+
+system-config-users ：CentOS6上图像添加用户界面
+
+nmap -v -sp 10.1.252.0/24
+	扫描网段
+
+建议：
+1：不要重启服务
+2：不要使用rm命令，要自建回车站，mv数据过去
+3：最好使用base源内的软件进行安装，每个安装包要检测来源合法性和数据完整行
+4：不用以管理员的身份登录系统

@@ -1,0 +1,110 @@
+网卡配置文件：
+	IP/NETMASK/GW/DNS等属性的配置文件：/etc/sysconfig/network-scripts/ifcfg-IFACE
+		IFACE：接口名称
+
+	路由的相关配置文件(默认无此文件)：/etc/sysconfig/network-scripts/route-IFACE
+
+	配置文件/etc/sysconfig/network-scritps/ifcfg-IFACE通过大量参数来定义接口的属性；其可通过vim等配置文本编辑器直接修改，也可以使用专用的命令进行修改
+		CentOS6:system-config-network(setup)
+		CentOs7:nmtui
+
+		ifcfg-IFACE配置文件的参数：
+			DEVICE：此配置文件对应的设备的名称
+			ONBOOT：在系统引导过程中，是否激活此接口
+			UUID：此设备的唯一标识
+			IPV6INIT：是否初始化IPv6
+			BOOTPROTO：激活此接口时使用什么协议来配置接口属性，常用的有dhcp、bootp、static、none
+			TYPE：接口类型，常见的有Ethernet，Bridge
+			DNS1：第一DNS服务器指向
+			DNS2：备用DNS服务器指向
+			DOMAIN：DNS搜索域
+			IPADDR：IP地址
+			NETMASK：子网掩码；CentOS6,7支持使用PREFIX
+				eg: NETMASK=255.255.0.0  <==>  PREFIX=16
+			GATEWAY：默认网关
+			USERCTL：是否允许普通用户控制此设备
+			PEERDNS：如果BBOTPROTO的值为“dhcp”，是否运行dhcp server分配的dns服务器指向覆盖本地手动指向的DNS服务器指向，默认为允许
+			HWADDR：设备MAC地址，一般不能修改MAC地址，但把此参数换成MACADDR=XX-XX-XX-XX-XX-XX ；则能修改MAC地址
+					····实验：
+
+			NM_CONTROLLED：是否使用NetworkManager服务来控制接口；建议CentOS6为“no”
+
+	注意：需service network restart生效
+
+
+网卡别名：
+	网络接口识别并命名相关的udev配置文件：
+		/etc/udev/rules.d/70-persistent-net.rules
+			修改上述配置文件，和/etc/sysconfig/network-scripts/ifcfg-IFACE文件，完成对网卡的别名配置
+
+	卸载网卡驱动：
+		modprobe -r e1000
+
+	装载网卡驱动：
+		modprobe e1000
+
+	给接口配置多个IP地址：
+		关闭NetworkManager服务
+		为每个设备别名生成独立的接口配置文件
+		接口配置文件名：ifcfg-ethX:xxx
+
+		(1)ifconfig IFACE_LABEL IPADDR/NETMASK
+			IFCAE_LABEL：eth0，eth0:1，...
+			eg：ifconfig eth0:0 192.168.1.100/24 up
+
+		(2)为别名添加配置文件：<可复制eth0文件并修改其内容>
+			DEVICE=IFACE_LABEL
+			BOOTPROTO=static OR none
+				网卡别名不支持动态获取地址；使用static或者none即可
+			IPADDR=X.X.X.X
+			NETMASK=X.X.X.X
+
+
+Bonding：
+就是将多块网卡绑定同一IP地址对外提供服务，可以实现高可用或者负载均衡
+直接给两块网卡设置同一IP地址是不可能的，通过bonding，虚拟一块网卡对外提供连接，物理网卡的被修改为相同的MAC
+
+	工作模式：
+		Mode 0 (balance-rr)：
+			轮转 (Round-robin) 策略：
+				从头到尾顺序的在每一个slave接口上面发送数据包
+				本模式提供负载均衡和容错的能力
+
+		Mode 1 (active-backup)：
+			活动-备份 (主备) 策略：
+				在绑定的网卡中，只有一个slave(一块网卡)被激活。当且仅当活动的slave接口失败时才会激活其他slave
+				为了避免交换机发生混乱此时绑定的MAC地址只有一个外部端口上可见
+				因为提供了较好的容错能力，在生产环节中被使用的更多
+
+		Mode 3 (broadcast)
+			广播策略：
+				在所有的slave接口上传送所有的报文。本模式提供容错能力
+
+	Bonding配置：
+
+		注意：请关闭NetworkManager服务
+
+		创建bonding设备的配置文件(默认无此文件)：
+			/etc/sysconfig/network-scripts/ifcfg-bond0
+				DEVICE=bond0（指定bonding设备名）
+				BOOTPROTO=none
+				IPADDR=X.X.X.X
+				NETMASK=X.X.X.X
+				GATEWAY=X.X.X.X
+				DNS=X.X.X.X
+				BONDING_OPTS= "miimon=100 mode=1"
+					miimon：是用来进行链路监测的，miimon=100，表示系统每100ms监测一次链路连接状态，如果有一条线路不通就转入另一条线路
+					mode <0|1|3>：指定bonding模式
+
+		修改已有网卡配置文件：
+			/etc/sysconfig/network-scripts/ifcfg-ethX
+				DEVICE=ethX
+				BOOTPROTO=none
+				MASTER=bond#  	#bond#为ifcfg-bond0中的DEVICE选项确定
+				SLAVE=yes
+
+	查看bonding状态：
+		cat /proc/net/bonding/bondX
+			X表示bonding模式
+
+

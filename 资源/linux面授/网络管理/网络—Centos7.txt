@@ -1,0 +1,162 @@
+CentOS 7 网络属性配置
+
+使用传统命名方式：
+	(1)  编辑/etc/default/grub 配置文件
+		GRUB_CMDLINE_LINUX ="rhgb quiet net.ifnames=0"
+		或：修改/boot/grub2/grub.cfg
+	(2)  为grub2 生成其配置文件
+		grub2-mkconfig -o /etc/grub2.cfg
+	(3)  重启系统
+
+网络接口配置tui工具：nmtui
+
+NeworkManager是管理和监控网络设置的守护进程
+设备即网络接口，连接是对网络接口的配置。一个网络接口可有多个连接配置，但同时只有一个连接配置生效
+
+nmcli命令：
+
+	地址配置工具：nmcli
+		nmcli [ OPTIONS ] OBJECT { COMMAND | help }
+			device - show and manage network interfaces
+			nmcli device help
+			connection - start, stop, and manage network connections
+			nmcli connection help
+	修改IP地址等属性：
+		#nmcli connection modify IFACE [+|-]setting.property value
+			setting.property:
+				ipv4.addresses ipv4.gateway
+				ipv4.dns1 ipv4.method manual | dhcp
+	修改配置文件执行生效：
+		systemctl restart network
+		nmcli con reload
+	nmcli命令生效：
+		nmcli con down eth0
+		nmcli con up eth0
+
+	显示所有包括不活动连接
+		nmcli con show
+	显示所有活动连接
+		nmcli con show --active
+	显示网络连接配置
+		nmcli con show "System eth0“
+	显示设备状态
+		nmcli dev status
+	显示网络接口属性
+		nmcli dev show eno16777736
+	创建新连接default，IP自动通过dhcp获取
+		nmcli con add con-name default type Ethernet ifname eth0
+	删除连接
+		nmcli con del default
+	创建新连接static，指定静态IP，不自动连接
+		nmcti con add con-name static ifname eth0 autoconnect no type Ethernet ip4 172.25.X.10/24 gw4 172.25.X.254
+
+	启用static连接配置
+		nmcli con up static
+	启用default连接配置
+		nmcli con up default
+	查看帮助
+		nmcli con add help
+
+	修改连接设置
+		nmcli con mod “static” connection.autoconnect no
+		nmcli con mod “static” ipv4.dns 172.25.X.254
+		nmcli con mod “static” +ipv4.dns 8.8.8.8
+		nmcli con mod “static” -ipv4.dns 8.8.8.8
+		nmcli con mod “static” ipv4.addresses “172.25.X.10/24 172.25.X.254”
+		nmcli con mod “static” +ipv4.addresses 10.10.10.10/16
+
+	设备配置被保存在文本文件中
+		/etc/sysconfig/network-scripts/ifcfg-<name>
+
+	修改连接配置后，需要重新加载配置
+		nmcli con reload
+		nmcli con down “system eth0”  可被自动激活
+		nmcli con up “system eth0”
+		nmcli dev dis eth0
+
+网络组Network Teaming
+	网络组：是将多个网卡聚合在一起方法，从而实现冗错和提高吞吐量
+	网络组不同于旧版中bonding技术，提供更好的性能和扩展性
+	网络组由内核驱动和teamd 守护进程实现
+	多种方式runner：
+		broadcast
+		roundrobin
+		activebackup
+		loadbalance
+		lacp (implements the 802.3ad Link Aggregation Control Protocol)
+
+	启动网络组接口不会自动启动网络组中的port接口
+	启动网络组接口中的port接口不会自动启动网络组接口
+	禁用网络组接口会自动禁用网络组中的port接口
+	没有port接口的网络组接口可以启动静态IP连接
+	启用DHCP连接时，没有port接口的网络组会等待port接口的加入
+
+	创建网络组接口：
+	nmcli con add type team con-name CNAME ifname INAME [config JSON]
+		CNAME 连接名，INAME接口名
+		JSON 指定runner方式
+		格式：'{"runner": {"name": "METHOD"}}'
+			METHOD可以是broadcast, roundrobin,activebackup, loadbalance, lacp
+
+创建port
+	nmcli con add type team-slave con-name CNAME ifname INAME master TEAM
+		CNAME：连接名
+		INAME：网络接口名
+		TEAM：网络组接口名
+		连接名若不指定，默认为team-slave-IFACE
+	nmcli dev dis INAME
+		从网络组中断开某设备
+	nmcli con up CNAME
+		把某设备接入网络组
+
+		INAME;设备名
+		CNAME：网络组接口名或port接口
+
+网络组示例:
+# nmcli con add type team con-name team0 ifname team0 config '{"runner": {"name": "loadbalance"}}'
+# nmcli con mod team0 ipv4.addresses 10.1.43.100/16
+# nmcli con mod team0 ipv4.method manual
+# nmcli con add type team-slave con-name team0-port1 ifname eno16777736 master team0
+# nmcli con add type team-slave con-name team0-port2 ifname eno33554984 master team0
+# nmcli con up team0
+# nmcli con up team0-port1
+# nmcli con up team0-port2
+# teamdctl team0 state
+# nmcli dev dis eth2
+
+实验: 创建网络组
+# nmcli con add type team con-name team0 ifname team0 config '{"runner": {"name": "activebackup","hwaddr_policy":"by_active"}}'
+# nmcli con mod team0 ipv4.addresses '10.1.43.100/16'
+# nmcli con mod team0 ipv4.method manual
+# nmcli con add type team-slave con-name team0-port1 ifname eno16777736 master team0
+# nmcli con add type team-slave con-name team0-port2 ifname eno33554984 master team0
+# nmcli con up team0
+# nmcli con up team0-port1
+# nmcli con up team0-port2
+# teamdctl team0 state
+
+# nmcli dev dis eno16777736
+# teamdctl team0 state
+# nmcli con up team0-port1
+# nmcli dev dis eno33554984
+# teamdctl team0 state
+# nmcli con up team0-port2
+# teamdctl team0 state
+
+管理网络组配置文件
+# /etc/sysconfig/network-scripts/ifcfg-team0
+	DEVICE=team0
+	DEVICETYPE=Team
+	TEAM_CONFIG="{\"runner\": {\"name\": \"broadcast\"}}"
+	BOOTPROTO=none
+	IPADDR0=172.25.5.100
+	PREFIX0=24
+	NAME=team0
+	ONBOOT=yes
+
+# /etc/sysconfig/network-scripts/ifcfg-team0-eth1
+	DEVICE=eth1
+	DEVICETYPE=TeamPort
+	TEAM_MASTER=team0
+	NAME=team0-port1
+	ONBOOT=yes

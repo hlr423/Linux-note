@@ -1,0 +1,433 @@
+回顾：索引、日志、备份
+	索引：B+ TREE，有序数据；范围查询，左前缀；
+		EXPLAIN SELECT clause;
+
+	日志：二进制日志、慢查询日志、查询日志、错误日志、事务日志、中继日志；
+
+	备份：
+		完全/部分，热备/温备/冷备，完全/差异/增量，物理/逻辑
+
+MySQL（05）
+
+	备份策略：
+		完全+差异+binlog
+		完全+增量+binlog
+
+		备份，多久一次？
+			数据变化量；
+			可用的备份存储空间；
+
+
+		mysqldump：
+			逻辑备份、完全备份、部分备份；
+			二次封装工具：
+				mydumper
+				phpMyAdmin
+
+			Usage:
+				mysqldump [OPTIONS] database [tables]
+				OR     mysqldump [OPTIONS] --databases [OPTIONS] DB1 [DB2 DB3...]
+				OR     mysqldump [OPTIONS] --all-databases [OPTIONS]
+
+			MyISAM存储引擎：支持温备，备份时要锁定表；
+				-x, --lock-all-tables：锁定所有库的所有表，读锁；
+				-l, --lock-tables：锁定指定库所有表；
+
+			InnoDB存储引擎：支持温备和热备；
+				--single-transaction：创建一个事务，基于此快照执行备份；
+
+			其它选项：
+				-R, --routines：存储过程和存储函数，可能是必给选项
+				--triggers：触发器，可能是必给选项
+				-E, --events：事件调度器
+
+				 --master-data[=#]：记录备份时，bin-log文件处于那个文件的那个位置，方便完全备份+二进制日志恢复
+					1：记录为CHANGE MASTER TO语句，此语句不被注释；
+					2：记录为CHANGE MASTER TO语句，此语句被注释；
+					0：不记录
+
+				--flush-logs：锁定表完成后，即进行日志刷新操作；
+
+		作业：备份脚本
+
+mysqldump -uroot -hlocalhost -p hellodb > ./hellodb.sql.1
+mysqldump -uroot -hlocalhost -p --database hellodb > ./hellodb.sql.2
+mysqldump -uroot -hlocalhost -p --databases hellodb > ./hellodb.sql.3
+mysqldump -uroot -hlocalhost -p --all-databases > ./hellodb.sql.4
+
+mysqldump -uroot -hlocalhost -p --single-transaction --all-databases > ./hellodb.sql.5
+
+mysqldump -uroot -hlocalhost -p -l --databases hellodb > ./hellodb.sql.6
+
+mysqldump -uroot -hlocalhost -p --master-data=2 -l --databases hellodb > ./hellodb.sql
+
+-R --triggers　：是必给的参数
+
+备份文件名＋时间戳
+	hellodb.sql-`data`
+
+恢复：应该在mysql中，但mysql要对*.sql的目录有读权限
+mysqlbinlog --stop-position=660 /var/lib/mysql/master-log.000002 > ./log.sql
+MariaDB [(none)]> SET sql_log_bin=OFF;  #临时关闭二进制日记的记录功能
+MariaDB [(none)]> \. /root/hellodb.gm.sql
+MariaDB [(none)]> \. /root/log.sql
+MariaDB [(none)]> SET sql_log_bin=ON;
+
+
+恢复：先stop服务，关闭配置文件中的log-bin，进行恢复，完成后stop服务，启动此选项
+mysqlbinlog --start-position=245 --stop-position=648 ./master-log.000001 > log.sql
+mysql < hellodb.sql
+mysql < log.sql
+
+mysqldump -uroot -hlocalhost -p --master-data=2 --flush-logs -l --databases hellodb > ./hellodb.gm.sql
+mysqlbinlog --stop-position=660 /var/lib/mysql/master-log.000002 > ./log.sql
+mysql < hellodb.gm.sql
+mysql < log.sql
+
+
+	基于lvm2的备份：
+
+		前提：数据目录位于逻辑卷，包含了数据文件和事务日志；
+
+		(1) 请求锁定所有表；
+			mysql> FLUSH TABLES WITH READ LOCK;
+
+		(2) 记录二进制文件事件位置；
+			mysql> FLUSH LOGS;
+			mysql> SHOW MASTER STATUS;
+
+			mysql  -e  'SHOW MASTER STATUS;' >> /PATH/TO/SOME_POS_FILE
+
+		(3) 创建快照卷
+			lvcreate  -L # -s -p r - SNAM-NAME /dev/VG-NAME/LV-NAME
+
+		(4) 释放锁
+			mysql> UNLOCK TABLES
+
+		(5) 挂载快照卷，并执行备份，备份完成后删除快照卷；
+
+		(6) 周期性备份二进制日志；
+
+	percona：
+		InnoDB --> XtraDB (mariadb)
+		Innobackup --> Xtrabackup
+
+	Xtrabackup：
+		MyISAM：温备，不支持增量备份；
+		InnoDB：热备，增量；
+
+		物理备份，速率快、可靠；备份完成后自动校验备份结果集是否可用；还原速度快；
+
+		Usage: [innobackupex [--defaults-file=#] --backup | innobackupex [--defaults-file=#] --prepare] [OPTIONS]
+
+			The  innobackupex tool is a Perl script that acts as a wrapper for the xtrabackup C program.
+
+		完全备份：
+
+
+		完全+binlog(总结)：
+			备份：innobackupex --user= --password= --host=  /PATH/TO/BACKUP_DIR
+			准备：innobackupex --apply-log  /PATH/TO/BACKUP_DIR
+			恢复：innobackupex --copy-back
+				注意：--copy-back需要在mysqld主机本地进行，mysqld服务不能启动；
+					innodb_log_file_size可能要重新设定；
+
+		总结：完全+增量+binlog
+			备份：完全+增量+增量+...
+			           完全+差异
+			准备：
+				innobackupex --apply-log --redo-only BASEDIR
+				innobackupex --apply-log --redo-only BASEDIR  --incremental-dir=INCREMENTAL-DIR
+
+			恢复：
+				innobackupex --copy-back BASEDIR
+
+		备份单库：
+			--databases
+
+		注意：未尽的内容，请参考官方文档；
+
+	总结：
+		mysqldump+binlog
+		lvm2+cp/tar+binlog
+		xtrabackup(innodb)+binlog
+
+	博客作业：mysqldump和xtrabackup的使用；
+
+MariaDB [(none)]> GRANT RELOAD, LOCK TABLES, REPLICATION CLIENT, CREATE TABLESPACE, PROCESS, SUPER, CREATE, INSERT, SELECT  ON *.* TO 'admin'@'localhost' IDENTIFIED BY 'admin';
+[root@node1 ~]# innobackupex  --user=admin --password=admin /mydata/backup/
+
+mkdir /mydata/backup -pv
+yum install ./percona-xtrabackup-2.3.2-1.el7.x86_64.rpm
+innobackupex --apply-log /mydata/backup/2016-11-27_20-40-59/
+innobackupex --copy-back /mydata/backup/2016-11-27_20-40-59/
+cd /var/lib/mysql/
+chown mysql:mysql ./* -R
+
+
+增量+差异备份
+innobackupex --user=admin --password=admin --incremental /mydata/backup --incremental-basedir=/mydata/backup/2016-11-27_20-40-59
+innobackupex --user=admin --password=admin --incremental /mydata/backup --incremental-basedir=/mydata/backup/2016-11-27_22-03-08
+innobackupex --user=admin --password=admin --incremental /mydata/backup --incremental-basedir=/mydata/backup/2016-11-27_20-40-59
+
+完全+增量恢复
+innobackupex --apply-log --redo-only 2016-11-27_20-40-59
+innobackupex --apply-log --redo-only 2016-11-27_20-40-59 --incremental-dir=/mydata/backup/2016-11-27_22-03-08/
+innobackupex --apply-log 2016-11-27_20-40-59 --incremental-dir=/mydata/backup/2016-11-27_22-04-14
+chown mysql:mysql -R /var/lib/mysql/
+systemctl start mariadb
+
+完全+差异恢复
+innobackupex --apply-log --redo-only 2016-11-27_20-40-59/
+innobackupex --apply-log 2016-11-27_20-40-59 --incremental-dir=/mydata/backup/2016-11-27_22-05-14
+innobackupex --copy-back 2016-11-27_20-40-59/
+chown mysql:mysql -R /var/lib/mysql/
+systemctl start mariadb
+
+
+
+
+回顾：mysqldump, xtrabackup
+	mysqldump：
+		--lock-all-tables
+		--lock-tables
+		--single-transaction
+		--databases, --all-databases
+		--routines, --trigger
+	xtrabackup：innobackupex
+		--user, --host, --password, --port, --socket
+		--apply-log
+		--redo-only
+		--copy-back
+
+
+
+MySQL Replication：
+
+	Master/Slave
+		Master: write/read
+		Slaves: read
+
+	为什么？
+		冗余：promte（提升为主），异地灾备
+			人工
+			工具程序：MHA
+		负载均衡：转移一部分“读”请求；
+		支援安全的备份操作；
+		测试；
+		...
+
+	主/从架构：
+		异步复制：
+		半同步复制：
+		一主多从；
+		一从一主；
+		级联复制；
+		循环复制；
+		双主复制；
+
+		一从多主：
+			每个主服务器提供不同的数据库；
+
+
+	配置：
+		时间同步；
+		复制的开始位置：
+			从0开始；
+			从备份中恢复到从节点后启动的复制；
+		主从服务器mysqld程序版本不一致？
+
+		主服务器：
+			配置文件my.cnf
+			server_id=#
+			log_bin=log-bin
+
+			启动服务：
+			mysql> GRANT REPLICATION SLAVE,REPLICATION CLIENT ON *.* TO 'USERNAME'@'HOST' IDENTIFIED BY 'YOUR_PASSWORD';
+			mysql> FLUSH PRIVILEGES;
+
+		从服务器：
+			配置文件my.cnf
+			server_id=#
+			relay_log=relay-log
+
+			启动服务：
+			mysql> CHANGE MASTER TO MASTER_HOST='HOST',MASTER_USER='USERNAME',MASTER_PASSWORD='YOUR_PASSWORD',MASTER_LOG_FILE='BINLOG',MASTER_LOG_POS=#;
+			mysql> START SLAVE [IO_THREAD|SQL_THREAD];
+
+			mysql> SHOW SLAVE STATUS;
+
+		课外作业：基于SSL的复制的实现；
+
+
+	主主复制：
+		互为主从：两个节点各自都要开启binlog和relay log；
+			1、数据不一致；
+			2、自动增长id；
+				定义一个节点使用奇数id
+					auto_increment_offset=1
+					auto_increment_increment=2
+				另一个节点使用偶数id
+					auto_increment_offset=2
+					auto_increment_increment=2
+
+		配置：
+			1、server_id必须要使用不同值；
+			2、均启用bin-log和relay-log；
+			3、存在自动增长id的表，为了使得id不相冲突，需要定义其自动增长方式；
+
+			服务启动后执行如下两步：
+			4、都授权有复制权限的用户账号；
+			5、各把对方指定为主节点；
+
+	复制时应该注意的问题：
+		1、从服务设定为“只读”；
+			在从服务器启动read_only，但仅对非SUPER权限的用户有效；
+
+			阻止所有用户：
+				mysql> FLUSH TABLES WITH READ LOCK;
+
+		2、尽量确保复制时的事务安全
+			在master节点启用参数：
+				sync_binlog = ON
+
+				如果用到的是InnoDB存储引擎：
+					innodb_flush_logs_at_trx_commit=ON
+						把事务日志里面的数据写入事务日志，不控制二进制日志
+					innodb_support_xa=ON
+						支持分布式事务
+
+		3、从服务器意外中止时尽量避免自动启动复制线程
+
+		4、从节点：设置参数<每次写数据后直接写入内存>
+			sync_master_info=ON
+
+			sync_relay_log_info=ON
+
+	半同步复制
+		支持多种插件：/usr/lib64/mysql/plugins/
+
+		需要安装方可使用：
+			mysql> INSTALL PLUGIN plugin_name SONAME 'shared_library_name';
+
+		半同步复制：
+			semisync_master.so
+			semisync_slave.so
+
+		主节点：
+			INSTALL PLUGIN rpl_semi_sync_master SONAME 'semisync_master.so';
+
+				MariaDB [mydb]> SHOW GLOBAL VARIABLES LIKE 'rpl_semi%';
+				+------------------------------------+-------+
+				| Variable_name                      | Value |
+				+------------------------------------+-------+
+				| rpl_semi_sync_master_enabled       | OFF   |
+				| rpl_semi_sync_master_timeout       | 10000 |
+				| rpl_semi_sync_master_trace_level   | 32    |
+				| rpl_semi_sync_master_wait_no_slave | ON    |
+				+------------------------------------+-------+
+
+			MariaDB [mydb]> SET GLOBAL rpl_semi_sync_master_enabled=ON;
+
+		从节点：
+			INSTALL PLUGIN rpl_semi_sync_slave SONAME 'semisync_slave.so';
+
+				MariaDB [mydb]> SHOW GLOBAL VARIABLES LIKE 'rpl_semi%';
+				+---------------------------------+-------+
+				| Variable_name                   | Value |
+				+---------------------------------+-------+
+				| rpl_semi_sync_slave_enabled     | OFF   |
+				| rpl_semi_sync_slave_trace_level | 32    |
+				+---------------------------------+-------+
+
+			MariaDB [mydb]> STOP SLAVE IO_THREAD;
+			MariaDB [mydb]> SHOW GLOBAL VARIABLES LIKE 'rpl_semi%';
+			MariaDB [mydb]> START SLAVE IO_THREAD;
+
+		判断方法：
+			主节点：
+				MariaDB [mydb]> SELECT @@global.rpl_semi_sync_master_clients；
+
+	复制过滤器：
+
+		仅复制有限一个或几个数据库相关的数据，而非所有；由复制过滤器进行；
+
+		有两种实现思路：
+
+		(1) 主服务器
+			主服务器仅向二进制日志中记录有关特定数据库相关的写操作；
+			问题：其它库的point-recovery将无从实现；
+
+				binlog_do_db=
+				binlog_ignore_db=
+
+		(2) 从服务器
+			从服务器的SQL THREAD仅重放关注的数据库或表相关的事件，并将其应用于本地；
+			问题：网络IO和磁盘IO；
+
+				Replicate_Do_DB=
+				Replicate_Ignore_DB=
+				Replicate_Do_Table=
+				Replicate_Ignore_Table=
+				Replicate_Wild_Do_Table=
+				Replicate_Wild_Ignore_Table=
+
+	作业：基于SSL复制的实现
+		前提：启用SSL功能；
+
+	复制的监控和维护：
+		(1) 清理日志：PURGE
+			PURGE { BINARY | MASTER } LOGS { TO 'log_name' | BEFORE datetime_expr };
+
+		(2) 复制监控
+			MASTER:
+				SHOW MASTER STATUS;
+				SHOW BINLOG EVENTS;
+				SHOW BINARY LOGS;
+
+			SLAVE:
+				SHOW SLAVE STATUS;
+
+				判断从服务器是否落后于主服务器：
+					Seconds_Behind_Master: 0
+
+		(3) 如何确定主从节点数据是否一致？
+			通过表的CHECKSUM检查；
+			使用percona-tools中pt-table-checksum；
+
+		(4) 主人数据不一致时的修复方法？
+			重新复制；
+
+	主从复制的读写分离：
+		mysql-proxy --> atlas
+		amoeba
+
+		AliSQL：
+
+	mysqlrouter：
+		语句透明路由服务；
+		MySQL Router 是轻量级 MySQL 中间件，提供应用与任意 MySQL 服务器后端的透明路由。MySQL Router 可以广泛应用在各种用案例中，比如通过高效路由数据库流量提供高可用性和可伸缩的 MySQL 服务器后端。Oracle 官方出品。
+
+	作业：简单复制、双主复制及半同步复制；
+
+
+	master/slave：
+		切分：
+			垂直切分：切库，把一个库中的多个表分组后放置于不同的物理服务器上；
+			水平切分：切表，分散其行至多个不同的table partitions中；
+				range, list, hash
+
+		sharding(切片)：
+			数据库切分的框架：
+				cobar
+				gizzard
+				Hibernat Shards
+				HiveDB
+				...
+
+		qps: queries per second
+		tps: transactions per second
+
+
+	博客作业：
+		MHA，以及zabbix完成manager启动；

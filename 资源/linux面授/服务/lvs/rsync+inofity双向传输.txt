@@ -1,0 +1,195 @@
+实验环境：
+A主机：10.1.43.102
+B追加：10.1.43.103
+
+一、数据从A推向B
+配置流程
+先在B主机上配置：
+1.vi /etc/rsyncd.conf(用户，目录，模块，虚拟用户及密码文件)
+uid = root
+gid = root
+port = 873 #post rsync使用的端口号  也是默认端口号 www.jbxue.com
+hosts allow = 10.1.43.102 #allow hosts ip 允许A主机的ip访问
+max connections = 200
+timeout = 300
+
+pid file = /var/run/rsyncd.pid
+lock file = /var/run/rsync.lock
+log file = /var/log/rsyncd.log
+
+[backup]
+path =/var/www/html  #客服端已rsync服务端同步的文件路径
+comment = from 10.1.43.102  #A主机的IP地址
+read only = no
+write only = no
+list = no
+
+auth users =rsync  #配置登陆名称
+secrets file = /etc/rsync.passwd11  #配置用户名密码文件
+
+2.创建共享目录：/test/rsync
+mkdri -pv /test/rsync
+
+3、创建密码文件，文件路径和文件名参照配置文件里"secrets file"选项的值，然后添加密码内容。
+vim /etc/rsync.password11
+rsync:123456
+
+4、密码文件的权限600
+chmod 600 /etc/rsync.password11
+
+5、运行rsync，并且开机启动
+rsync –daemon
+echo "rsync –daemon" >> /etc/rc.local
+
+6、如果出错，查看日志  tail /var/log/rsyncd.log
+
+在A主机上配置：
+1、密码文件
+vim /etc/rsync.passwd11
+123456   #注意：此处只需要写服务端虚拟帐号的密码即可
+
+2、密码文件的权限600
+chmod 600 /etc/rsync.passwd11
+
+3.创建共享目录：/test/rsync
+mkdri -pv /test/rsync
+
+4、安装inotify-tools软件包
+yum -y install inotify-tools
+
+5、编写同步脚本
+vim /root/bin/rsync.sh
+#!/bin/bash
+src=/test/rsync/
+des=backup
+host="10.1.43.103"
+/usr/bin/inotifywait -mrq --timefmt '%d/%m/%y%H:%M' --format '%T%w%f' -e modify,delete,create,attrib $src | while read files; do
+  for hostip in $host; do
+    rsync -avz --delete --progress --password-file=/etc/rsync.passwd11 $src rsync@$hostip::$des
+  done
+  echo "${files} was rsynced" >>/tmp/rsync.log 2>&1
+done
+
+6、后台自动运行，并且开机自动启动
+nohup /bin/bash /root/bin/rsync.sh &
+echo "nohup /bin/bash /root/bin/rsync.sh &" >> /etc/rc.loacl
+
+
+二、数据从B推向A
+配置流程
+先在A主机上配置：
+1.vi /etc/rsyncd.conf(用户，目录，模块，虚拟用户及密码文件)
+uid = root
+gid = root
+port = 873 #post rsync使用的端口号  也是默认端口号 www.jbxue.com
+hosts allow = 10.1.43.103 #allow hosts ip 允许B主机的ip访问
+max connections = 200
+timeout = 300
+
+pid file = /var/run/rsyncd.pid
+lock file = /var/run/rsync.lock
+log file = /var/log/rsyncd.log
+
+[backup]
+path =/var/www/html  #客服端已rsync服务端同步的文件路径
+comment = from 10.1.43.103  #B主机的IP地址
+read only = no
+write only = no
+list = no
+
+auth users =rsync  #配置登陆名称
+secrets file = /etc/rsync.passwd22  #配置用户名密码文件
+
+2、创建密码文件，文件路径和文件名参照配置文件里"secrets file"选项的值，然后添加密码内容。
+vim /etc/rsync.passwd22
+rsync:654321
+
+3、密码文件的权限600
+chmod 600 /etc/rsync.passwd22
+
+4、运行rsync，并且开机启动
+rsync –daemon
+echo "rsync –daemon" >> /etc/rc.local
+
+5、如果出错，查看日志  tail /var/log/rsyncd.log
+
+在B主机上配置：
+1、密码文件
+vim /etc/rsync.passwd22
+654321   #注意：此处只需要写服务端虚拟帐号的密码即可
+
+2、密码文件的权限600
+chmod 600 /etc/rsync.passwd22
+
+3、安装inotify-tools软件包
+yum -y install inotify-tools
+
+4、编写同步脚本
+vim /root/bin/rsync.sh
+#!/bin/bash
+src=/test/rsync/
+des=backup
+host="10.1.43.102"
+/usr/bin/inotifywait -mrq --timefmt '%d/%m/%y%H:%M' --format '%T%w%f' -e modify,delete,create,attrib $src | while read files; do
+  for hostip in $host; do
+    rsync -avz --delete --progress --password-file=/etc/rsync.passwd22 $src rsync@$hostip::$des
+  done
+  echo "${files} was rsynced" >>/tmp/rsync.log 2>&1
+done
+
+5、后台自动运行，并且开机自动启动
+nohup /bin/bash /root/bin/rsync.sh &
+echo "nohup /bin/bash /root/bin/rsync.sh &" >> /etc/rc.loacl
+
+如果再配置过程中出现如下问题
+
+问题一：
+@ERROR: chroot failed
+rsync error: error starting client-server protocol (code 5) at main.c(1522) [receiver=3.0.3]
+原因：
+服务器端的目录不存在或无权限，创建目录并修正权限可解决问题。
+
+
+问题二：
+@ERROR: auth failed on module backup
+rsync error: error starting client-server protocol (code 5) at main.c(1522) [receiver=3.0.3]
+原因：
+服务器端该模块（backup）需要验证用户名密码，但客户端没有提供正确的用户名密码，认证失败。
+提供正确的用户名密码解决此问题。
+
+
+问题三：
+@ERROR: Unknown module ‘backup'
+rsync error: error starting client-server protocol (code 5) at main.c(1522) [receiver=3.0.3]
+原因：
+服务器不存在指定模块。提供正确的模块名或在服务器端修改成你要的模块以解决问题。
+
+问题四：
+password file must not beother-accessible
+continuing without password file
+Password:
+原因：
+这是因为rsyncd.pwdrsyncd.secrets的权限不对，应该设置为600。如：chmod600 rsyncd.pwd
+
+问题五：
+rsync: failed to connect to218.107.243.2: No route to host (113)
+rsync error: error in socket IO(code 10) at clientserver.c(104) [receiver=2.6.9]
+原因：
+对方没开机、防火墙阻挡、通过的网络上有防火墙阻挡，都有可能。关闭防火墙，其实就是把tcp udp的873端口打开。
+
+问题六：
+rsync error: error startingclient-server protocol (code 5) at main.c(1524) [Receiver=3.0.7]
+原因：
+/etc/rsyncd.conf配置文件内容有错误。请正确核对配置文件。
+
+问题七：
+rsync: chown "" failed:Invalid argument (22)
+原因：
+权限无法复制。去掉同步权限的参数即可。(这种情况多见于Linux向Windows的时候)
+ 问题八：
+@ERROR: daemon security issue --contact admin
+rsync error: error starting client-server protocol (code 5) at main.c(1530)[sender=3.0.6]
+原因：
+同步的目录里面有软连接文件，需要服务器端的/etc/rsyncd.conf打开use chroot = yes。掠过软连接文件。
+
+

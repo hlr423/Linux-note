@@ -1,0 +1,124 @@
+whatis命令
+	显示命令的简短描述
+	每晚使用一个数据库更新
+	刚安装后不可立即使用,需要更新数据库
+		centos6
+			makewhatis
+		centos7
+			mandb
+	显示命令章节
+		#whatis cal
+
+内部命令 ：
+	#help COMMAND
+		cd.pwd.echo.hash
+
+外部命令：
+	(1) # COMMAND --help
+	(2) 使用手册(manual)
+		# man COMMAND
+	(3) 信息页
+		# info COMMAND
+	(4) 程序自身的帮助文档
+		README
+		INSTALL
+		ChangeLog
+	(5) 程序官方文档
+		官方站点：Documentation
+	(6) 发行版的官方文档
+	(7) Google
+
+bc 系统自带计算器
+
+man命令 manul 手册
+	提供命令帮助的文件
+	手册页存放在/usr/share/man
+	几乎每个命令都有man 的“页面”
+	man 页面分组为不同的“章节”
+		1:  用户命令
+		2:  系统调用
+		3: 	C库调用
+		4:  设备文件及特殊文件
+		5:  配置文件格式
+		6:  游戏
+		7:  杂项
+		8:  管理类的命令
+		9：	Linux  内核API
+	统称为Linux 手册
+	man [ 章节] 命令
+		man 5 passwd 查看passwd第5章节
+		查看命令章节
+			#whatis COMMAND
+			#man –f cal
+	man 命令的配置文件：
+		centos6
+			/etc/man.config
+		centos7
+			/etc/man_db.conf
+	MANPATH /PATH/TO/SOMEWHERE:  指明新手册文件搜索位置
+	# man - M /PATH/TO/SOMEWHERE COMMAND :  到指定位置下搜索COMMAND命令的手册页并显示
+
+查看man 手册页
+	SYNOPSIS 摘要
+		[] ：可选内容
+		<>:  必选内容
+		a|b ：二选一
+		...:  同一内容可出现多次
+	#man –a keyword  列出所有章节帮助
+	搜索man 手册
+		#man -k keyword  列出所有匹配的页面
+		使用 whatis 更新数据库
+
+man 命令的操作方法：使用less 命令实现
+	Space:  向文件尾翻一屏
+	b:  向文件首部翻一屏
+	Ctrl+d:  向文件尾部翻半屏
+	Ctrl+u:  向文件首部翻半屏
+	Enter:  向文件尾部翻一行
+	y or k：向文件首部翻一行
+	q: 退出
+	#：跳转至第#行
+	1G: 回到文件首部
+	G：翻至文件尾部
+
+	man搜索
+		/KEYWORD:以 以KEYWORD 指定的字符串为关键字，从当前位置向文件尾部搜索；不区分字符大小写；
+		?KEYWORD:以 以KEYWORD 指定的字符串为关键字，从当前位置向文件首部搜索；不区分字符大小写；
+			n:  跟搜索命令同方向，下一个
+			N： 跟搜索命令反方向，上一个
+
+info
+	#info COMMAND
+	man常用于命令参考，GNU工具info适合通用文档参考。
+	没有参数, 列出所有的页面
+	info  页面的结构就像一个网站
+	每一页分为“节点”
+	链接节点之前有 *
+	导航info页
+		方向键，PgUp ，PgDn  导航
+		Tab键 移动到下一个链接
+		d 显示主题目录
+		Home 显示主题首部
+		Enter进入  选定链接
+		n/p/u/l进入下/ 前/ 上一层/ 最后一个链接
+		s 文字  文本搜索
+		q退出 info
+
+/usr/share/doc 目录
+	多数安装了的软件包的子目录,包括了这些软件的相关原理说明
+  不适合其它地方的文档的位置
+	配置文件范例
+	HTML/PDF/PS 格式的文档
+	授权书详情
+
+第三方程序官方文档
+
+通过发行版官方的文档光盘或网站可以获得
+	sosreport
+		收集所有系统上的日志信息的工具，并自动打成压缩包，方便技术支持人员和红帽全球支持提供分析问题的依据
+	http://tldp.org
+		the linux document project
+	http://www.slideshare.net
+	http://www.google.com
+		Openstack filetype:pdf //搜索.pdf的文档
+		rhca site:redhat.com/docs //在redhat.com网站中搜索rhca关键字

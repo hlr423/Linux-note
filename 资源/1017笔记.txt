@@ -1,0 +1,401 @@
+samba：
+
+	smb：Service Message Block；
+	cifs：Common Internet File System
+
+	samba：Andrew Tridgell；
+		功能：
+			文件系统共享
+			NetBIOS协议
+			打印服务
+
+		peer to peer（Work Group）
+		domain devel
+			LDAP：Lightweight Directory Access Protocol
+
+	安装samba：
+		# yum -y install samba
+
+	程序环境：
+		配置文件：
+			/etc/samba/smb.conf
+		主程序：
+			nmbd：Network Naming Service， NetBIOS
+			smbd：SMB/CIFS Service；
+		Unit File：
+			/usr/lib/systemd/system/nmb.service
+			/usr/lib/systemd/system/smb.service
+		监听的端口：
+			137/udp, 138/udp
+			139/tcp, 445/tcp
+		客户端程序：
+			mount -t cifs = mount.cifs
+			smbclient：交互式命令行客户端工具；
+
+		samba的配置：
+			/etc/samba/smb.conf
+
+				#======================= Global Settings =====================================
+				# ----------------------- Network-Related Options -------------------------
+				# --------------------------- Logging Options -----------------------------
+				# ----------------------- Standalone Server Options ------------------------
+				# ----------------------- Domain Members Options ------------------------
+				# ----------------------- Domain Controller Options ------------------------
+				# ----------------------- Browser Control Options ----------------------------
+				#----------------------------- Name Resolution -------------------------------
+				# --------------------------- Printing Options -----------------------------
+				# --------------------------- File System Options ---------------------------
+				#============================ Share Definitions ==============================
+
+			两类配置段：
+				全局配置：
+					[global]
+						workgroup = MYGROUP
+						server string = Samba Server Version %v
+						interfaces = lo eth0 192.168.12.2/24 192.168.13.2/24  指明要监听的地址或网络接口
+						hosts allow = 127. 192.168.12. 192.168.13.		白名单，不启用默认允许所有主机连接
+
+						log file = /var/log/samba/log.%m
+						max log size = 50
+
+						security = user
+							share (depricated)
+							server (depricated)
+							domain
+						passdb backend = tdbsam
+
+						load printers = yes ：是否加载打印机的驱动
+						cups options = raw
+
+				共享文件系统：
+					[shared_ID]
+
+					有三类：
+						[homes]：每个samba用户是否能够通过samba服务访问其家目录
+						[printers]：打印服务
+						[shared_FS]：用户自定义的共享目录
+
+					常用指令：
+						comment：注释信息；
+						path：本地文件系统路径；
+						browseable：是否可浏览，是否为用户可见
+						guest ok：是否允许来宾账号访问
+						public：是否公开给所有来宾
+						writable：是否可写
+							read only = no
+						write list：拥有写权限的用户或组列表
+							用户名
+							@组名， +组名
+
+			samba用户管理：
+				smbpasswd, pdbedit
+					smbpasswd [OPTIONS] USERNAME
+						-a：添加
+						-x：删除
+						-d：禁用
+						-e：启用
+					pdbedit：
+						-L：列出samba服务中的所有用户
+						-a：添加用户为samba用户
+							-u USERNAME：
+						-x：删除
+							-u USERNAME：
+						-t：从标准输出接收密码
+
+			测试语法错误：testparm命令
+
+			访问服务：
+				（1） smbclient交互式客户端程序：
+					(1) 查看目标服务上的共享
+						smbclient -L SMB_SERVER [-U USERNAME]
+					(2) 访问共享服务
+						smbclient //SMB_SERVER[/SHARE_NAME] [-U USERNAME]
+
+				（2）mount.cifs
+					mount -t cifs //SMB_SERVER/SHARED_ID  /MOUNT_POINT  -o username=USER,password=PASS
+
+					注意：挂载操作中的用户，与-o选项中指定的用户直接产生映射关系；访问挂载，是以-o选项指定的用户身份运行，与本地用户以ID产生映射；
+
+		自定义共享的方式：
+			[shared_ID]
+				comment =
+				path =
+				guest ok =
+				read only =
+				public =
+				browseable =
+				write list =
+
+			注意：定义所用户在服务级的写权限write = yes (read only = no）不建议与write list同时使用；
+
+		smbstatus命令：
+			显示samba服务的相关共享的访问状态信息；
+				-b：显示简要格式信息；
+				-v：显示详细格式信息；
+
+	练习：
+		(1) 创建一个共享mydata，路径为/mysql/data，客户端1挂载至/mydata；而后客户端1主机安装mysql或mariadb，将数据目录设定为/mydata，要确保mysql服务能正常 运行，但数据目录位于samba server上；
+		(2) 客户端2主机使用类似客户端1主机的方式挂载mydata共享至本地的/mydata目录，而后，直接安装mysql或mariadb server，设定其数据目录为/mydata；测试
+			(a) 客户端1 mysql服务运行时，客户端2的mysql服务能否启动？
+			(b) 客户端1 mysql服务停止时，客户端2的mysql服务能否启动？
+
+	练习： 创建一个共享ftp，路径为/var/ftp/pub；要求仅centos和gentoo用户能上传；此路径对其它用户不可见；
+
+# yum -y install samba
+# vim /etc/samba/smb.conf
+	[ftp]
+	        comment = common ftp
+	        path = /var/ftp
+	        browseable = no
+	        public = no
+	        write list = centos,gentoo
+
+# useradd centos
+# useradd gentoo
+# mkdir /var/ftp -pv
+# setfacl -m u:centos:rwx /var/ftp
+# serfacl -m u:gentoo:rwx /var/ftp
+# pdbedit -a -u centos
+# pdbedit -a -u gentoo
+# service nmb start
+# service smb start
+
+
+	练习：(1) samba sever共享/data/application/web，在目录中提供wordpress；
+		   (2) 部署两台amp服务器，均挂载此共享作为某主机的文档映射路径；
+		   (3) 验正两台主机上的wordpress是否可被同时访问；
+			(a) 发一个文件，验正图片上传等功能；
+			(b) 在任一客户端上访问此应用，多次刷新，确认下所有资源访问是否正常 ；
+
+nfs：
+
+	Network File System
+
+	RPC：Remote Procedure Call
+
+	NFS: sun, 协议；
+		NFSv1
+		NFSv2, NFSv3,
+
+		NIS：Network Information Service
+
+		nfsd：2049/tcp
+
+		辅助类的服务：rpc (portmap)
+			rpc.mountd：认证客户端来源的IP
+			rpc.lockd：加锁
+			rpc.statd：状态
+
+		nfs server:
+			安装：内核模块nfsd
+				用户空间的工具程序：nfs-utils
+			Unit File：/usr/lib/systemd/system/nfs.service
+			配置文件：/etc/exports, /etc/exports.d/*
+
+		管理共享的nfs文件系统：配置文件每一行定义一个共享文件系统
+			Each line contains an export point and a whitespace-separated list of clients allowed to mount the file system at that point.
+
+			/PATH/TO/SOME_DIR   CLIENTS_1(export_options,...)  CLIENTS_2(export_options,...)
+				CLIENTS：
+					single host: IPv4, IPv6, FQDN
+					IP networks：network/netmask，支持两种格式的掩码；
+					wildcards：在主机名字符串中使用通，*.magedu.com，
+					anonymous：*，表示所有的客户端主机；
+
+				General Options
+					ro：只读
+					rw：读写
+					sync：同步
+					async：异步
+
+				User ID Mapping：
+					root_squash：压缩root用户的权限，默认行为；nfsnobody
+					no_root_squash：不压缩root用户的权限
+					all_squash：压缩所有用户的权限
+					anonuid and anongid：将压缩的用户映射为此处指定的用户
+						anonuid=#
+						anongid=#
+
+		NFS Client：
+			mount -t nfs NFS_SERVER:/PATH/TO/EXPORTED_DIR  /MOUNT_POINT  [-rvVwfnsh] [-o OPTIONS]
+
+			showmount - show mount information for an NFS server
+				-e or --exports
+					Show the NFS server's export list.
+				-d or --directories
+					List only the directories mounted by some client.
+
+			exportfs - maintain table of exported NFS file systems
+				-a  Export or unexport all directories.
+				-r	Reexport  all  directories, synchronizing /var/lib/nfs/etab with /etc/exports and files under /etc/exports.d.
+				-u  Unexport one or more directories.
+
+				-ar：重新加载文件配置文件，不影响客户端已经挂载了的文件
+				-au：全部卸载已经共享出去的文件系统
+
+		开机自动挂载：/etc/fstab文件中
+
+	练习：
+		(1) 创建一个共享mydata，路径为/mysql/data，客户端1挂载至/mydata；而后客户端1主机安装mysql或mariadb，将数据目录设定为/mydata，要确保mysql服务能正常 运行，但数据目录位于samba server上；
+			vim /etc/exports
+			/dir	10.1.1.0/16(rw,no_root_squash)
+			注意：不能开启：skip_name_resolve = ON
+				socket=/var/lib/mysql/mysql.sock   ：使用默认值，不能修改，否则mysql命令无法使用
+
+		(2) 客户端2主机使用类似客户端1主机的方式挂载mydata共享至本地的/mydata目录，而后，直接安装mysql或mariadb server，设定其数据目录为/mydata；测试
+			(a) 客户端1 mysql服务运行时，客户端2的mysql服务能否启动？
+				不能，2个客户端不能同时启动
+			(b) 客户端1 mysql服务停止时，客户端2的mysql服务能否启动？
+				可以
+
+	练习：
+		(1) nfs sever共享/data/application/web，在目录中提供wordpress
+		(2) 部署两台amp服务器，均挂载此共享作为某主机的文档映射路径
+		(3) 验正两台主机上的wordpress是否可被同时访问
+			(a) 发一个文件，验正图片上传等功能
+			(b) 在任一客户端上访问此应用，多次刷新，确认下所有资源访问是否正常
+			同时访问时，都是基于一个IP地址进行的<安装此应用的IP>。一旦停止此IP，则该服务无法正常启动
+
+
+
+
+	基于练习1的mysql来搭建web，只能开启单个web程序，并且非安装的web端不能用来登录
+
+	wp-content目录的属组属组问题，需要修复
+
+
+rsyslog：
+
+	日志收集和存储系统；
+		日志：历史事件记录；
+
+	syslog：
+		klogd：kernel
+		syslogd：service(application)
+
+		事件记录格式：
+			日期时间 	主机		进程[pid]：事件内容
+
+		C/S架构：服务，可监听于某套接字，帮其它主机记录日志信息；
+			S：udp, tcp协议；
+
+	rsyslog：
+		rsyslog特性：
+			多线程
+			UDP，TCP，SSL/TLS，RELP
+			存储日志信息于MySQL、PGSQL、Oracle等RDBMS
+			强大的过滤器，实现过滤日志信息中任何部分的内容
+			自定义的输出格式
+
+		elk stack：elasticsearch，logstash, kibana
+			大型企业的日志分析
+
+	rsyslog中的术语：
+		facility：设施、日志记录的信道
+			auth, authpriv, cron, daemon, kern, lpr, mail, mark, news, security, user, uucp, syslog, local0-local7<8个用户自定义>
+		priority：记录日记的级别
+			debug, info, notice, warn(warning), err(error), crit(critical), alert, emerg(panic)
+
+	程序包：rsyslog
+		程序环境：
+			配置文件：/etc/rsyslog.conf， /etc/rsyslog.d/
+			主程序：/usr/sbin/rsyslogd
+			模块路径：/usr/lib64/rsyslog/
+			Unit File：/usr/lib/systemd/system/rsyslog.service
+
+		配置文件：
+			有三部分组成：严格按照配置段位置添加配置
+				#### MODULES ####
+				#### GLOBAL DIRECTIVES ####
+				#### RULES ####
+
+			RULES：
+				facility.priority	target
+
+				facility：
+					*：所有的facility；
+					f1,f2,f3,...：列表中给定的所有facility；
+						auth,authpriv,security.info 	：3个facility都是info级别
+					f1.p1;f2,p2;f3.p3;...：列表中给定的所有facility；
+						auth.info;authpriv.notic;security,warn; 	：每个efacility有不同级别
+
+				priority：
+					*：所有级别
+					none：没有级别，不记录日志
+					PRIORITY：此级别（含）及其以上的所有级别
+					=PRIORITY：仅指定的级别
+
+				target：
+					文件：将日志信息记录到指定的文件中；文件路径之前的“-”表示异步写入之意；
+					用户：将日志事件通知给指定的用户；一般指登录到当前系统上的所有用户的终端；
+					日志服务器：@rsyslog_server，把日志信息发往指定的日志服务器；
+					管道：|COMMAND
+
+		命令行客户端程序：
+			logger - a shell command interface to the syslog(3) system log module
+				logger [options] [message]
+
+		配置rsyslog服务器：
+			#### modules ####
+			…………
+			# Provides UDP syslog reception
+			$ModLoad imudp
+			$UDPServerRun 514
+
+			# Provides TCP syslog reception
+			$ModLoad imtcp
+			$InputTCPServerRun 514
+
+		其它几个日志文件：
+			last, lastb - show listing of last logged in users
+				-num, -n num
+
+				/var/log/btmp：登录当前系统的所有的失败的尝试
+				/var/log/wtmp：所有成功登录至当前系统的相关信息
+
+			lastlog - reports the most recent login of all users or of a given user
+
+			/var/log/dmesg：系统引导过程中的日志信息
+				文本查看工具；
+				也可以使用dmesg命令；
+
+	rsyslog记录日志于mysql：
+		前提：准备好msql server或mariadb server；
+		(1) 安装rsyslog连接至mysql server的驱动模块；
+			# yum install rsyslog-mysql
+		(2) 在mysql server准备rsyslog专用的用户账号；
+			 GRANT ALL ON Syslog.* TO 'rsyslog'@'127.0.0.1' IDENTIFIED BY 'rsyslogpass';
+			 GRANT ALL ON Syslog.* TO 'rsyslog'@'local' IDENTIFIED BY 'rsyslogpass';
+		(3) 生成所需要的数据库和表；
+			mysql -ursyslog -h127.0.0.1 -prsyslogpass <  /usr/share/doc/rsyslog-7.4.7/mysql-createDB.sql
+		(4) 配置rsyslog使用ommysql模块
+			#### MODULES ####
+			......
+			$ModLoad ommysql
+		(5) 配置RULES，将所期望的日志信息记录于mysql中；
+			facility.priority 		:ommysql:DBHOST,DB,DBUSER,DBUSERPASS
+				:ommysql:127.0.0.1,Syslog,rsyslog,rsyslogpass
+		(6) 重启rsyslog服务；
+			systemctl restart rsyslog
+		(7) loganalyzer
+			WebGUI, 运行amp环境中；
+				(a) 准备amp环境
+					# yum install httpd php php-mysql php-gd
+					# systemctl start httpd.service
+				(b) 安装loganalyzer
+					# tar xf loganalyzer-VERSION.tar.gz
+					# cd loganalyzer-VERSION
+					# cp -a src  /var/www/html/loganalyzer-VERSION
+					# cd /var/www/html
+					# ln -sv loganalyzer-VERSION log
+					# cd log
+					# touch config.php
+					# chmod 666 config.php
+
+					打开浏览器，配置；
+						MySQL Native, Syslog Field
+						Table Type："Monitorware“
+
+					# chmod 644 config.php
+
+	博客作业：rsyslog+mysql+loganalyzer

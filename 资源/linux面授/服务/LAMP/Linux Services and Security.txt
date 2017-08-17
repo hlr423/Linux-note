@@ -1,0 +1,1283 @@
+
+
+http:
+
+	C/S:
+		C: client
+			socket,
+		S: server
+			listen, socket
+
+		通信协议：MAC, IP, PORT
+		应用协议：dns, http(html)
+
+	Socket:
+		IP:PORT <--> IP:PORT
+
+	http：
+
+		http： 超文本传输协议
+			html：hypertext mark language
+
+			C/S:
+				C: browsers, User agents
+				S：httpd, nginx
+
+
+		http/0.9：原型版本
+		http/1.0：cache, MIME
+			MIME: multipurpose internet mail extensions
+				SMTP：simple mail transmission protocol
+					MIME类型：
+						major/minor:
+							images/jpeg, images/png, images/gif
+							text/plain, text/html, ...
+		http/1.1：
+			cache, 条件式请求等；
+
+			speedy: spdy
+		http/2.0：
+
+		https协议：
+			http over ssl/tls
+
+		IANA:
+			0-1023：众所周知，永久地分配给固定的应用程序使用，特权端口（仅root有权限使用）；
+			1024-41951：注册端口，但要求略宽松，分配给某程序注册使用；
+			41952+：客户端程序使用的随机端口，动态端口，或称为私有端口；
+				/proc/sys/net/ipv4/ip_local_port_range
+
+		html文档格式：
+			<html>
+				<head>
+					<title>TITLE</title>
+				</head>
+				<body>
+					<h1>...</h1>
+					...
+				</body>
+			</html>
+
+
+	http协议：
+		http事务：request/response
+			request:
+				<method> <URL> <version>
+				HEADERS:
+
+				<body>
+
+			response：
+				<version> <status code> <reason phrase>
+				HEADERS
+
+				<body>
+
+		URL：统一资源定位符；
+			scheme://host[:port]/path/to/some_resource
+
+		HEADERS:
+			Name: Value
+
+		<method>
+			请求方法：
+				GET、HEAD、POST、PUT、DELETE、OPTIONS、TRACE、……
+
+		<status code>
+			1xx：信息类
+			2xx：成功类
+			3xx：重定向类
+			4xx：客户端错误类
+			5xx：服务端错误类
+
+		一次完整的Http请求响应过程：
+			(1) 建立或处理连接；接收或拒绝请求；
+			(2) 接收请求：
+			(3) 处理请求：解析请求；
+			(4) 访问资源：
+				资源映射：DocumentRoot /var/www/html/
+					http://www.magedu.com/index.html --> /var/www/html/index.html
+			(5) 构建响应报文
+			(6) 发送响应报文
+			(7) 记录日志
+
+		http请求处理中的连接方式：
+			短连接：非保持连接
+			长连接：保持连接
+				数量：多少个资源，100；
+				时间：多长时间；
+
+	http协议：
+		开源实现：
+			httpd (apache)
+			nginx
+			lighttpd
+
+		httpd：
+			www.netcraft.com
+
+			ASF：apache software foundation
+				License: apache
+
+			http://httpd.apache.org
+
+			apache: a patchy server, NSF,
+
+		httpd的特性：
+			高度模块化：core module + modules
+				DSO：Dynamic Shared Object
+
+			MPM：Multipath processing modules
+				prefork：多进程模型
+					每个请求用一个进程来处理；
+				worker：多线程模型
+					每个请求用一个线程来处理；
+				event：事件驱动模型
+					每个进程处理多个请求；
+
+			httpd的功能特性：
+				虚拟主机：IP，PORT，FQDN
+				反向代理：http, ajp, fcgi, wsgi, ...
+				负载均衡：bytraffic, byrequest, bybusiness
+				CGI: Common Gateway Interface
+				...
+
+			httpd的版本：
+				httpd-1.3
+				httpd-2.0
+				httpd-2.2
+				httpd-2.4
+
+		安装httpd：
+			OS vendor：base源
+			编译安装：
+
+			CentOS 6： httpd-2.2
+			CentOS 7: httpd-2.4
+
+		CentOS 7：
+			程序环境：
+				主程序：/usr/sbin/httpd
+				配置文件：/etc/httpd/conf/httpd.conf
+					/etc/httpd/conf.d/*.conf
+					/etc/httpd/conf.modules.d/*.conf
+				Unit File：
+					/usr/lib/systemd/system/httpd.service
+				模块文件目录：
+					/usr/lib64/httpd/modules/
+				站点（主服务器）根目录默认：
+					/var/www/html/
+				日志文件：
+					/var/log/httpd/
+						error_log
+						access_log
+
+			判断服务正常与否：
+				ss -tnlp | grep  ":80\>"
+				systemctl status httpd.service
+
+
+回顾：
+	http协议：应用层协议，socket方式，IPC
+		80/tcp, 443/tcp
+
+	实现：httpd, nginx, ...
+
+	httpd：模块化、DSO、虚拟主机、……
+
+	程序环境：
+		/etc/httpd/conf/httpd.conf
+			/etc/httpd/conf.d/*.conf
+			/etc/httpd/conf.modules.d/*.conf
+
+		httpd -M
+
+httpd(2)
+
+	httpd-2.4的基础配置
+		配置项：
+			DIRECTIVE VALUE
+				directive：配置指令，不区分字符大小写；例如DocumentRoot, DirectoryIndex, ...
+				value：除了文件系统路径之外，大多数不区分字符大小写
+
+		1、修改监听的地址和端口
+			Listen [IP:]PORT
+
+			可重复定义多次；
+
+		2、持久连接
+			KeepAlive On|Off
+			KeepAliveTimeout  #
+			MaxKeepAliveRequests #
+
+		3、DSO
+			LoadModule  Mod_Name  modules/Module_FILE.so
+
+			注意：相对路径相对于“ServerRoot”指令的值而言；默认为/etc/httpd/；
+
+		4、日志设定
+			日志有两种类型：
+				错误日志、访问日志
+
+			错误日志：
+				ErrorLog  logs/error_log
+				LogLevel warn
+
+			访问日志：
+				LogFormat：定义日志格式；
+				CustomLog：日志文件位置以及日志格式；
+
+				格式：
+					%h：Remote hostname. Will log the IP address if HostnameLookups is set to Off, which is the default.
+					%l：Remote logname (from identd, if supplied).
+					%u：Remote user if the request was authenticated. May be bogus if return status (%s) is 401 (unauthorized).
+						http协议认证：通过认证质询实现；
+					%t：Time the request was received, in the format [18/Sep/2011:19:18:28 -0400].
+					%r：First line of request.
+					%b：Size of response in bytes, excluding HTTP headers.
+					%s：Status. For requests that have been internally redirected, this is the status of the original request. Use %>s for the final status.
+					%{VARNAME}i：记录VARNAME变量（首部）的值；%{Referer}i
+
+
+			format_strings：
+				http://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats
+
+		5、如何使用本地手册
+			安装httpd-manual程序包，重载服务；
+
+			http://HOST/manual/
+
+		6、主机相关的配置：
+			中心主机，默认主机：
+				DocumentRoot
+				ServerName
+			虚拟主机：
+
+			站点资源访问控制：
+				基于文件系统路径控制：
+					<Directory  "/PATH/TO/DIR">
+						...
+					</Directory>
+
+				基于URL路径控制：
+					<Location "">
+						...
+					</Location>
+
+			目录中的常用指令：
+				(1) Options：用于定义资源的展示方式； 后跟以空白字符分隔的“选项”列表；
+					Indexes Includes FollowSymLinks SymLinksifOwnerMatch ExecCGI MultiViews
+					None
+					All
+
+				(2) AllowOverride：httpd允许在网页文档的各目录下使用隐藏文件.htaccess来各自的访问控制；此指令定义哪此指令可以在.htaccess中定义；
+
+					Options FileInfo AuthConfig Limit
+					None
+					All
+
+				(3) Require
+					允许所有客户端访问：Require all granted
+					拒绝所有客户端访问：Require all denied
+
+					<RequireAll>
+						Require ip 10.1.0.0/16
+						Require all denied
+					</RequireAll>
+
+					控制特定的客户端访问：
+						Require ip IP|NETWORK
+						Require not ip IP|NETWORK
+
+						Require host HOSTNAME
+						Require not  host HOSTNAME
+
+							HOSTNAME：
+								FQDN：
+								domain.tld：
+
+		7、定义站点主页面
+			DirectoryIndex  filename1 filename2 ...
+
+		8、路径别名：
+
+			Alias  /URL/  "/PATH/TO/SOME_DIR/"
+
+		9、虚拟主机：
+
+			站点标识：IP，PORT，ServerName
+
+			虚拟主机的配置方式
+			<VirutalHost IP:PORT>
+				ServerName
+				DocumentRoot
+			</VirutalHost>
+
+
+			<VirtualHost 10.1.0.67:80>
+				ServerName www1.magedu.com
+				DocumentRoot "/vhosts/www1"
+				<Directory "/vhosts/www1">
+					Options None
+					AllowOverride None
+					Require all granted
+				</DIrectory>
+			</VirtualHost>
+
+			<VirtualHost 10.1.0.67:80>
+				ServerName www2.magedu.com
+				DocumentRoot "/vhosts/www2"
+				<Directory "/vhosts/www2">
+					Options None
+					AllowOverride None
+					Require all granted
+				</DIrectory>
+			</VirtualHost>
+
+			<VirtualHost 10.1.0.67:80>
+				ServerName www3.magedu.com
+				DocumentRoot "/vhosts/www3"
+				<Directory "/vhosts/www3">
+					Options None
+					AllowOverride None
+					Require all granted
+				</DIrectory>
+			</VirtualHost>
+
+			注意：httpd-2.2要求使用基于ServerName的虚拟主机时，要使用专用指令NameVirtualHost；
+
+		10、status页面
+			<Location /status>
+				SetHandler server-status
+				Require all granted
+			</Location>
+
+			ExtendedStatus {On|Off}
+
+		11、MPM
+
+			httpd-2.2：static
+			httpd-2.4：shared
+
+			prefork：两级架构
+				master process：1个，
+				child process：n个，
+			worker：每线程响应一个请求；三级架构
+				master process：1个
+				child process：n个
+					thread：m个
+			event：每进程响应多个请求；
+
+
+			prefork
+				ServerLimit
+				StartServers
+				MinspareServers
+				MaxSpareServers
+				MaxConnectionsPerchild
+				MaxRequestWorkers
+
+			woker:
+				ServerLimit
+				StartServers
+				MinSpareThreads
+				MaxSpareThreads
+				MaxRequestWorkers
+				ThreadsPerChild
+
+			event：
+				ThreadsPerChild
+				MaxRequestWorkers
+				AsyncRequestWorkerFactor
+
+
+		12、用户认证
+
+			http协议认证：由http协议的实现自身进行认证
+			表单认证：由服务器端的应用程序进行认证
+
+			http协议的认证：
+				认证质询：
+					WWW-Authenticate：响应码为401，拒绝客户端请求，并说明要求客户提供账号和密码；
+
+				认证：
+					Authorization：客户端填入账号和密码后再次发送请求报文 ，认证通过后，服务端将响应请求的资源；
+
+				认证的方式有两种：
+					basic：明文
+					digest：摘要
+
+				虚拟账号：仅用于访问某服务时使用；
+					存储于何处：
+						文本文件
+						SQL数据库
+						ldap目录服务中
+						...
+
+				安全域：Realm
+
+				basic认证的实现示例：
+
+					基于用户进行认证：
+						<VirtualHost 10.1.0.67:80>
+							ServerName www1.magedu.com
+							DocumentRoot "/vhosts/www1"
+							<Directory "/vhosts/www1">
+								Options None
+								AllowOverride None
+								Require all granted
+							</DIrectory>
+
+							<Directory "/vhosts/www1/admin">
+								Options None
+								AllowOverride None
+								AuthType basic
+								AuthName "Admin Area, Enter your name/password"
+								AuthUserFile "/etc/httpd/conf/.htpasswd"
+								Require valid-user
+							</Directory>
+
+							CustomLog "logs/www1-access.log" combined
+							ErrorLog "logs/www1-error.log"
+						</VirtualHost>
+
+					认证文件：htpasswd
+						htpasswd [OPTIONS]  /PATH/TO/HTPASSWD_FILE USERNAME [PASSWORD]
+							-c：创建文件
+							-m：使用md5
+							-s：
+
+					基于组进行认证：
+
+							<Directory "/vhosts/www1/admin">
+								Options None
+								AllowOverride None
+								AuthType basic
+								AuthName "Admin Area, Enter your name/password"
+								AuthUserFile "/etc/httpd/conf/.htpasswd"
+								AuthGroupFIle "/etc/httpd/conf/.htgroup"
+								Require group
+							</Directory>
+
+						组账号文件格式：每行一个组定义
+							group_name: user1 user2 ...
+
+
+			13、woker进程的运行者身份
+				User/Group
+
+				注意：文件系统上网页资源的访问权限要配置正确；
+
+	练习：(1)基于主机名实现三个虚拟主机
+		    (2) 每虚拟主机使用独立的访问日志和错误日志
+		    (3) 第三个虚拟主机的/admin要进行用户访问认证
+		    (4) 在第二个虚拟主机上提供/status；
+		    (5) 在第三个虚拟主机提供路径别名/bbs，访问其它文件系统路径；
+		    (6) 尝试使用混合类型的虚拟主机：
+			基于IP，PORT和ServerName
+
+	练习2：使用脚本实现以上功能；
+		每虚拟使用单独的配置文件；
+		脚本可接受参数，参数虚拟主机名称；
+
+
+回顾：httpd-2.4基础配置
+
+	listen、保持连接、MPM（prefork, worker, event）、日志、主页、基于客户端源地址的访问控制、基于用户的访问控制机制、虚拟主机
+	... ...
+
+http(3)
+
+	http协议：
+		事务：request/response
+			request：
+				<method> <URL> <version>
+				HEADERS
+
+				<body>
+
+			response:
+				<version> <status> <reason-phrase>
+				HEADERS
+
+				<body>
+
+			HEADERS:
+				Name: Value1, Value2, ...
+
+				首部分类
+					通用首部
+					请求首部
+					响应首部
+					实体首部
+					扩展首部
+
+				通用首部：请求和响应报文通用
+					Connection：{close, keep-alive}
+					Date：报文创建的日期时间
+					Via：经由，报文传输经过的中间代理服务器；
+					Cache-Control：定义缓存控制机制；
+					Pragma：
+
+				请求首部：
+					Accept：可接受的MIME类型；
+					Accept-language：
+					Accept-encoding：接受的编码格式，deflate, gzip, ...
+					Accetp-Charset：接受的字符集格式
+
+					Client-IP：
+					Host：请求的服务器的名称和端口；
+					Referer：跳转至当前页面上级页面；
+					User-Agent：客户端代理
+
+					条件式请求首部：
+						Expect：
+						If-Modified-Since
+						If-Unmodified-Since
+						If-None-Match
+						If-Match
+
+					安全请求首部：
+						Authorization
+						Cookie：
+						Cookie2：
+
+				响应首部：
+					信息性首部：
+						Age:
+						Server:
+
+					协商首部：
+						Accept-Range：服务端可接受的请求类型的范围；
+						Vary：其它首部列表；
+
+					安全响应首部：
+						Set-Cookie
+						Set-Cookie2
+						WWW-Authencate：认证质询
+
+				实体首部：
+					Content-Encoding
+					Content-language
+					Content-Lenth
+					Content-Location
+					Content-Type
+					...
+
+					Allow: 允许的请求方法；
+					Location：资源的真正地址；
+
+					缓存相关：
+						Etag：
+						Expires:
+						Last-Modified:
+
+				扩展首部：
+					X-Forwarded-For：
+					...
+
+				《http权威指南》
+
+		url：Uniform Resource Locator
+			URL scheme：协议，http, https, ftp, ...
+			服务器地址：IP:Port
+			资源路径：/PATH/TO/SOME_RESOURCE
+
+			基本语法格式：
+				<scheme>://<user>:<passowrd>@<host>[:<port>]/<path>;<params>?<query>#<frag>
+					params：参数，;name=value&name=value
+					query：查询字符串，?field=value&field=value
+					frag：页面锚定符；#frag_id
+
+	httpd-2.4基本配置：
+
+ 		14、curl命令
+
+			curl是基于URL语法在命令行方式下工作的文件传输工具，它支持FTP, FTPS, HTTP, HTTPS, GOPHER, TELNET, DICT, FILE及LDAP等协议。curl支持HTTPS认证，并且支持HTTP的POST、PUT等方法， FTP上传， kerberos认证，HTTP上传，代理服务器， cookies， 用户名/密码认证， 下载文件断点续传，上载文件断点续传, http代理服务器管道（ proxy tunneling）， 甚至它还支持IPv6， socks5代理服务器,，通过http代理服务器上传文件到FTP服务器等等，功能十分强大。
+
+			curl  [options]  [URL...]
+
+			curl的常用选项：
+
+			    -A/--user-agent <string> 设置用户代理发送给服务器
+			    --basic 使用HTTP基本认证
+			    --tcp-nodelay 使用TCP_NODELAY选项
+			    -e/--referer <URL> 来源网址
+			    --cacert <file> CA证书 (SSL)
+			    --compressed 要求返回是压缩的格式
+			    -H/--header <line>自定义首部信息传递给服务器
+			    -I/--head 只显示响应报文首部信息
+			    --limit-rate <rate> 设置传输速度
+			    -u/--user <user[:password]>设置服务器的用户和密码
+			    -0/--http1.0 使用HTTP 1.0
+
+			用法：curl [options] [URL...]
+
+			另一个工具：elinks
+				elinks  [OPTION]... [URL]...
+					-dump: 不进入交互式模式，而直接将URL的内容输出至标准输出；
+
+		15、使用mod_deflate模块压缩页面优化传输速度
+
+			适用场景：
+				(1) 节约带宽，额外消耗CPU；同时，可能有些较老浏览器不支持；
+				(2) 压缩适于压缩的资源，例如文件文件；
+
+			SetOutputFilter DEFLATE
+
+			# mod_deflate configuration
+
+
+			# Restrict compression to these MIME types
+			AddOutputFilterByType DEFLATE text/plain
+			AddOutputFilterByType DEFLATE text/html
+			AddOutputFilterByType DEFLATE application/xhtml+xml
+			AddOutputFilterByType DEFLATE text/xml
+			AddOutputFilterByType DEFLATE application/xml
+			AddOutputFilterByType DEFLATE application/x-javascript
+			AddOutputFilterByType DEFLATE text/javascript
+			AddOutputFilterByType DEFLATE text/css
+
+			# Level of compression (Highest 9 - Lowest 1)
+			DeflateCompressionLevel 9
+
+			# Netscape 4.x has some problems.
+			BrowserMatch ^Mozilla/4  gzip-only-text/html
+
+			# Netscape 4.06-4.08 have some more problems
+			BrowserMatch  ^Mozilla/4\.0[678]  no-gzip
+
+			# MSIE masquerades as Netscape, but it is fine
+			BrowserMatch \bMSI[E]  !no-gzip !gzip-only-text/html
+
+		16、https,  http over ssl
+
+			SSL会话的简化过程
+				(1) 客户端发送可供选择的加密方式，并向服务器请求证书；
+				(2) 服务器端发送证书以及选定的加密方式给客户端；
+				(3) 客户端取得证书并进行证书验正：
+					如果信任给其发证书的CA：
+						(a) 验正证书来源的合法性；用CA的公钥解密证书上数字签名；
+						(b) 验正证书的内容的合法性：完整性验正
+						(c) 检查证书的有效期限；
+						(d) 检查证书是否被吊销；
+						(e) 证书中拥有者的名字，与访问的目标主机要一致；
+				(4) 客户端生成临时会话密钥（对称密钥），并使用服务器端的公钥加密此数据发送给服务器，完成密钥交换；
+				(5) 服务用此密钥加密用户请求的资源，响应给客户端；
+
+				注意：SSL会话是基于IP地址创建；所以单IP的主机上，仅可以使用一个https虚拟主机；
+
+			回顾几个术语：PKI，CA，CRL，X.509 (v1, v2, v3)
+
+			配置httpd支持https：
+				(1) 为服务器申请数字证书；
+					测试：通过私建CA发证书
+						(a) 创建私有CA
+						(b) 在服务器创建证书签署请求
+						(c) CA签证
+
+				(2) 配置httpd支持使用ssl，及使用的证书；
+					# yum -y install mod_ssl
+
+					配置文件：/etc/httpd/conf.d/ssl.conf
+						DocumentRoot
+						ServerName
+						SSLCertificateFile
+						SSLCertificateKeyFile
+
+				(3) 测试基于https访问相应的主机；
+					# openssl  s_client  [-connect host:port] [-cert filename] [-CApath directory] [-CAfile filename]
+
+		17、httpd自带的应用程序
+			htpasswd：basic认证基于文件实现，用于生成账号和密码的程序；
+				htdbm
+				htdigest
+			apachectl：httpd自带的服务控制脚本，支持start和stop等子命令；
+			apxs：- APache eXtenSion tool
+
+			rotatelogs：
+
+			ab：apache benchmark
+				webbench, httpload, ...
+
+				loadrunner, jmeter (ASF)
+
+				tcpcopy，
+
+
+ 回顾：
+	http协议： HEADERS，scheme
+		HEADERS：
+			通用首部：Connect, Data, ...
+			请求首部：Host, ...
+			响应首部：
+			实体首部：Content-encoding, ...
+			扩展首部：X-Forwarded-For, ...
+
+		url
+			scheme://<user>[:<password>]@<host>[:<port>]/path;params?query#frag
+
+	配置：
+		https, curl, mod_deflate, ...
+
+httpd(4)
+
+	18、ab - web service的压力测试工具
+
+		命令行工具：ab, webbench, httpload, seige, ...
+		GUI：loadrunner, jmeter
+		tcpcopy
+
+		ab [options]  [http[s]://]hostname[:port]/path
+			请求数：-n requests
+			并发数：-c concurrency
+			长连接：-k
+
+	MPM：
+		prefork：进程模型，两级架构，master/worker，每worker处理一个请求；
+		worker：线程模型，三级架构，maste/worker/thread, 每thread处理一个请求；workers*threads
+		event：事件驱动模型，两级架构，master/worker，每进程处理多个请求；
+
+	httpd-2.2与httpd-2.4的不同之处
+		MPM是非DSO机制，不支持LoadModule进行切换；
+
+			切换：/etc/sysconfig/httpd
+				定义HTTPD变量的值：
+					/usr/sbin/httpd
+					/usr/sbin/httpd.worker
+					/usr/sbin/httpd.event
+
+			prefork的配置：
+				<IfModule prefork.c>
+				StartServers       8
+				MinSpareServers    5
+				MaxSpareServers   20
+				ServerLimit      256
+				MaxClients       256
+				MaxRequestsPerChild  4000
+				</IfModule>
+
+			worker的配置：
+				<IfModule worker.c>
+				StartServers         4
+				MaxClients         300
+				MinSpareThreads     25
+				MaxSpareThreads     75
+				ThreadsPerChild     25
+				MaxRequestsPerChild  0
+				</IfModule>
+
+		基于IP的访问控制机制：
+			Order allow, deny
+			allow from CLIENTS
+			deny from  CLIENTS
+
+			CLEINTS:
+				IP,
+				NETWORK
+				HOSTNAME
+				DOMAIN.TLD
+
+		虚拟主机：
+			基于ServerName的虚拟主机，要使用专用指令NameVirtualHost；
+
+		# service SysV_Init_Script start|stop|restart|status|reload
+		# chkconfig SysV_Init_Script  on|off
+
+	lamp：
+		静态资源：原始形式与响应结果一致；
+		动态资源：原始形式通常是程序文件（某种编程语言开发的程序文件），需要运行后将运行生成的结果呈现给用户；
+			客户端技术：js
+			服务端技术：php, jsp, ...
+
+
+		CGI：Common Gateway Interface
+			CIG是一种协议，定义了客户端(httpd)与服务端(特定的应用程序服务进程)交换数据的一种规范；
+
+		服务器端技术框架：
+			web server：httpd, ...
+			application server：php, perl, python, ruby, java(jsp), ...
+			data server：
+				SQL：Oracle, SQL Server, MySQL, PostgreSQL, SQLite, ...
+				NoSQL：
+					K/V
+					Document
+					Column
+					Graph
+
+			开源领域：
+				httpd+php+mysql: amp
+				httpd+jsp+mysql: amt
+					jsp：tomcat, resin, jetty, websphere, weblogic, ...
+
+		php编程语言，基于此语言存在很多开源应用程序；嵌入式编程语言，可直接嵌入至html文档中，而非由php代码生成html标签；
+			wordpress, ...
+
+		CentOS 7：
+			# yum install php php-mysql mariadb-server httpd
+
+		CentOS 6:
+			# yum install php php-mysql mysql-server httpd
+
+		测试页：
+			phpinfo.php
+			<?php
+				php code;
+				...
+			?>
+
+		httpd+php：
+			module
+				httpd的MPM分两类：
+					进程式：prefork
+					线程式：worker, event
+			CGI：
+			FastCGI: fcgi
+				httpd+fcgi（module）
+				php-fpm (server)
+
+		部署应用：
+			discuzX, phpMyAdmin
+
+	MySQL：
+		C/S
+			Server: mysqld_safe, 3306/tcp
+			Client: mysql
+				mysql [OPTIONS]
+					-hSERVER
+					-uUSERNAME
+					-pPASSWORD
+
+
+				mysql> 提示符下的可用命令
+					客户端命令：
+						help可获取命令列表
+						\?
+					服务端命令：通过mysql协议发往服务端运行，并收取其响应结果；
+						此类命令都必须有命令结束符；通常可称为SQL语句；
+						DDL：Data Defination language
+							CREATE, ALTER, DROP
+						DML：Data Manipulating language
+							INSERT, DELETE, SELECT, UPDATE
+
+						grant/revoke
+
+					授权命令：
+						GRANT ALL [PRIVILEGES] ON db.tbl TO 'username'@'host'  IDENTIFIED BY 'password';
+							db.tbl：
+								db：数据名字，可用*通配；
+								tbl：表名称，可用*通配；
+									wpdb.*：wpdb数据库的所有表；
+									*.*：所有库的所有表；
+									wpdb.users：wpdb库的users表；
+							username@host：
+								username：用户名，字符串；
+								host：用户可通过哪些客户端主机连接当前mysql server；可使用通配符；
+									%：任意长度的任意字符；
+									_：任意单个字符；
+
+									dzuser@'10.1.%.%'
+
+				配置文件：ini风格的配置文件
+					/etc/my.cnf, /etc/my.cnf.d/*.cnf
+
+					[mysqld]
+					skip_name_resolve = ON
+					innodb_file_per_table = ON
+
+				首次启动时，配置安全选项：
+					mysql_secure_installation
+
+
+	练习：分别使用CentOS 7和CentOS 6实现以下任务
+		(1) 配置三个基于名称的虚拟主机；
+			(a) discuzX
+			(b) wordpress
+			(c) https: phpMyAdmin
+		(2) 对discuzX的主页做压测；
+			分别给出并发10, 100, 200, 500等每秒的响应数；
+
+回顾：httpd, lamp
+	httpd：mod_deflate, http over ssl/tls
+
+	httpd+php：
+		Modules
+		FastCGI
+		CGI
+
+	amp：
+		静态资源：Client --> (http) --> httpd
+		动态资源：Client --> (http) --> httpd --> libphp5.so
+		动态资源：Client --> (http) --> httpd --> libphp5.so (php-mysql) --> (mysql) --> mysqld
+
+lamp(1)
+
+	PHP:
+		作者：Rasmus Lerdorf， 1994, Personal Home Page Tool, per --> C, PHP/FI, php 1.0
+		zeev, andi, 重写php的分析器（parser）
+			zend, 1.0 --> php 4.0
+			zend 2.0 --> php 5.0
+
+				php代码的执行过程分成了两个阶段：
+					编译：字节码，bytecode，opcode
+					执行：zend engine
+
+			opcode：Scanning, Parsing, Compilation, Execution
+
+		加速器：
+			apc, eAccelerator,
+			xcache;
+
+			# yum install php-xcache
+
+		php配置文件：
+			/etc/php.ini, /etc/php.d/*.ini
+
+			ini：
+				[foo]：Section Header
+				directive = value
+
+				注释符：#, ;
+
+				php.ini的核心配置选项文档：
+					http://php.net/manual/zh/ini.core.php
+				php.ini配置选项列表：
+					http://php.net/manual/zh/ini.list.php
+
+	php-fpm：
+		fastcgi process manager
+		安装配置：
+			CentOS 7：
+				php-fpm：
+					Unit file：/usr/lib/systemd/system/php-fpm.service
+					配置文件：/etc/php-fpm.conf， /etc/php-fpm.d/*.conf
+					主程序：/usr/sbin/php-fpm
+
+				配置：
+					[global]
+					pid = /run/php-fpm/php-fpm.pid
+					error_log = /var/log/php-fpm/error.log
+					log_level = notice
+					daemonize = no
+					[pool_id]
+					listen = 127.0.0.1:9000
+					listen.backlog = -1
+					listen.allowed_clients = 127.0.0.1
+					user = apache
+					group = apache
+					pm = dynamic
+						定义processor管理机制：static, dynamic
+					pm.max_children：最大子进程数量；连接池的最大容量；
+					pm.start_servers：服务启动时所启动的子进程数量；
+					pm.min_spare_servers
+					pm.max_spare_servers
+					rlimit_files = 1024
+					rlimit_core = 0
+					pm.status_path = /status
+					ping.path = /ping
+					ping.response = pong
+
+					php_value[session.save_path] = /var/lib/php/session
+						session的存储位置
+
+			配置示例1：
+				<VirtualHost *:80>
+					ServerName www.magedu.com
+					DocumentRoot "/vhosts/www"
+					<Directory "/vhosts/www">
+						Options None
+						AllowOverride None
+						Require all granted
+					</Directory>
+					ProxyRequests Off
+					ProxyPassMatch ^/(.*\.php)$ fcgi://127.0.0.1:9000/vhosts/www/$1
+					DirectoryIndex index.php
+				</VirtualHost>
+
+			配置示例2：
+				<VirtualHost *:80>
+					ServerName www.magedu.com
+					DocumentRoot "/vhosts/www"
+					<Directory "/vhosts/www">
+						Options None
+						AllowOverride None
+						Require all granted
+					</Directory>
+					ProxyRequests Off
+					ProxyPassMatch ^/(.*\.php)$ fcgi://127.0.0.1:9000/vhosts/www/$1
+					ProxyPassMatch ^/(ping|status)/?$ fcgi://127.0.0.1:9000/$1
+					DirectoryIndex index.php
+				</VirtualHost>
+
+				status输出：
+					pool:                 www     #连接池名称
+					process manager:      dynamic  #进程管理器类型
+					start time:           11/Oct/2016:11:22:04 +0800   #启动日期时间
+					start since:          917  # 运行时长
+					accepted conn:        9  # 连接池已经处理过的请求数
+					listen queue:         0  # 请求队列长度
+					max listen queue:     0 # 请求队列的最大长度
+					listen queue len:     128 # socket等待队列的长度
+					idle processes:       4  # 空闲进程数量
+					active processes:     1 # 活跃的进程数量
+					total processes:      5 # 连接池中的总进程数量
+					max active processes: 2 # 连接池中最大的活跃进程数量
+					max children reached: 0 # 达到连接池中最大进程数量限制的上限的次数
+					slow requests:        0 ：启用了slow-log时，记录慢请求的数量
+
+				其它格式的输出：
+					/status?json
+					/status?xml
+					/status?html
+					/status?full
+
+				full格式的输出：
+					pid:                  1378
+					state:                Idle   # 当前进程状态，idle, running, ...
+					start time:           11/Oct/2016:11:22:04 +0800  #进程的启动日期时间
+					start since:          1386  # 运行时长
+					requests:             3  # 处理过的请求数量
+					request duration:     119  # 请求时长，单位是微秒
+					request method:       GET  # 请求方法，GET，POST等；
+					request URI:          /status?html  # 请求的URL
+					content length:       0 #请求内容的长度，POST方法才有意义 ；
+					user:                 -  # 用户，由PHP_auth_user认证的用户；
+					script:               - # 运行的php脚本；
+					last request cpu:     0.00  # 最后一次请求的CPU使用量；
+					last request memory:  262144	# 最后一次请求的内存使用量；
+
+		注意：部署需要用到session的应用时，其session的默认存储位置 ，确保此目录存在，且运行用户有写入权限；
+
+回顾：
+	amp：
+		php：php core + php extesions
+			php core：
+				httpd modules（php）：libphp5.so
+					restart|reload httpd
+					php配置文件：/etc/php.ini, /etc/php.d/*.ini
+				fastcgi（php-fpm）：php-fpm
+					restart|reload php-fpm
+					php配置文件：/etc/php.ini, /etc/php.d/*.ini
+					fpm配置文件：/etc/php-fpm.conf, /etc/php-fpm.d/*.conf
+
+			php extensions：
+				php-mysql, php-mbstring, php-mcrypt, php-xcache(opcode cacher)
+
+		fcgi协议反代：
+			ProxyRequests Off
+			ProxyPass
+			ProxyPassMatch ^(URL_PATTERN)$  fcgi://fcgi_server:port/PATH/TO/DIR/$1
+
+	php配置文件：/etc/php.ini, /etc/php.d/*.ini
+	fpm配置文件：/etc/php-fpm.conf, /etc/php-fpm.d/*.conf
+
+lamp(2)
+	编译安装amp：
+		(1) 系统环境：CentOS 6, 7
+			httpd依赖于apr和apr-util
+				apache portable runtime
+		(2) 开发环境；
+			Development Tools, Server Platform Development
+		(3) 各程序的版本：
+			httpd: 2.2, 2.4
+			php：5.x
+			mysql：5.1, 5.5, 5.6, 5.7, 5.8,
+			mariadb: 5.x, 10.x
+		(4) httpd+php
+			modules: --with-apxs=
+				prefork：libphp5.so
+				worker, event：libphp5-zts.so
+			fpm：
+				5.3.3-， 手动打上fpm patch；
+				5.3.3+：自带了fpm, 编译时只需要使用--fpm选项；
+
+		过程：
+			安装MySQL：
+				预制的二进制程序包：
+					os vendor：mariadb-devel或mysql-devel；
+					项目官方：
+				二进制格式程序包：展包即用；
+				源代码：编译安装；
+
+				通用二进制格式包的安装步骤：
+					# groupadd -r mysql
+					# useradd -g mysql -r mysql
+					# tar xf mariadb-VERSION-linux-x86_64.tar.gz -C /usr/local
+					# cd /usr/local
+					# ln -sv mariadb-VERSION-linux-x86_64 mysql
+					# cd mysql
+					# chown -R root:mysql ./*
+
+					# mkdir /mydata/data -pv
+					# chown mysql:mysql /mydata/data
+
+					# scripts/mysql_install_db --user=mysql --datadir=/mydata/data
+
+					# cp support-files/my-large.cnf  /etc/my.cnf
+
+					修改配置：
+					[mysqld]
+					...
+					datadir = /mydata/data
+
+					# cp  support-files/mysql.server  /etc/rc.d/init.d/mysqld
+					# chmod +x /etc/rc.d/init.d/mysqld
+
+					# chkconfig --add mysqld
+					# service mysqld start
+
+			安装httpd-2.4
+				# yum groupinstall "Development Tools" "Server Platform Development"
+				# yum install pcre-devel openssl-devel libevent-devel  apr-devel apr-util-devel
+
+				# ./configure --prefix=/usr/local/apache2 --sysconfdir=/etc/httpd --enable-so --enable-ssl --enable-cgi --enable-rewrite --enable-modules=most --enable-mpms-shared=all --with-mpm=prefork --with-pcre --with-zlib --with-apr=/usr --with-apr-util=/usr
+				# make -j #
+				# make install
+				# apachectl start
+
+			安装php5：
+				# yum install gd-devel freetype-devel libmcrypt-devel libxml2-devel
+
+				./configure --prefix=/usr/local/php --with-mysql  --with-openssl --with-mysqli=/usr/bin/mysql_config --enable-mbstring --enable-xml --enable-sockets --with-freetype-dir --with-gd --with-libxml-dir=/usr --with-zlib --with-jpeg-dir --with-png-dir --with-mcrypt --with-apxs2=/usr/local/apache2/bin/apxs --with-config-file-path=/etc/php.ini --with-config-file-scan-dir=/etc/php.d/
+				# make -j #
+				# make install
+
+				# cp php.ini-production /etc/php.ini
+				# mkdir /etc/php.d/
+
+				注意：如果httpd使用线程模型MPM，需要额外的--enable-maintainer-zts选项；
+
+				注意：如果要以fpm方式运行php，需要编译时移除--with-apxs选项，额外添加--enable-fpm选项；
+
+				注意：如果是独立安装的mysql-server, 假设安装在/usr/local/mysql目录下，则需要使用类似如下的.configure命令：
+				./configure --prefix=/usr/local/php --with-mysql=/usr/local/mysql  --with-openssl --with-mysqli=/usr/local/mysql/bin/mysql_config --enable-mbstring --enable-xml --enable-sockets --with-freetype-dir --with-gd --with-libxml-dir=/usr --with-zlib --with-jpeg-dir --with-png-dir --with-mcrypt --with-apxs2=/usr/local/apache2/bin/apxs --with-config-file-path=/etc/php.ini --with-config-file-scan-dir=/etc/php.d/
+
+			整合php至httpd上：
+				httpd.conf配置文件中：
+				AddType application/x-httpd-php .php
+				DirectoryIndex index.php index.html
+
+	MariaDB(MySQL)：
+
+		数据模型：层次模型、网状模型、关系模型
+
+			关系模型：
+				二维关系：表
+					行：row, entry
+					列：column, attribution
+				索引：数据结构，辅助完成数据查找的；
+
+			SQL接口：
+				Structure Query Language
+					DDL：Data Defination Language, CREATE, ALTER, DROP
+					DML：Data Manipulating Language, INSERT, DELETE, UPDATE, SELECT
+					DCL：Data Control Language, GRANT, REVOKE
+
+				ANSI：SQL标准，SQL-86, SQL-89, SQL-92, SQL-99, SQL-03,...
+
+				SQL代码：
+					存储过程
+					存储函数
+					触发器
+					事件调度器
+
+			存储引擎：
+
+		DBMS：DataBase Management System
+			RDBMS：Relational DBMS
+
+			MySQL/MariaDB：单进程，多线程
+
+		事务：Transaction，组织一个或多个操作为一个整体，这多个操作要么都完成，要么都不执行；
+			A：12000
+			B：3000
+
+			一个存储系统是否支持事务，就看其是否满足ACID测试：
+				A：原子性；
+				C：一致性；
+				I：隔离性；
+				D：持久性；
+
+		关系型数据库的设计范式：
+
+		数据约束：向数据表插入的数据要遵守的限制规则；
+			主键：primary key， 一个或多个字段的组合，填入主键字段中的数据，必须不同于已经存在的其它相同字段上的数据，而且不能为空；一个表只能有一个主键；
+			惟一键：unique key，一个或多个字段的组合，填入主键字段中的数据，必须不同于已经存在的其它相同字段上的数据；一个表可以存在多个惟一键；
+			外键：foreign key，一个表中的某字段中能插入的数据取值范围，取决于引用的另一张表的主键字段上的已存在数据集合；
+			检查条件约束：check，
+
+		索引：数据结构，将表中的某一个或某些字段抽取出来，单独组成成为一个独特数据结构；常见的索引类型：
+			树型：BTree；
+			hash：k/v；
+
+		关系运算：
+			选择：挑选行；
+			投影：挑选列；
+			连接：将表建立关联关系；
+
+		MySQL：
+			C/S：
+				S：mysqld, mysqld_safe, mysqld_multi
+				C：mysql, mysqladmin, mysqldump, ...
+				非客户端工具：工作于服务端主机，用于实现一些管理操作；
+
+			数据类型：
+				字符型：
+					定长字符型：
+						CHAR(#)
+						BINARY(#)
+					变长字符型：
+						VARCHAR(#)
+						VARBINARY(#)
+					内建数据类型：
+						ENUM
+						SET
+				数值型：
+					精确数值：
+						整型：
+							TINYINT，SMALLINT，MEDIUMINT，INT，BIGINT
+					近似数值：
+						浮点型：
+							FLOAT
+							DOUBLE
+				日期时间：
+					DATE：日期型
+					TIME：时间型
+					DATETIME：日期时间型
+					YEAR(2)：
+					YEAR(4)：
+					TIMESTAMP：
+
+	练习：编译安装amp，提供两个基于主机名的虚拟主机
+		(1) https, 部署pma；
+		(2) 部署wordpress；
+	练习2：脚本实现amp编译安装；
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

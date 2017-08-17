@@ -1,0 +1,96 @@
+压缩和解压缩工具
+	压缩比：文件压缩比就是指文件经过压缩后的文件大小与源文件大小的一个比差，经过压缩工具包可以把文件压缩
+	压缩的目的：
+		时间换空间
+			CPU时间换硬盘的空间
+
+压缩工具：
+	compress/uncompress 以.Z作为文件后缀
+	gzip/gunzip 	以.gz作为文件后缀
+	bzip2/bunzip2 	以.bz2作为文件后缀
+	xz/unxz 		以.xz作为文件后缀
+		注意：以上压缩工具默认不保留原文件
+	lzma/unlzma  编程使用的压缩工具
+
+归档工具：
+	zip/unzip
+	tar,cpio
+
+注意归档和压缩工具必须以指定后缀作为文件后缀名，并且某一类工具只能解压它能指定的后缀的文件，不能解压其他工具指定的后缀的文件
+
+
+压缩工具：
+gzip/gunzip/zcat
+	gzip [OPTION]... FILE ...
+		-d：解压缩，相当于gunzip
+		-#：1-9，指定压缩比，值越大压缩比越大，默认是6
+		-c：将压缩或解压缩的结果输出至标准输出
+			eg：gzip -c file > /path/to/somefile.gz
+			以保存源文件的方式压缩文件
+
+	zcat：把文件以解压的形式显示出来，但不对文件进行解压
+		eg：zcat file.gz > /path/to/somefile
+		以保存压缩文件的方式解压文件
+
+bzip2/bunzip2/bzcat
+	bzip2 [OPTION]... FILE ...
+		-d：解压缩
+		-#：压缩比，默认为6，可选择为1-9
+		-k：keep，保留原文件
+	
+	bzcat：把文件以解压的形式显示出来，但不对文件进行解压
+
+xz/unxz/xzcat
+	xz [OPTION]... FILE ...
+		-d：解压缩
+		-#：压缩比，默认为6，可选择为1-9
+		-k：keep，保留原文件；
+
+	xzcat：把文件以解压的形式显示出来，但不对文件进行解压
+
+归档工具：
+	解决压缩工具不能对目录进行压缩
+
+tar：默认保留原文件或目录
+	注意：若解压文件的文件名在默认路径下有同名文件，会直接覆盖，不会提示用户
+
+tar [OPTION]...FILE...
+
+(1)  创建归档：  -c 选项
+tar -c -f / PATH/TO/SOMEFILE.tar FILE...
+tar cf / PATH/TO/SOMEFILE.tar FILE...
+	-f 后加归档文件保存的路径和文件名
+	此处可以不写 -
+
+(2)  查看归档文件中的文件列表：  - 选项
+tar -t -f  /PATH/TO/SOMEFILE.tar
+
+(3)  展开归档：  -x 选项
+tar -x -f  /PATH/TO/SOMEFILE.tar
+tar -xf  /PATH/TO/SOMEFILE.tar -C /PATH/
+	-C：指定归档文件展开后的保存路径，不指默认为当前工作路径
+
+结合压缩工具实现：归档并压缩
+
+-z: gzip
+	-zcf /path/to/somefile.tar.gz file
+		归档并压缩成.gz格式的文件
+	-zxf /path/from/somefile.tar.gz
+		解压缩展开归档
+		可以直接写出-xf或者xf
+
+-j: bzip2
+	-jcf /path/to/somefile.tar.gz file
+		归档并压缩成.bz2格式的文件
+	-jxf /path/from/somefile.tar.gz
+		解压缩展开归档
+		可以直接写出-xf或者xf
+
+-J: xz
+	-Jcf /path/to/somefile.tar.gz file
+		归档并压缩成.xz格式的文件
+	-Jxf /path/from/somefile.tar.gz
+		解压缩展开归档
+		可以直接写出-xf或者xf
+
+注意：解压缩并展开归档时可省略解压缩工具(z，j，J)，只使用-xf或者xf，tar工具会自行判断文件后缀并调用相应的解压工具来完成解压

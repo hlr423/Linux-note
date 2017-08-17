@@ -1,0 +1,403 @@
+回顾：httpd, lamp
+	httpd：mod_deflate, http over ssl/tls
+
+	httpd+php：
+		Modules
+		FastCGI
+		CGI
+
+	amp：
+		静态资源：Client --> (http) --> httpd
+		动态资源：Client --> (http) --> httpd --> libphp5.so
+		动态资源：Client --> (http) --> httpd --> libphp5.so (php-mysql) --> (mysql) --> mysqld
+
+lamp(1)
+
+	PHP:
+		作者：Rasmus Lerdorf， 1994, Personal Home Page Tool, per --> C, PHP/FI, php 1.0
+		zeev, andi, 重写php的分析器（parser）
+			zend, 1.0 --> php 4.0
+			zend 2.0 --> php 5.0
+
+				php代码的执行过程分成了两个阶段：
+					编译：字节码，bytecode，opcode
+					执行：zend engine
+
+			opcode：Scanning, Parsing, Compilation, Execution
+
+		hhvm：把php代码转换成c代码，再运行，加快速度
+
+		加速器：
+			apc, eAccelerator,
+			xcache;
+				加速器提升大约3倍左右的速度
+
+			# yum install php-xcache
+
+			配置文件中：xcache.size  设置缓存大小
+
+		php配置文件：
+			/etc/php.ini, /etc/php.d/*.ini
+
+			ini：
+				[foo]：Section Header
+				directive = value
+
+				注释符：#, ;
+
+				php.ini的核心配置选项文档：
+					http://php.net/manual/zh/ini.core.php
+				php.ini配置选项列表：
+					http://php.net/manual/zh/ini.list.php
+
+	php-fpm：
+		fastcgi process manager
+		安装配置：
+			CentOS 7：
+				php-fpm：
+					Unit file：/usr/lib/systemd/system/php-fpm.service
+					配置文件：/etc/php-fpm.conf， /etc/php-fpm.d/*.conf
+					主程序：/usr/sbin/php-fpm
+
+				配置：
+					[global]
+					pid = /run/php-fpm/php-fpm.pid
+					error_log = /var/log/php-fpm/error.log
+					log_level = notice
+					daemonize = no
+						在7上不能运行在后台，因为7是基于systemd 模式的，运行于后台则不能控制，而6上守护进程想要运行于后台，必须设置成yes
+					[pool_id]
+					listen = 127.0.0.1:9000
+					listen.backlog = -1 ：						定义拥挤时排队大小，-1表示无穷大
+					listen.allowed_clients = 127.0.0.1 ：允许连接的客户端IP
+					user = apache
+					group = apache
+					pm = dynamic
+						定义processor管理机制：static, dynamic
+					pm.max_children：最大子进程数量；连接池的最大容量；
+					pm.start_servers：服务启动时所启动的子进程数量；
+					pm.min_spare_servers
+					pm.max_spare_servers
+					rlimit_files = 1024
+					rlimit_core = 0
+					pm.status_path = /status
+					ping.path = /ping
+					ping.response = pong
+
+					php_value[session.save_path] = /var/lib/php/session
+						session的存储位置<默认此路径有可能不存在>
+
+			配置示例1：
+				<VirtualHost *:80>
+					ServerName www.magedu.com
+					DocumentRoot "/vhosts/www"
+					<Directory "/vhosts/www">
+						Options None
+						AllowOverride None
+						Require all granted
+					</Directory>
+					ProxyRequests Off
+					ProxyPassMatch ^/(.*\.php)$ fcgi://127.0.0.1:9000/vhosts/www/$1
+					DirectoryIndex index.php
+				</VirtualHost>
+
+			配置示例2：
+				正向代理：代表客户端请求资源
+				反向代理：代表服务器端响应客户端请求
+
+					在http服务端的虚拟机中配置<fcgi协议反代>
+					ProxyRequests Off 	：关闭正向代理
+					ProxyPassMatch ^/(.*\.php)$ fcgi://127.0.0.1:9000/vhosts/www/$1
+						$1：引用的是前面正则表达式匹配的内容
+						fcgi://127.0.0.1:9000/vhosts/www/：定义了远程php-fpm的地址和文件路径<当前为本机，可以修改为远程主机>
+					ProxyPassMatch ^/(ping|status)/?$ fcgi://127.0.0.1:9000/$1
+
+				<VirtualHost *:80>
+					ServerName www.magedu.com
+					DocumentRoot "/vhosts/www"
+					<Directory "/vhosts/www">
+						Options None
+						AllowOverride None
+						Require all granted
+					</Directory>
+					ProxyRequests Off
+					ProxyPassMatch ^/(.*\.php)$ fcgi://127.0.0.1:9000/vhosts/www/$1
+					ProxyPassMatch ^/(ping|status)/?$ fcgi://127.0.0.1:9000/$1
+					DirectoryIndex index.php
+				</VirtualHost>
+
+				status输出：
+					pool:                 www     #连接池名称
+					process manager:      dynamic  #进程管理器类型
+					start time:           11/Oct/2016:11:22:04 +0800   #启动日期时间
+					start since:          917  # 运行时长
+					accepted conn:        9  # 连接池已经处理过的请求数
+					listen queue:         0  # 请求队列长度
+					max listen queue:     0 # 请求队列的最大长度
+					listen queue len:     128 # socket等待队列的长度
+					idle processes:       4  # 空闲进程数量
+					active processes:     1 # 活跃的进程数量
+					total processes:      5 # 连接池中的总进程数量
+					max active processes: 2 # 连接池中最大的活跃进程数量
+					max children reached: 0 # 达到连接池中最大进程数量限制的上限的次数
+					slow requests:        0 ：启用了slow-log时，记录慢请求的数量
+
+				其它格式的输出：
+					/status?json
+					/status?xml
+					/status?html
+					/status?full
+
+				full格式的输出：
+					pid:                  1378
+					state:                Idle   # 当前进程状态，idle, running, ...
+					start time:           11/Oct/2016:11:22:04 +0800  #进程的启动日期时间
+					start since:          1386  # 运行时长
+					requests:             3  # 处理过的请求数量
+					request duration:     119  # 请求时长，单位是微秒
+					request method:       GET  # 请求方法，GET，POST等；
+					request URI:          /status?html  # 请求的URL
+					content length:       0 #请求内容的长度，POST方法才有意义 ；
+					user:                 -  # 用户，由PHP_auth_user认证的用户；
+					script:               - # 运行的php脚本；
+					last request cpu:     0.00  # 最后一次请求的CPU使用量；
+					last request memory:  262144	# 最后一次请求的内存使用量；
+
+		注意：部署需要用到session的应用时，其session的默认存储位置 ，确保此目录存在，且运行用户<apache>有写入权限；
+
+回顾：
+	amp：
+		php：php core + php extesions
+			php core：
+				httpd modules（php）：libphp5.so
+					restart|reload httpd
+					php配置文件：/etc/php.ini, /etc/php.d/*.ini
+				fastcgi（php-fpm）：php-fpm
+					restart|reload php-fpm
+					php配置文件：/etc/php.ini, /etc/php.d/*.ini
+					fpm配置文件：/etc/php-fpm.conf, /etc/php-fpm.d/*.conf
+
+			php extensions：
+				php-mysql, php-mbstring, php-mcrypt, php-xcache(opcode cacher)
+
+		fcgi协议反代：
+			ProxyRequests Off
+			ProxyPass
+			ProxyPassMatch ^(URL_PATTERN)$  fcgi://fcgi_server:port/PATH/TO/DIR/$1
+
+	php配置文件：/etc/php.ini, /etc/php.d/*.ini
+	fpm配置文件：/etc/php-fpm.conf, /etc/php-fpm.d/*.conf
+
+lamp(2)
+	编译安装amp：
+		(1) 系统环境：CentOS 6, 7
+			httpd依赖于apr和apr-util
+				apache portable runtime
+		(2) 开发环境；
+			Development Tools, Server Platform Development
+		(3) 各程序的版本：
+			httpd: 2.2, 2.4
+			php：5.x  :建议使用5.3.3以后的版本，官方自带了fpm的功能,可以使用--fpm来安装
+			mysql：5.1, 5.5, 5.6, 5.7, 5.8,
+			mariadb: 5.x, 10.x
+		(4) httpd+php
+			modules: --with-apxs=
+				prefork：libphp5.so
+				worker, event：libphp5-zts.so
+			fpm：
+				5.3.3-: 手动打上fpm patch
+				5.3.3+：自带了fpm, 编译时只需要使用--fpm选项
+
+		过程：
+			安装MySQL：
+				预制的二进制程序包：
+					os vendor：mariadb-devel或mysql-devel
+					项目官方
+				二进制格式程序包：展包即用
+				源代码：编译安装
+
+				通用二进制格式包的安装步骤：
+					# groupadd -r mysql
+					# useradd -g mysql -r mysql
+					# tar xf mariadb-VERSION-linux-x86_64.tar.gz -C /usr/local
+					# cd /usr/local
+					# ln -sv mariadb-VERSION-linux-x86_64 mysql
+					# cd mysql
+					# chown -R root:mysql ./*
+
+					# mkdir /mydata/data -pv
+					# chown mysql:mysql /mydata/data
+
+					# scripts/mysql_install_db --user=mysql --datadir=/mydata/data
+
+					# cp support-files/my-large.cnf  /etc/my.cnf
+
+					修改配置：
+					[mysqld]
+					...
+					datadir = /mydata/data
+					thread_concurrency = #  ：CPU核心数*2=#
+					skip_name_resolve = ON
+					innodb_file_per_table = ON
+
+					# cp  support-files/mysql.server  /etc/rc.d/init.d/mysqld
+					# chmod +x /etc/rc.d/init.d/mysqld
+
+					# chkconfig --add mysqld
+					# service mysqld start
+
+			安装httpd-2.4
+				# yum groupinstall "Development Tools" "Server Platform Development"
+				# yum install pcre-devel openssl-devel libevent-devel  apr-devel apr-util-devel
+
+				# ./configure --prefix=/usr/local/apache2 --sysconfdir=/etc/httpd --enable-so --enable-ssl --enable-cgi --enable-rewrite --enable-modules=most --enable-mpms-shared=all --with-mpm=prefork --with-pcre --with-zlib --with-apr=/usr --with-apr-util=/usr
+				# make -j #
+				# make install
+				# apachectl start
+
+			安装php5：
+				# yum install gd-devel freetype-devel libmcrypt-devel libxml2-devel
+
+				./configure --prefix=/usr/local/php --with-mysql  --with-openssl --with-mysqli=/usr/bin/mysql_config --enable-mbstring --enable-xml --enable-sockets --with-freetype-dir --with-gd --with-libxml-dir=/usr --with-zlib --with-jpeg-dir --with-png-dir --with-mcrypt --with-apxs2=/usr/local/apache2/bin/apxs --with-config-file-path=/etc/php.ini --with-config-file-scan-dir=/etc/php.d/
+				# make -j #
+				# make install
+
+				# cp php.ini-production /etc/php.ini
+				# mkdir /etc/php.d/
+
+				注意：如果httpd使用线程模型MPM，需要额外的--enable-maintainer-zts选项
+
+				注意：如果要以fpm方式运行php，需要编译时移除--with-apxs选项，额外添加--enable-fpm选项
+
+				注意：如果是独立安装的mysql-server, 假设安装在/usr/local/mysql目录下，则需要使用类似如下的.configure命令：
+				./configure --prefix=/usr/local/php --with-mysql=/usr/local/mysql  --with-openssl --with-mysqli=/usr/local/mysql/bin/mysql_config --enable-mbstring --enable-xml --enable-sockets --with-freetype-dir --with-gd --with-libxml-dir=/usr --with-zlib --with-jpeg-dir --with-png-dir --with-mcrypt --with-apxs2=/usr/local/apache2/bin/apxs --with-config-file-path=/etc/php.ini --with-config-file-scan-dir=/etc/php.d/
+
+			整合php至httpd上：
+				httpd.conf配置文件中：
+				AddType application/x-httpd-php .php
+				DirectoryIndex index.php index.html
+
+	MariaDB(MySQL)：
+
+		数据模型：层次模型、网状模型、关系模型
+
+			程序和数据模型之间耦合度不能太高，否则修改程序，必须修改数据模型
+
+			关系模型：
+				二维关系：表
+					行：row, entry
+					列：column, attribution
+				索引：数据结构，辅助完成数据查找的
+					索引一般都是顺序结构的，原始数据一般都是堆数据结构的
+
+			SQL接口：
+				Structure Query Language
+					DDL：Data Defination Language, CREATE, ALTER, DROP
+						数据定义语言
+					DML：Data Manipulating Language, INSERT, DELETE, UPDATE, SELECT
+						数据操纵语言
+					DCL：Data Control Language, GRANT, REVOKE
+						数据控制语言
+
+
+				ANSI：SQL标准，SQL-86, SQL-89, SQL-92, SQL-99, SQL-03,...
+
+				SQL代码：
+					存储过程：调用完了就完了，没有返回的
+					存储函数：有输入有输出，并且还要返回结果
+						过程和函数：被称为存储历程
+					触发器：我们关注的内容有修改时，会触发其他的一些东西
+						员工表和配偶表：删除员工时，也要一并删除此员工对应的配偶
+					事件调度器
+
+			存储引擎：
+
+		DBMS：DataBase Management System
+			RDBMS：Relational DBMS
+
+			MySQL/MariaDB：单进程，多线程
+				Mysql单进程只能使用2.7G的空间
+				Mysql5.1只能支持单核的CPU
+
+			Mysql的查询语句，只能在一个CPU核心上运行
+
+		事务：Transaction，组织一个或多个操作为一个整体，这多个操作要么都完成，要么都不执行；
+			A：12000
+			B：3000
+
+			一个存储系统是否支持事务，就看其是否满足ACID测试：
+				A：原子性；
+				C：一致性；
+				I：隔离性；
+				D：持久性；
+
+		关系型数据库的设计范式：
+			1NF
+			2NF
+			3NF
+			BCF
+			4NF
+			5NF
+
+		数据约束：向数据表插入的数据要遵守的限制规则；
+			主键：primary key， 一个或多个字段的组合，填入主键字段中的数据，必须不同于已经存在的其它相同字段上的数据，而且不能为空；一个表只能有一个主键；
+			惟一键：unique key，一个或多个字段的组合，填入主键字段中的数据，必须不同于已经存在的其它相同字段上的数据；一个表可以存在多个惟一键；
+			外键：foreign key，一个表中的某字段中能插入的数据取值范围，取决于引用的另一张表的主键字段上的已存在数据集合；
+			检查条件约束：check，
+
+		索引：数据结构，将表中的某一个或某些字段抽取出来，单独组成成为一个独特数据结构；常见的索引类型：
+			树型：BTree；
+			hash：k/v；
+
+		关系运算：
+			选择：挑选行；
+			投影：挑选列；
+			连接：将表建立关联关系；
+
+		MySQL：
+			C/S：
+				S：mysqld, mysqld_safe, mysqld_multi
+				C：mysql, mysqladmin, mysqldump, ...
+				非客户端工具：工作于服务端主机，用于实现一些管理操作；
+
+			数据类型：
+				字符型：
+					定长字符型：
+						CHAR(#)：不区分字符大小写  0-255
+						BINARY(#)：区分字符大小写
+					变长字符型：
+						VARCHAR(#)：不区分字符大小写  0-65523
+							超过了65536个字符，则采用对象的方式存储
+						VARBINARY(#)：区分字符大小写
+					内建数据类型：
+						ENUM 枚举 ： 给你元素，你只能选择其中一个
+						SET 集合 ：给你元素，可以自由组合
+
+				数值型：
+					精确数值：
+						整型：
+							TINYINT：<1个字节>
+							SMALLINT：<2个字节>
+							MEDIUMINT：<3个字节>
+							INT：<4个字节>
+							BIGINT：<8个字节>
+					近似数值：
+						浮点型：
+							FLOAT
+							DOUBLE
+
+				日期时间：
+					DATE：日期型
+					TIME：时间型
+					DATETIME：日期时间型
+					YEAR(2)：
+					YEAR(4)：
+					TIMESTAMP：
+
+	练习：编译安装amp，提供两个基于主机名的虚拟主机
+		(1) https, 部署pma；
+		(2) 部署wordpress；
+	练习2：脚本实现amp编译安装；
+
+
+

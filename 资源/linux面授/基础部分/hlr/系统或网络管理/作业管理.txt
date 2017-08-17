@@ -1,0 +1,327 @@
+作业管理
+
+	Linux的作业控制：
+		前台作业：通过终端启动，且启动后一直占据终端；
+		后台作业：可通过终端启动，但启动后即转入后台运行（释放终端）
+
+	如何让作业运行于后台？
+		(1)运行中的作业： Ctrl+z
+		(2)尚未启动的作业：# COMMAND &
+		  后台作业虽然被送往后台运行，但其依然与终端相关；退出终端，将关闭后台作业。如果希望送往后台后，剥离与终端的关系
+			命令：
+				# nohup COMMAND &
+				# screen;COMMAND
+
+	查看所有作业：
+		# jobs
+
+	作业控制：
+		# fg [[%]JOB_NUM] ：把指定的后台作业调回前台
+		# bg [[%]JOB_NUM] ：让送往后台的作业在后台继续运行
+		# kill [%JOB_NUM] ：终止指定的作业
+
+
+	并行运行：
+		同时运行多个进程，提高效率
+		(1)vi all.sh  	写一个脚本
+			f1.sh&
+			f2.sh&
+			f3.sh&
+		(2)(f1.sh&);(f2.sh&);(f3.sh&)
+		(3){ f1.sh& f2.sh& f3.sh& }
+
+
+	进程优先级：
+		PRI优先级于系统优先级相反(ps命令中的参数)
+			系统： 0    ----   139
+			PRT：  139  ----   0
+		进程优先级调整：
+			静态优先级：100-139
+			进程默认启动时的nice 值为0 ，优先级为120
+			只有根用户才能降低nice值（提高优先性），其他用户只能提高自己所发起进程的nice
+
+	nice 命令：
+		nice [OPTION] [COMMAND [ARG]...]
+
+		~]# nice -n -5 ping 127.0.0.1
+		~]# nice --5 ping 127.0.0.1
+			调整即将运行的程序的优先级
+
+	renice 命令：
+		renice [-n] priority pid...
+
+		~]# renice -20 6754
+		~]# renice -n -10 6754
+			renice调整运行中的优先级
+
+	查看：
+		ps axo pid,comm,n
+
+Linux任务计划、周期性任务执行
+	未来的某时间点执行一次任务：at、batch
+	周期性运行某任务:crontab
+		执行结果： 会通过邮件发送给用户
+			查看邮件服务是否打开：(25号端口)
+				# netstat -tnlp
+				# ss -tnlp
+
+
+
+	本地电子邮件服务：
+		smtp：simple mail transmission procotol
+		pop3：Post office Procotol
+		imap4：Internet Mail Access Procotol
+
+		mail：命令
+			mailx - send and receive Internet mail
+				MUA：Mail User Agent. 用户收发邮件的工具程序
+				mail/mailx [-s 'SUBJECT'] username [@hostname]
+					邮件正文：
+						(1)输入重定向
+						(2)通过管道
+						(3)交互式输入
+
+
+	at命令：
+		at [option] TIME
+			常用选项：
+				-l：列出指定队列中等待运行的作业；相当于atq
+				-d：删除指定的作业；相当于atrm
+				-c：查看具体作业任务
+				-f /path/from/somefile：从指定的文件中读取任务
+				-m：当任务 被完成之后，将给用户发送邮件，即使没有标准输出
+				-q QUEUE：指明队列
+				-V：显示版本信息
+
+			注意：作业执行命令的结果中的标准输出和错误以邮件通知给相关用户
+				
+			TIME：定义出什么时候进行at这项任务的时间
+				HH:MM [YYYY-mm-dd]
+				noon, midnight, teatime(4pm)
+				tomorrow
+				now+#	{minutes,hours,days, OR weeks}
+
+			at时间格式
+				HH:MM ==> 02:00
+					在今日的HH:MM进行，若该时刻已过，则明天此时执行任务
+				HH:MM YYYY-MM-DD ==> 04:00 2016-09-20
+					规定在某年某月的某一天的特殊时刻进行该项任务
+				HH:MM[am|pm] [Month] [Date]
+					04pm March 17
+					17:20 tomorrow
+				HH:MM[am|pm] + number [minutes|hours|days|weeks]
+					在某个时间点再加几个时间后才进行该项任务
+						now + 5 minutes
+						04pm + 3 days
+
+
+
+		执行方式：
+			1）交互式
+			2）输入重定向
+			3）at –f 文件
+
+		依赖与atd服务, 需要启动才能实现at任务
+			服务： service atd status
+
+		at队列存放在/var/spool/at目录中,可以通过修个文件来改变队列中的命令
+
+		通过/etc/at.{allow,deny}控制用户是否能执行at任务
+
+			先寻找/etc/at.allow文件，文件中的使用者才能使用at，没有在这个文件中的使用者则不能使用at(即使没有写在at.deny当中)
+			如果/etc/at.allow找不存在，就寻找/etc/at.deny这个文件，若写在这个at.deny用的使用者则不能使用at，而没有在这个at.deny文件中的使用者则可使用at命令
+			如果两个文件都不存在有，只有root用可以使用at这个命令
+
+			# cat /etc/at.deny   //文件格式
+			gao			//禁止使用at命令的USERNAME
+			hlr
+
+
+	batch命令：
+		batch会让系统自行选择空闲时间去执行此处指定的任务
+		常用选项同at命令
+
+
+周期性任务计划：cron
+	相关的程序包：
+		cronie：主程序包，提供crond守护进程及相关辅助工具
+		cronie-anacron：cronie的补充程序；用于监控cronie任务执行状况；如cronie中的任务在过去该运行的时间点未能正常运行，则anacron会随后启动一次此任务
+		crontabs ：包含CentOS提供系统维护任务
+
+  确保crond守护处于运行状态：
+		CentOS 7:
+			systemctl status crond
+		CentOS 6:
+			service crond status
+
+  计划周期性执行的任务提交给crond，到指定时间会自动运行
+		cron任务分为两类：
+			系统cron任务：主要用于实现系统自身的维护
+				手动编辑/etc/crontab文件
+			用户cron任务：
+				命令：crontab命令
+
+	日志：/var/log/cron
+
+
+
+  系统cron的配置文件:/etc/crontab
+	  注释行以#开头
+	  详情参见man 5 crontab
+
+		SHELL=/bin/bash
+		PATH=/sbin:/bin:/usr/sbin:/usr/bin
+		MAILTO=root
+		HOME=/
+
+		# For details see man 4 crontabs
+
+		# Example of job definition:
+		# .---------------- minute (0 - 59)
+		# |  .------------- hour (0 - 23)
+		# |  |  .---------- day of month (1 - 31)
+		# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+		# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+		# |  |  |  |  |
+		# *  *  *  *  * user-name command to be executed
+
+		注意：
+			(1)每行定义一个周期任务，共7个字段
+				* * * * * ：定义周期性时间
+				user-name ：定义运行任务的身份
+				command to be executed ：任务
+			(2)此处的环境变量不同于用户登录后获得的环境变量，因此建议命令使用绝对路径或者定义PATH环境变量
+			(3)执行结果以邮件发送给MAILTO指定的用户
+
+  用户cron的配置文件:/var/spool/cron/USERNAME
+
+		# Example of job definition:
+		# .---------------- minute (0 - 59)
+		# |  .------------- hour (0 - 23)
+		# |  |  .---------- day of month (1 - 31)
+		# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+		# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+		# |  |  |  |  |
+		# *  *  *  *  * command to be executed
+
+		注意：
+			(1)每行定义一个周期任务，共6个字段
+			(2)此处的环境变量不同于用户登录后获得的环境变量，因此建议命令使用绝对路径或者定义PATH环境变量
+			(3)邮件发送给用户
+
+	时间表示法：(5个 * * * * * 的表示法)
+		(1)特定值；
+			给定时间点有效取值范围内的值
+			注意：day of month(3) 和 day of week(5) 同时使用表示或的关系
+		(2) *
+			给定时间点上有效取值范围内的所有值，表示“每...”
+		(3)离散取值：,
+			在时间点上使用逗号分隔多个值
+				#,#,#
+		(4)连续取值：-
+			#-#
+		(5)在指定时间范围上，定义步长：
+			*/#: # 即为步长
+
+		例如：每3小时echo 命令；
+			0 */3 * * * centos /bin/echo "howdy!"
+		例如：晚上9点10分运行echo命令；
+			10 21 * * * centos /bin/echo "Howdy!"
+		例如：
+			(1) 3 * * * * ：每小时的第3分钟执行
+			(2) 3 4 * * 5 ：每周五的04:03执行
+			(3) 5 6 7 * * ：每月7号的06:05执行
+			(4) 7 8 1 2 * ：每年的2月1号08:07执行
+			(5) 8 8 * * 3,7 ：每周三和周日08:08执行
+			(6) 0 8,20 * * 1,5 ：每周1周五08:00和20:00执行
+			(7) 0 9-18 * * 1-6 ：每周1-6的09:00-18:00每小时执行一次
+			(8) */5 * * * * ：每5分钟执行一次
+			(9) */7 * * * * ：每7分组执行一次，但最后一次4分组执行
+
+	特殊时间格式
+	 @reboot Run once after reboot.
+	 @yearly 0 0 1 1 *
+	 @annually 0 0 1 1 *
+	 @monthly 0 0 1 * *
+	 @weekly 0 0 * * 0
+	 @daily 0 0 * * *
+	 @hourly 0 * * * *
+
+
+
+	系统的计划任务配置文件:
+		/etc/crontab
+		/etc/cron.d/ 配置文件
+		/etc/cron.hourly/  每小时脚本
+		/etc/cron.daily/ 每天脚本
+		/etc/cron.weekly/  每周脚本
+		/etc/cron.monthly/ 每月脚本
+
+
+	anacron系统
+		运行计算机关机时cron不运行的任务，CentOS6.0 以后版本取消anacron服务，由crond服务管理
+		  假设计算机没有一直开机
+		  对笔记本电脑、台式机、工作站及其它不一直开机的系统很重要
+		  对偶尔要关机的服务器很有用
+		  配置文件：/etc/anacrontab，负责执行/etc/cron.daily /etc/cron.weekly /etc/cron.monthly 中系统任务。/etc/cron.hourly/ 由/cron.d/0hourly 执行
+				字段1 ：如果在这些日子里没有运行这些任务……
+				字段2 ：在重新引导后等待这么多分钟后运行它
+				字段3 ：任务识别器，在日志文件中标识
+				字段4 ：要执行的任务
+
+
+	管理临时文件：
+		rhel6.0 使用/etc/cron.daily/tmpwatch 定时清除临时文件
+		rhel7.0 使用systemd-tmpfiles-setup 服务实现
+
+	crontab命令定义了每个用户都有专用的cron任务文件：
+		/var/spool/cron/USERNAME
+	crontab命令：
+		crontab [-u user] [-l | -r | -e] [-i]
+			-e：编辑任务；
+			-l：列出所有任务；
+			-r：移除所有任务；
+			-i：同 -r 一起使用，以交互式模式移除指定任务
+			-u user：仅root可运行，指定用户管理cron任务
+
+	控制用户执行计划任务 ：
+		/etc/cron.{allow,deny}
+			先寻找/etc/cron.allow文件，文件中的使用者才能使用crontab，没有在这个文件中的使用者则不能使用crontab(即使没有写在cron.deny当中)
+			如果/etc/cron.allow找不存在，就寻找/etc/cron.deny这个文件，若写在这个cron.deny用的使用者则不能使用crontab，而没有在这个cron.deny文件中的使用者则可使用crontab命令
+			如果两个文件都不存在有，只有root用可以使用crontab这个命令
+
+	注意：运行结果的标准输出和错误以邮件通知给相关用户
+	(1) COMMAND > /dev/null
+	(2) COMMAND &> /dev/null
+	对于cron任务来讲，%有特殊用途；如果在命令中要使用%，则需要转义；不过，如果把%放置于单引号中，也可以不用转义
+
+  思考：
+ (1)  如何在秒级别运行任务？
+		* * * * * for min in 0 1 2; do echo "hi"; sleep 20;	done
+ (2)  如何实现每7分钟运行一次任务?
+		* * * * * for min in 0 1 2; do echo "hi"; sleep 7m;	done
+
+	sleep命令：
+		sleep NUMBER[SUFFIX]...
+			SUFFIX:
+				s：秒,  默认
+				m：分
+				h：小时
+				d：天
+
+at 和crontab
+一次性作业使用 at
+重复性作业使用crontab
+Create  	at time 		crontab -e
+List  		at -l  			crontab -l
+Details  	at -c jobnum 	N/A
+Remove  	at -d jobnum 	crontab -r
+Edit  		N/A  			crontab -e
+没有被重定向的输出会被邮寄给用户
+根用户能够修改其它用户的作业
+
+一、作业
+1、每周2, 4, 7备份/var/log/messages文件至/logs目录中，文件名形如“messages-yyyymmdd”
+0 0 * * ２,４,７　cp /var/log/messages /logs/messages-`date +\%Y\%m\%d`
+2、每两小时取出当前系统/proc/meminfo文件中以S或M开头的信息追加至/tmp/meminfo.txt文件中
+0 */2 * * * grep "^[SM]" /proc/meminfo >> /tmp/meminfo.txt

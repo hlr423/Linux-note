@@ -1,0 +1,191 @@
+博客作业：corosync, pacemaker，nfs高可用mariadb
+实验环境：
+4台CentOS 7 的主机，并关闭的iptalbes和selinux功能
+主机1：10.1.43.101 	node1 	corosync+pacemaker+amp
+主机2：10.1.43.102 	node2 	corosync+pacemaker+amp
+主机3：10.1.43.103 	node3 	corosync+pacemaker+amp
+主机4：10.1.43.104 	node4 	nfs服务器
+
+第一步：
+在主机1上修改/etc/hosts配置文件，生成ssh公钥，把私钥发送给node2，node3，node4主机
+[root@node1 ~]# cat /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.1.43.101	node1
+10.1.43.102	node2
+10.1.43.103	node3
+10.1.43.104	node4
+[root@node1 ~]# ssh-keygen
+[root@node1 ~]# ssh-copy-id nodeX    #X=2-4
+[root@node1 ~]# scp /etc/hosts nodeX:/etc/hosts    #X=2-4
+
+第二步：
+在node1-3主机上安装软件包，并把httpd和mariadb-server服务设置为开机启动
+[root@node1 ~]# yum -y install httpd php php-mysql mariadb-server corosync pacemaker
+[root@node1 ~]# systemctl enable httpd
+[root@node1 ~]# systemctl enable mariadb
+
+第三步：
+配置node4主机的nfs服务器
+[root@node4 ~]# cat /etc/exports
+/www 	10.1.43.0/24(rw)
+/mysql	10.1.43.0/24(rw,no_root_squash)
+[root@node4 ~]# setfacl -m u:apache:rwx /www    #注意此处的apache帐号的uid和gid应该同node1-3主机上的apache帐号
+[root@node4 ~]# chown mysql:mysql /mysql    #注意此处的mysql帐号的uid和gid应该同node1-3主机上的mysql帐号
+[root@node4 ~]# setfacl -m u:mysql:rwx /mysql    #注意此处的mysql帐号的uid和gid应该同node1-3主机上的mysql帐号
+[root@node4 ~]# ll -d /www /mysql
+drwxr-xr-x+ 6 mysql mysql 4096 Nov 24 19:05 /mysql
+drwxrwxr-x+ 6 root  root   102 Nov 24 16:30 /www
+[root@node4 ~]# cat /www/index.html
+<h1>nfs Node</h1>
+[root@node4 ~]# systemctl start rpcbind
+[root@node4 ~]# systemctl start nfs
+
+第四步：
+配置/etc/corosync/corosync.conf配置文件，并生成authkey认证文件,并启动corosync和pacemeker服务
+[root@node1 ~]# corosync-keygen    #生成authkey认证文件
+[root@node1 ~]# cat /etc/corosync/corosync.conf
+totem {
+	version: 2
+
+	crypto_cipher: aes256
+	crypto_hash: sha1
+
+	interface {
+		ringnumber: 0
+		bindnetaddr: 10.1.0.0
+		mcastaddr: 239.255.43.43
+		mcastport: 5405
+		ttl: 1
+	}
+}
+
+logging {
+	fileline: off
+	to_stderr: no
+	to_logfile: yes
+	logfile: /var/log/cluster/corosync.log
+	to_syslog: yes
+	timestamp: on
+	logger_subsys {
+		subsys: QUORUM
+		debug: off
+	}
+}
+
+quorum {
+	provider: corosync_votequorum
+}
+
+nodelist {
+	node {
+		ring0_addr: node1
+		nodeid: 1
+	}
+	node {
+		ring0_addr: node2
+		nodeid: 2
+	}
+	node {
+		ring0_addr: node3
+		nodeid: 3
+	}
+}
+[root@node1 ~]# scp -p /etc/corosync/corocsync.conf nodeX:/etc/corosync    #X=2-3
+[root@node1 ~]# scp -p /etc/corosync/authkey nodeX:/etc/corosync    #X=2-3
+[root@node1 ~]# systemctl start corosync.service pacemaker.service
+
+注意：此处可以使用crm_mon、corosync-cfgtool、corosync-cmapctl  | grep members等命令来查看corosync服务的运行状态
+
+第五步：
+在node1-3主机上配置crmsh软件，通过交互式的方式来配置corosync的高可用功能
+注意：以下安装的软件包，来自教学的ftp服务器，没有的请自行百度下载安装
+	crmsh-2.1.4-1.1.x86_64.rpm
+	pssh-2.3.1-4.2.x86_64.rpm
+	python-pssh-2.3.1-4.2.x86_64.rpm
+
+[root@node1 ~]# yum -y install ./crmsh-2.1.4-1.1.x86_64.rpm ./pssh-2.3.1-4.2.x86_64.rpm ./python-pssh-2.3.1-4.2.x86_64.rpm
+crmsh的配置：
+[root@node1 ~]# crm
+crm(live)# configure
+crm(live)configure# property stonith-enabled=false
+crm(live)configure# primitive webip ocf:IPaddr params ip="10.1.43.100" nic="eno16777736" cidr_netmask="16" broadcast="10.1.255.255"
+crm(live)configure# primitive webserver systemd:httpd op monitor interval=60s timeout=40s
+crm(live)configure# primitive mariadb systemd:mariadb op monitor interval=60s timeout=40s
+crm(live)configure# primitive webstore ocf:heartbeat:Filesystem params device="10.1.43.104:/www" directory="/var/www/html" fstype="nfs" op start timeout=60s op stop timeout=60s op monitor interval=60s timeout=40s
+crm(live)configure# primitive webmysql ocf:heartbeat:Filesystem params device="10.1.43.104:/mysql" directory="/var/lib/mysql" fstype="nfs" op start timeout=60s op stop timeout=60s op monitor interval=60s timeout=40s
+crm(live)configure# group webservice webstore webmysql mariadb webserver webip
+crm(live)configure# verity
+crm(live)configure# commit
+
+
+crmsh的最终配置如下：
+crm(live)configure# show
+node 1: node1 \
+        attributes standby=on
+node 2: node2 \
+        attributes standby=off
+node 3: node3 \
+        attributes standby=off
+primitive mariadb systemd:mariadb \
+        op monitor interval=60s timeout=40s
+primitive webip IPaddr \
+        params ip=10.1.43.100 nic=eno16777736 cidr_netmask=16 broadcast=10.1.255.255
+primitive webmysql Filesystem \
+        params device="10.1.43.104:/mysql" directory="/var/lib/mysql" fstype=nfs \
+        op start timeout=60s interval=0 \
+        op stop timeout=60s interval=0 \
+        op monitor interval=60s timeout=40s
+primitive webserver systemd:httpd \
+        op monitor interval=60s timeout=40s
+primitive webstore Filesystem \
+        params device="10.1.43.104:/www" directory="/var/www/html" fstype=nfs \
+        op start timeout=60s interval=0 \
+        op stop timeout=60s interval=0 \
+        op monitor interval=60s timeout=40s
+group webservice webstore webmysql mariadb webserver webip
+property cib-bootstrap-options: \
+        have-watchdog=false \
+        dc-version=1.1.13-10.el7-44eb2dd \
+        cluster-infrastructure=corosync \
+        stonith-enabled=false \
+        last-lrm-refresh=1479987027
+
+第六步
+安装好discuz软件，测试corosync的高可用
+[root@node2 ~]# crm status
+Every 1.0s: crm status                                                                              Thu Nov 24 21:33:34 2016
+
+Last updated: Thu Nov 24 21:33:35 2016          Last change: Thu Nov 24 21:31:36 2016 by root via cibadmin on node1
+Stack: corosync
+Current DC: node1 (version 1.1.13-10.el7-44eb2dd) - partition with quorum
+3 nodes and 5 resources configured
+
+Online: [ node1 node2 node3 ]
+
+ Resource Group: webservice
+     webstore   (ocf::heartbeat:Filesystem):    Started node1
+     webmysql   (ocf::heartbeat:Filesystem):    Started node1
+     mariadb    (systemd:mariadb):	Started node1
+     webserver  (systemd:httpd):        Started node1
+     webip	(ocf::heartbeat:IPaddr):        Started node1
+
+[root@node1 ~]# crm node standby    #把node1节点手动设置为不可用
+
+[root@node1 ~]# crm status    #过段时候后，所有资源都转移到了node2节点，此实验成功
+Every 1.0s: crm status                                                                              Thu Nov 24 21:35:18 2016
+
+Last updated: Thu Nov 24 21:35:21 2016          Last change: Thu Nov 24 21:34:50 2016 by root via crm_attribute on node1
+Stack: corosync
+Current DC: node1 (version 1.1.13-10.el7-44eb2dd) - partition with quorum
+3 nodes and 5 resources configured
+
+Node node1: standby
+Online: [ node2 node3 ]
+
+ Resource Group: webservice
+     webstore   (ocf::heartbeat:Filesystem):    Started node2
+     webmysql   (ocf::heartbeat:Filesystem):    Started node2
+     mariadb    (systemd:mariadb):	Started node2
+     webserver  (systemd:httpd):        Started node2
+     webip	(ocf::heartbeat:IPaddr):        Started node2

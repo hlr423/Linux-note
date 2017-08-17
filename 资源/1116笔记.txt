@@ -1,0 +1,570 @@
+回顾：
+	连接查询：内连接、外连接；
+	存储引擎：InnoDB, MyISAM
+		InnoDB：
+			表空间文件：
+				(1) 所有表空间使用同一个文件；
+				(2) 每表使用单独的表空间；
+			事务日志：
+				事务日志组：2+ files
+				事务日志组镜像：1
+		MyISAM：
+			表级锁
+			tbl.frm, tbl.MYD, tbl.MYI
+			全文索引、空间索引
+	锁：
+		LOCK TABLES
+		FLUSH TABLES WITH READ LOCK
+		UNLOCK TABLES
+
+MySQL（2）
+
+	事务：
+		事务：一组原子性的SQL查询、或者是一个或多个SQL语句组成的独立工作单元；
+
+			事务日志：
+				innodb_log_files_in_group
+				innodb_log_group_home_dir
+				innodb_log_file_size
+				innodb_mirrored_log_groups
+
+		ACID测试：
+			A：AUTOMICITY，原子性；整个事务中的所有操作要么全部成功执行，要么全部失败后回滚；
+			C：CONSISTENCY，一致性；数据库总是应该从一个一致性状态转为另一个一致性状态；
+			I：ISOLATION，隔离性；一个事务所做出的操作在提交之前，是否能为其它事务可见；出于保证并发操作之目的，隔离有多种级别；
+			D：DURABILITY，持久性；事务一旦提交，其所做出的修改会永久保存；
+
+		自动提交：单语句事务
+			mysql> SELECT @@autocommit;
+			+------------------------+
+			| @@autocommit |
+			+------------------------+
+			|            1               |
+			+------------------------+
+
+			mysql> SET @@session.autocommit=0；
+
+		手动控制事务：
+			启动：START TRANSACTION
+			提交：COMMIT
+			回滚：ROLLBACK
+
+			事务支持savepoints：
+				SAVEPOINT identifier
+				ROLLBACK [WORK] TO [SAVEPOINT] identifier
+				RELEASE SAVEPOINT identifier
+
+		事务隔离级别：
+			READ-UNCOMMITTED：读未提交 --> 脏读；
+			READ-COMMITTED：读提交--> 不可重复读；
+			REPEATABLE-READ：可重复读 --> 幻读；
+			SERIALIZABLE：串行化；
+
+			mysql> SELECT @@session.tx_isolation;
+			+----------------------------------+
+			| @@session.tx_isolation |
+			+----------------------------------+
+			| REPEATABLE-READ         |
+			+----------------------------------+
+
+		查看InnoDB存储引擎的状态信息：
+			SHOW ENGINE innodb STATUS;
+
+	MySQL用户和权限管理
+		用户账号：user@host
+			user：账户名称；
+			host：此账户可通过哪些客户端主机请求创建连接线程；
+				%：任意长度牟任意字符；
+				_：任意单个字符；
+
+	MySQL权限类别：
+		库级别：
+		表级别：
+		字段级别：
+		管理类：
+		程序类：
+
+		管理类：
+			CREATE USER
+			RELOAD
+			LOCK TABLES
+			REPLICATION CLIENT， REPLICATION SLAVE
+			SHUTDOWN
+			FILE
+			SHOW DATABASES
+			PROCESS
+			SUPER
+
+		程序类：
+			FUNCTION，PROCEDURE，TRIGGER
+
+			操作：CREATE，ALTER，DROP，EXECUTE
+
+		库和表级别：
+			CREATE，ALTER，DROP
+			INDEX
+			CREATE VIEW
+			SHOW VIEW
+			GRANT
+			OPTION：能够把自己获得的权限生成一个副本转赠给其它用户；
+
+		数据操作：
+			表：
+				INSERT/DELETE/UPDATE/SELECT
+
+			字段：
+				SELECT(col1,col2,...)
+				UPDATE(col1,col2,...)
+				INSERT(col1,col2,...)
+
+		所有权限：ALL， ALL PRIVILEGES
+
+		元数据数据库（数据字典）：mysql
+			授权：
+				db, host, user
+				tables_priv, column_priv, procs_priv, proxies_priv
+
+
+	MySQL用户管理：
+		'user'@'host';
+			host:
+				IP
+				主机名
+				NETWORK
+					%, _
+
+		skip_name_resolve={ON|OFF}
+
+		创建用户：
+			CREATE USER  'user'@'host' [IDENTIFIED BY [PASSWORD] 'password'] [,'user'@'host' [IDENTIFIED BY [PASSWORD] 'password']...]
+
+		重命名：RENAME USER
+			RENAME USER old_user TO new_user[, old_user TO new_user] ...
+
+		删除用户：
+			DROP USER 'user'@'host' [, 'user'@'host'] ...
+
+		修改用户密码：
+			(1) SET PASSWORD [FOR 'user'@'host'] = PASSWORD('cleartext password');
+			(2) UPDATE mysql.user SET Password=PASSWORD('cleartext password')  WHERE User='USERNAME' AND Host='HOST';
+			(3) mysqladmin -uUSERNAME -hHOST -p  password 'NEW_PASS'
+
+			生效：FLUSH PRIVILEGES
+
+		忘记管理员密码的解决办法：
+			(1) 启动mysqld进程时，使用--skip-grant-tables和--skip-networking选项；
+				CentOS 7：mariadb.service
+				CentOS 6：/etc/init.d/mysqld
+			(2) 通过UPDATE命令修改管理员密码；
+			(3) 以正常方式启动mysqld进程；
+
+		授权：GRANT
+			GRANT  priv_type [(column_list)] [, priv_type [(column_list)]] ...
+				ON [object_type] priv_level
+				TO user_specification [, user_specification] ...
+				[REQUIRE {NONE | ssl_option [[AND] ssl_option] ...}]
+				[WITH with_option ...]
+
+				object_type:
+					TABLE
+					| FUNCTION
+					| PROCEDURE
+
+				priv_level:
+					*
+					| *.*
+					| db_name.*
+					| db_name.tbl_name
+					| tbl_name
+					| db_name.routine_name
+
+
+				ssl_option:
+					SSL
+					| X509
+					| CIPHER 'cipher'
+					| ISSUER 'issuer'
+					| SUBJECT 'subject'
+
+				with_option:
+					GRANT OPTION
+					| MAX_QUERIES_PER_HOUR count
+					| MAX_UPDATES_PER_HOUR count
+					| MAX_CONNECTIONS_PER_HOUR count
+					| MAX_USER_CONNECTIONS count
+
+		查看授权：SHOW GRANTS
+			SHOW GRANTS [FOR 'user'@'host']
+
+		取消授权：REVOKE
+			REVOKE  priv_type [(column_list)][, priv_type [(column_list)]] ...
+				ON [object_type] priv_level
+				FROM  'user'@'host' [,  'user'@'host'] ...
+
+			REVOKE ALL PRIVILEGES, GRANT OPTION
+				FROM user [, user] ...
+
+	练习：授权一个仅能够通过ssl连接的用户账号，而后完成连接测试；
+
+	查询缓存：
+
+		缓存：k/v
+			key：查询语句的hash值
+			value：查询语句的执行结果
+
+		如何判断缓存是否命中：
+			通过查询语句的哈希值判断：哈希值考虑的因素包括
+				查询本身、要查询数据库、客户端使用的协议版本、...
+
+		哪些查询可能不会被缓存？
+			查询语句中包含UDF
+			存储函数
+			用户自定义变量
+			临时表
+			mysql系统表或者是包含列级别权限的查询
+			有着不确定结果值的函数(now())；
+
+		查询缓存相关的服务器变量：
+			query_cache_limit：能够缓存的最大查询结果；（单语句结果集大小上限）
+				有着较大结果集的语句，显式使用SQL_NO_CACHE，以避免先缓存再移出；
+			query_cache_min_res_unit：内存块的最小分配单位；缓存过小的查询结果集会浪费内存空间；
+				较小的值会减少空间浪费，但会导致更频繁地内存分配及回收操作；
+				较大值的会带来空间浪费；
+			query_cache_size：查询缓存空间的总共可用的大小；单位是字节，必须是1024的整数倍；
+			query_cache_strip_comments
+			query_cache_type：缓存功能启用与否；
+				ON：启用；
+				OFF：禁用；
+				DEMAND：按需缓存，仅缓存SELECT语句中带SQL_CACHE的查询结果；
+			query_cache_wlock_invalidate：如果某表被其它连接锁定，是否仍然可以从查询缓存中返回查询结果；默认为OFF，表示可以；ON则表示不可以；
+
+		状态变量：
+			mysql> SHOW GLOBAL STATUS LIKE 'Qcache%';
+			+-------------------------+----------+
+			| Variable_name           | Value    |
+			+-------------z------------+----------+
+			| Qcache_free_blocks      | 1        |
+			| Qcache_free_memory      | 16759688 |
+			| Qcache_hits             | 0        |
+			| Qcache_inserts          | 0        |
+			| Qcache_lowmem_prunes    | 0        |
+			| Qcache_not_cached       | 0        |
+			| Qcache_queries_in_cache | 0        |
+			| Qcache_total_blocks     | 1        |
+			+-------------------------+----------+
+
+			命中率：
+				Qcache_hits/Com_select
+
+
+回顾：事务、权限和用户
+	事务：ACID测试、事务隔离级别
+	用户：user@host
+	权限：
+		管理类、程序类、数据类；
+		GRANT，REVOKE
+
+
+MySQL(4)
+
+	MySQL的索引：
+
+		索引：提取索引的创建在的表上字段中的数据，构建出一个独特的数据结构；
+
+		索引的作用：加速查询操作；
+			表中数据子集：把表中某个或某些字段的数据提取出来另存为一个特定数据结构组织的数据；
+				某个字段或某些字段：WHERE子句中用到的字段；
+
+		索引类型：B+ TREE，HASH
+			B+ TREE：顺序存储，每一个叶子结点到根结点的距离相同；左前缀索引，适合于范围类型的数据查询；
+
+				适用于B+ TREE索引的查询类型：全键值、键值范围或键前缀；
+					全值匹配：精确匹配某个值；
+						WHERE CLOUMN = 'value';
+					匹配最左前缀：只精确起头的部分；
+						WEHRE COLUMN LIKE 'PREFIX%';
+					匹配范围值：
+					精确匹配某一列，范围匹配另一列；
+					只用访问索引的查询：覆盖索引；
+						index(Name)
+						SELECT Name FROM students WHERE Name LIKE 'L%';
+
+				不适用B+ TREE索引：
+					如查条件不是从最左侧列开始，索引无效；
+						index(age,name), WHERE name='Jerry';, WHERE age>30;
+					不能跳过索引中的某列；
+						index(name,age,gender)
+							WHERE second_name='black' and age > 30;
+					如果查询中的某个列是为范围查询，那么其右侧的列都无法再使用索引优化查询；
+
+			Hash索引：基于哈希表实现，特别适用于值的精确匹配查询；
+
+				适用场景：
+					只支持等值比较查询，例如=, IN(), <=>
+
+				不用场景：
+					所有非精确值查询；MySQL仅对memory存储引擎支持显式的hash索引；
+
+		索引优点：
+			降低需要扫描的数据量，减少了IO次数；
+			可以帮助避免排序操作，避免使用临时表；
+			帮助将随机IO转为顺序IO；
+
+		高性能索引策略：
+			(1) 在WHERE中独立使用列，尽量避免其参与运算；
+				WHERE age > 30 ;
+			(2) 左前缀索引：索引构建于字段的最左侧的多少个字符，要通过索引选择性来评估
+				索引选择性：不重复的索引值和数据表的记录总数的比值；
+			(3) 多列索引：
+				AND连接的多个查询条件更适合使用多列索引，而非多个单键索引；
+			(4) 选择合适的索引列次序：选择性最高的放左侧；
+
+	EXPLAIN来分析索引有效性：
+
+		EXPLAIN [explain_type] SELECT select_options
+
+			explain_type:
+				EXTENDED
+				| PARTITIONS
+
+		输出结果：
+					id: 1
+			select_type: SIMPLE
+				table: students
+				type: const
+			possible_keys: PRIMARY
+				key: PRIMARY
+			key_len: 4
+				ref: const
+				rows: 1
+				Extra:
+
+				id：当前查询语句中，第个SELECT语句的编号；
+
+					复杂的查询的类型主要三种：
+						简单子查询
+						用于FROM中的子查询
+						联合查询
+
+					注意：联合查询的分析结果会出现一个额外的匿名临时表；
+
+				select_type：查询类型：
+					简单查询：SIMPLE
+					复杂查询：
+						简单子查询：SUBQUERY
+						用于FROM中的子查询：DERIVED
+						联合查询中的第一个查询：PRIMARY
+						联合查询中的第一个查询之后的其它查询：UNION
+						联合查询生成的临时表：UNION RESULT
+
+				table：查询针对的表；
+
+				type：关联类型，或称为访问类型，即MySQL如何去查询表中的行
+					ALL：全表扫描；
+					index：根据索引的顺序进行的全表扫描；但同时如果Extra列出现了"Using index”表示使用了覆盖索引；
+					range：有范围限制地根据索引实现范围扫描；扫描位置始于索引中的某一项，结束于另一项；
+					ref：根据索引返回的表中匹配到某单个值的所有行（匹配给定值的行不止一个）；
+					eq_ref：根据索引返回的表中匹配到某单个值的单一行，仅返回一个行，但需要与某个额外的参考值比较，而不是常数；
+					const，system：与某个常数比较，且只返回一行；
+
+				possiable_keys：查询中可能会用到的索引；
+
+				key：查询中使用的索引；
+
+				key_len：查询中用到的索引长度；
+
+				ref：在利用key字段所显示的索引完成查询操作时所引用的列或常量值；
+
+				rows：MySQL估计出的为找到所有的目标项而需要读取的行数；
+
+				Extra：额外信息
+					Using index：使用了覆盖索引进行的查询；
+					Using where：拿到数据后还要再次进行过滤；
+					Using temporary：使用了临时表以完成查询；
+					Using filesort：对结果使用了一个外部索引排序；
+
+	日志：
+		查询日志：general_log
+		慢查询日志：log_slow_queries
+		错误日志：log_error， log_warnings
+		二进制日志：binlog
+		中继日志：relay_log
+		事务日志：innodb_log
+
+		1、查询日志
+			记录查询语句，日志存储位置：
+				文件：file
+				表：table (mysql.general_log)
+
+			general_log={ON|OFF}
+			general_log_file=HOSTNAME.log
+			log_output={FILE|TABLE|NONE}
+
+		2、慢查询日志
+			慢查询：运行时间超出指定时长的查询；
+				long_query_time
+			存储位置：
+				文件：FILE
+				表：TABLE，mysql.slog_log
+
+			log_slow_queries={ON|OFF}
+			slow_query_log={ON|OFF}
+			slow_query_log_file=
+			log_output={FILE|TABLE|NONE}
+			log_slow_filter=admin,filesort,filesort_on_disk,full_join,full_scan,query_cache,query_cache_miss,tmp_table,tmp_table_on_disk
+			log_slow_rate_limit
+			log_slow_verbosity
+
+		3、错误日志
+			记录信息：
+				(1) mysqld启动和关闭过程 输出的信息；
+				(2) mysqld运行中产生的错误信息；
+				(3) event scheduler运行时产生的信息；
+				(4) 主从复制架构中，从服务器复制线程启动时产生的日志；
+
+			log_error=
+			log_warnings={ON|OFF}
+
+		4、二进制日志
+			用于记录引起数据改变或存在引起数据改变的潜在可能性的语句（STATEMENT）或改变后的结果（ROW），也可能是二者混合；
+			功用：“重放”
+
+			binlog_format={STATEMENT|ROW|MIXED}
+				STATEMENT：语句；
+				ROW：行；
+				MIXED：混编；
+
+			查看二进制日志文件列表：
+				 SHOW MASTER|BINARY LOGS;
+
+			查看当前正在使用的二进制日志文件：
+				SHOW MASTER STATUS；
+
+			查看二进制 日志文件中的事件：
+				SHOW BINLOG EVENTS	 [IN 'log_name'] [FROM pos] [LIMIT [offset,] row_count]
+
+			服务器变量：
+				log_bin=/PATH/TO/BIN_LOG_FILE
+				sql_log_bin={ON|OFF}
+				max_binlog_size=1073741824
+				sync_binlog={1|0}
+
+			mysqlbinlog：
+					YYYY-MM-DD hh:mm:ss
+
+				 --start-datetime=
+				 --stop-datetime=
+
+				 -j, --start-position=#
+				  --stop-position=#
+
+				  --user, --host, --password
+
+			二进制日志事件格式：
+				# at 553
+				#160831  9:56:08 server id 1  end_log_pos 624   Query   thread_id=2     exec_time=0     error_code=0
+				SET TIMESTAMP=1472608568/*!*/;
+				BEGIN
+				/*!*/;
+
+				事件发生的日期时间：#160831  9:56:08
+				事件发生的服务器id：server id 1
+				事件的结束位置：end_log_pos 624
+				事件的类型：Query
+				事件发生时所在服务器执行此事件的线程的ID： thread_id=2
+				语句的时间戳与将其写入二进制日志文件中的时间差：exec_time=0
+				错误代码：error_code=0
+				事件内容：SET TIMESTAMP=1472608568/*!*/;
+
+		中继日志：
+			从服务器上记录下来从主服务器的二进制日志文件同步过来的事件；
+
+
+		事务日志：
+			事务型存储引擎innodb用于保证事务特性的日志文件：
+
+				redo log
+				undo log
+
+
+	备份和恢复（数据）：
+
+		备份：存储的数据副本；
+			原始数据：持续改变；
+		恢复：把副本应用到线上系统；
+			仅能恢复至备份操作时刻的数据状态；
+
+		时间点恢复：
+			binary logs;
+
+		为什么备份？
+			灾难恢复：硬件故障（冗余）、软件故障（bug）、自然灾害、黑客攻击、误操作、...
+			测试；
+
+		备份时应该注意事项：
+			能容忍最多丢失多少数据；
+			恢复数据需要在多长时间内完成；
+			需要恢复哪些数据；
+
+			 做恢复演练：
+				测试备份的可用性；
+				增强恢复操作效率；
+				...
+
+		备份类型：
+			备份的数据的集范围：
+				完全备份和部分备份
+					完全备份：整个数据集；
+					部分备份：数据集的一部分，比如部分表；
+
+			完全备份、增量备份、差异备份：
+				完全备份
+				增量备份：仅备份自上一次完全备份或 增量备份以来变量的那部数据；
+				差异备份：仅备份自上一次完全备份以来变量的那部数据；
+
+			物理备份、逻辑备份：
+				物理备份：复制数据文件进行备份；
+				逻辑备份：从数据库导出数据另存在一个或多个文件中；
+
+			根据数据服务是否在线：
+				热备：读写操作均可进行的状态下所做的备份；
+				温备：可读但不可写状态下进行的备份；
+				冷备：读写操作均不可进行的状态下所做的备份；
+
+		备份需要考虑因素：
+			锁定资源多长时间？
+			备份过程的时长？
+			备份时的服务器负载？
+			恢复过程的时长？
+
+		备份策略：
+			完全+差异
+			完全+增量
+
+			备份手段：物理、逻辑
+
+		备份什么？
+			数据
+			二进制日志、InnoDB的事务日志；
+			代码（存储过程、存储函数、触发器、事件调度器）
+			服务器的配置文件
+
+		备份工具：
+			mysqldump：mysql服务自带的备份工具；逻辑备份工具；
+				完全、部分备份；
+				InnoDB：热备；
+				MyISAM：温备；
+			cp/tar
+				lvm2：快照（请求一个全局锁），之后立即释放锁，达到几乎热备的效果；物理备份；
+				注意：不能仅备份数据文件；要同时备份事务日志；
+					前提：要求数据文件和事务日志位于同一个逻辑卷；
+			xtrabackup：
+				由Percona提供，开源工具，支持对InnoDB做热备，物理备份工具；
+					完全备份、部分备份；
+					完全备份、增量备份；
+					完全备份、差异备份；
+			mysqlhotcopy
+			select：
+				备份：SELECT cluase INTO OUTFILE 'FILENAME';
+				恢复：CREATE TABLE
+				导入：LOAD DATA

@@ -1,0 +1,430 @@
+iptables/netfilter(3)
+
+	iptables/netfilter网络防火墙：
+		添加规则于FORWARD链，注意几个问题：
+			(1) 请求和响应报文均会经由FORWARD链，要注意规则的方向性；
+				第一条：iptables -I FORWARD  -m state --state ESTABLISHED,RELATED -j ACCEPT
+			(2) 如果可以启用conntrack机制，注意网关主机所能够追踪的连接数的最大数量要符合需要
+
+				/proc/sys/net/nf_conntrack_max
+
+			iptables -I FORWARD -s 192.168.22.0/24 -p tcp --dport 80 -j ACCEPT
+
+			iptables -I FORWARD 2 -d 192.168.22.0/24 -p tcp -sport 80 -j ACCEPT
+
+			iptables -I FORWARD -m state --state ESTABLISHED,RELATES -j ACCEPT
+
+			iptables -I FORWARD 3 -s 192.168.22.0/24 -p udp -m multiport --dport 137,138 -m state --state NEW -j ACCEPT
+
+			modprobe nf_conntrack_ftp
+
+		NAT：
+			源地址转换：SNAT，POSTROUTING
+				静态转换：
+				动态转换：
+			目标地址转换：DNAT，PREROUTING
+
+		PAT：Port Address Translation
+
+
+	target:<以下都是target>
+		SNAT：
+			This  target  is only valid in the nat table, in the POSTROUTING and INPUT chains, and user-defined chains which are only called from those chains.
+
+			--to-source [ipaddr[-ipaddr]]
+
+			iptables -t nat -A POSTROUTING -s 192.168.22.0/24 -j SNAT --to-source 10.1.43.1
+
+		MASQUERADE：
+			This target is only valid in the nat table, in the POSTROUTING chain.  It  should  only  be  used  with  dynamically assigned  IP (dialup) connections: if you have a static IP address, you should use the SNAT target.
+
+			动态地址转换
+
+		DNAT:
+			This target is only valid in the nat table, in the PREROUTING and OUTPUT chains, and user-defined chains  which  are only  called from those chains.
+
+			--to-destination [ipaddr[-ipaddr]][:port[-port]]
+
+			iptables -t nat -A PREROUTING -d 10.1.43.1 -p tcp --dport 80 -j DNAT --to-destination 192.168.22.2
+
+			iptables -t nat -A PREROUTING -d 10.1.43.1 -p tcp --dport 22 -j DNAT --to-destination 192.168.22.2
+
+			iptables -t nat -A PREROUTING -d 10.1.43.1 -p tcp --dport 22022 -j DNAT --to-destination 192.168.22.2:22
+
+		REDIRECT:
+			This  target  is only valid in the nat table, in the PREROUTING and OUTPUT chains, and user-defined chains which are only called from those chains.
+
+			--to-ports port[-port]
+
+			iptables -t nat -A PREROUTING -d 192.168.22.2 -p tcp --dport 80 -j REDIRECT --to-ports 8080
+
+		RETURN：返回
+
+		注意：NAT可以和filter功能结合使用，来实现对地址的转换，以及对特定用户的某些行为进行拒绝
+
+
+	自定义链：
+		iptables -N CHIAR-NAME
+		iptables -A CHIAR-NAME ..... <语法同INPUT表>
+
+		iptables -I FORWARD -d 192.1.68.22.0/24 -p tcp --dport 80 -j CHIAR-NAME
+
+
+	练习：INPUT和OUTPUT默认策略为DROP；
+
+		1、限制本地主机的web服务器在周一不允许访问；新请求的速率不能超过100个每秒；web服务器包含了admin字符串的页面不允许访问；web服务器仅允许响应报文离开本机；
+		2、在工作时间，即周一到周五的8:30-18:00，开放本机的ftp服务给172.16.0.0网络中的主机访问；数据下载请求的次数每分钟不得超过5个；
+		3、开放本机的ssh服务给172.16.x.1-172.18.x.100中的主机，x为你的学号，新请求建立的速率一分钟不得超过2个；仅允许响应报文通过其服务端口离开本机；
+		4、拒绝TCP标志位全部为1及全部为0的报文访问本机；
+		5、允许本机ping别的主机；但不开放别的主机ping本机；
+
+
+	练习：判断下述规则的意义：
+		# iptables -N clean_in
+		# iptables -A clean_in -d 255.255.255.255 -p icmp -j DROP
+		# iptables -A clean_in -d 172.16.255.255 -p icmp -j DROP
+
+		# iptables -A clean_in -p tcp ! --syn -m state --state NEW -j DROP
+		# iptables -A clean_in -p tcp --tcp-flags ALL ALL -j DROP
+		# iptables -A clean_in -p tcp --tcp-flags ALL NONE -j DROP
+		# iptables -A clean_in -d 172.16.100.7 -j RETURN
+
+
+		# iptables -A INPUT -d 172.16.100.7 -j clean_in
+
+		# iptables -A INPUT  -i lo -j ACCEPT
+		# iptables -A OUTPUT -o lo -j ACCEPT
+
+
+		# iptables -A INPUT  -i eth0 -m multiport -p tcp --dports 53,113,135,137,139,445 -j DROP
+		# iptables -A INPUT  -i eth0 -m multiport -p udp --dports 53,113,135,137,139,445 -j DROP
+		# iptables -A INPUT  -i eth0 -p udp --dport 1026 -j DROP
+		# iptables -A INPUT  -i eth0 -m multiport -p tcp --dports 1433,4899 -j DROP
+
+		# iptables -A INPUT  -p icmp -m limit --limit 10/second -j ACCEPT
+
+
+
+	补充：利用iptables的recent模块来抵御DOS攻击: 22，建立一个列表，保存有所有访问过指定的服务的客户端IP
+
+
+		ssh: 远程连接，
+
+		iptables -I INPUT -p tcp --dport 22 -m connlimit --connlimit-above 3 -j DROP
+
+
+		iptables -I INPUT -p tcp --dport 22 -m state --state NEW -m recent --set --name SSH
+		iptables -I INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 300 --hitcount 3 --name SSH -j LOG --log-prefix "SSH Attach: "
+		iptables -I INPUT  -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 300 --hitcount 3 --name SSH -j DROP
+
+		1.利用connlimit模块将单IP的并发设置为3；会误杀使用NAT上网的用户，可以根据实际情况增大该值；
+
+		2.利用recent和state模块限制单IP在300s内只能与本机建立2个新连接。被限制五分钟后即可恢复访问。
+
+		下面对最后两句做一个说明：
+
+		1.第二句是记录访问tcp 22端口的新连接，记录名称为SSH
+		--set 记录数据包的来源IP，如果IP已经存在将更新已经存在的条目
+
+		2.第三句是指SSH记录中的IP，300s内发起超过3次连接则拒绝此IP的连接。
+		--update 是指每次建立连接都更新列表；
+		--seconds必须与--rcheck或者--update同时使用
+		--hitcount必须与--rcheck或者--update同时使用
+
+		3.iptables的记录：/proc/net/xt_recent/SSH
+
+
+		也可以使用下面的这句记录日志：
+		iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --name SSH --second 300 --hitcount 3 -j LOG --log-prefix "SSH Attack"
+
+
+
+
+Nginx：
+
+	engine X = Nginx
+
+		http协议：web服务器（类似于httpd）、http reverse proxy（类似于httpd）、imap/pop3 reverse proxy
+
+		NGINX is a free, open-source, high-performance HTTP server and reverse proxy, as well as an IMAP/POP3 proxy server. C10K（10K Connections）. Tengine, OpenResty.
+
+	http协议:
+		URL：shceme://username:password@host:port/path;params?query#frag
+
+		http事务：
+			request：
+				<method> <URL> <VERSION>
+				HEADERS
+
+				<body>
+
+			reponse：
+				<VERSION> <STATUS> <REASON-PHRASE>
+				HEADERS
+
+				<body>
+
+			Method：GET/HEAD/POST, PUT/DELETE, TRACES, OPTIONS
+
+			Status Code：
+				1xx：
+				2xx：成功类响应码，200
+				3xx：重定向类的响应码，301, 302, 304
+				4xx：客户端错误，403，404
+				5xx：服务器端错误，502
+
+			认证：
+				基于ip认证
+				基于用户认证
+
+			httpd MPM：
+				prefork：进程模型，两级结构，主进程master负责生成子进程，每个子进程负责响应一个请求；
+				worker：线程模型，三级结构，主进程master负责生成子进程，每个子进程负责生成多个线程，每个线程响应一个请求；
+				event：主进程master负责生成子进程，每个子进程响应多个请求；
+
+	I/O模型：
+		阻塞型、非阻塞型、复用型、信号驱动型、异步
+
+		同步/异步：
+			关注消息通知机制；
+
+			消息通知：
+				同步：等待对方返回消息；
+				异步：被调用者通过状态、通知或回调机制通知调用者被调用者的运行状态；
+
+		阻塞/非阻塞：
+			关注调用者在等待结果返回之前所处的状态；
+
+				阻塞：blocking，调用结果返回之前，调用者被挂起；
+				非阻塞：nonblocking，调用结果返回之前，调用者不会被挂起；
+
+		一次IO请求，都会由两阶段组成：
+			第一步：等待数据，即数据从磁盘到内核内存；
+			第二步：复制数据，即数据内核内存到进程内存；
+
+		复用型IO调用：
+			select()：1024
+			poll()：
+
+			event-driven：
+				epoll（Linux）：libevent
+				Kqueue（BSD）：
+				Solaris：/dev/poll
+
+	NGINX is a free, open-source, high-performance HTTP server and reverse proxy, as well as an IMAP/POP3 proxy server. NGINX is known for its high performance, stability, rich feature set, simple configuration, and low resource consumption.
+
+	NGINX is one of a handful of servers written to address the C10K problem. Unlike traditional servers, NGINX doesn’t rely on threads to handle requests. Instead it uses a much more scalable event-driven (asynchronous) architecture. This architecture uses small, but more importantly, predictable amounts of memory under load. Even if you don’t expect to handle thousands of simultaneous requests, you can still benefit from NGINX’s high-performance and small memory footprint. NGINX scales in all directions: from the smallest VPS all the way up to large clusters of servers.
+
+	NGINX powers several high-visibility sites, such as Netflix, Hulu, Pinterest, CloudFlare, Airbnb, WordPress.com, GitHub, SoundCloud, Zynga, Eventbrite, Zappos, Media Temple, Heroku, RightScale, Engine Yard, MaxCDN and many others.
+
+	Nginx的程序架构：
+		master/worker
+			一个master进程：
+				负载加载配置文件、管理worker进程、平滑升级
+			一个或多个worker进程
+				处理并响应用户请求
+			缓存相关的进程：
+				cache loader：载入缓存对象
+				cache manager：管理缓存对象
+
+		特性：异步、事件驱动和非阻塞
+			并发请求处理：通过kevent/epoll/select
+			文件IO：高级IO sendfile，异步，mmap
+
+		nginx高度模块化：高度模块化，但其模块早期不支持DSO机制；近期版本支持动态装载和卸载；
+			模块分类：
+				核心模块：core module
+				标准模块：
+					Standard HTTP modules
+					Optional HTTP modules
+					Mail modules
+					Stream modules
+				3rd party modules
+
+		nginx的功用：
+			静态的web资源服务器；
+			结合FastCGI/uwSGI/SCGI等协议反代动态资源请求；
+			http/https协议的反向代理；
+			imap4/pop3协议的反抽代理；
+			tcp/udp协议的反代；
+
+	nginx的安装配置：
+		官方的预制包：
+			http://nginx.org/packages/centos/7/x86_64/RPMS/
+
+		编译安装：
+			~]# yum install pcre-devel openssl-devel zlib-devel
+			~]# useradd -r nginx
+			~]#  ./configure --prefix=/usr/local/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --user=nginx --group=nginx --with-http_ssl_module --with-http_v2_module --with-http_dav_module --with-http_stub_status_module --with-threads --with-file-aio
+			# make && make install
+
+		配置：
+			配置文件的组成部分：
+				主配置文件：nginx.conf
+					include conf.d/*.conf
+				fastcgi， uwsgi，scgi等协议相关的配置文件
+				mime.types：支持的mime类型
+
+			主配置文件的配置指令：
+				directive value [value2 ...];
+
+				注意：
+					(1) 指令必须以分号结尾；
+					(2) 支持使用配置变量；
+						内建变量：由Nginx模块引入，可直接引用；
+						自定义变量：由用户使用set命令定义；
+							set variable_name value;
+							引用变量：$variable_name
+
+			主配置文件结构：
+				main block：主配置段，也即全局配置段；
+					event {
+						...
+					}：事件驱动相关的配置；
+				http {
+					...
+				}：http/https 协议相关的配置段；
+				mail {
+					...
+				}
+				stream {
+					...
+				}:和tcp/udp协议的反代有关；
+
+			http协议相关的配置结构
+				http {
+					...
+					...：各server的公共配置
+					server {
+						...
+					}：每个server用于定义一个虚拟主机；
+					server {
+						...
+						server_name
+						root
+						alias
+						location [OPERATOR] URL {
+							...
+							if CONDITION {
+								...
+							}
+						}
+					}
+				}
+
+			main配置段常见的配置指令：
+				分类：
+					正常运行必备的配置
+					优化性能相关的配置
+					用于调试及定位问题相关的配置
+					事件驱动相关的配置
+
+				http://nginx.org/en/docs/
+
+				正常 运行必备的配置：
+					1、user
+						Syntax:	user user [group];
+						Default:	user nobody nobody;
+						Context:	main
+
+						Defines user and group credentials used by worker processes. If group is omitted, a group whose name equals that of user is used.
+
+					2、pid /PATH/TO/PID_FILE;
+						指定存储nginx主进程进程号码的文件路径；
+
+					3、include file | mask;
+						指明包含进来的其它配置文件片断；
+						可以写在http段...
+
+					4、load_module file;
+						指明要装载的动态模块；
+
+				性能优化相关的配置：
+					1、worker_processes number | auto;
+						worker进程的数量；通常应该为当前主机的cpu的物理核心数；
+
+					2、worker_cpu_affinity cpumask ...;
+						worker_cpu_affinity auto [cpumask];
+
+						CPU MASK：
+							00000001：0号CPU
+							00000010：1号CPU
+							... ...
+					3、worker_priority number;
+						指定worker进程的nice值，设定worker进程优先级；[-20,20]
+
+					4、worker_rlimit_nofile number;
+						worker进程所能够打开的文件数量上限；
+
+				调试、定位问题：
+					1、daemon on|off;
+						是否以守护进程方式运行Nignx；
+
+					2、master_process on|off;
+						是否以master/worker模型运行nginx；默认为on；
+
+					3、error_log file [level];
+
+				事件驱动相关的配置:
+					events {
+						...
+					}
+
+					1、worker_connections number;
+						每个worker进程所能够打开的最大并发连接数数量；
+
+						worker_processes * worker_connections
+
+					2、use method;
+						指明并发连接请求的处理方法；
+
+						默认使用epoll
+
+					3、accept_mutex on | off;
+						处理新的连接请求的方法；on意味着由各worker轮流处理新请求，Off意味着每个新请求的到达都会通知所有的worker进程；
+						默认为off；
+
+			http协议的相关配置：
+				http {
+					... ...
+					server {
+						...
+						server_name
+						root
+						location [OPERATOR] /uri/ {
+							...
+						}
+					}
+					server {
+						...
+					}
+				}
+
+				1、server { ... }
+					配置一个虚拟主机；
+
+					server {
+						listen address[:PORT]|PORT;
+						server_name SERVER_NAME;
+						root /PATH/TO/DOCUMENT_ROOT;
+					}
+
+				2、listen PORT|address[:port]|unix:/PATH/TO/SOCKET_FILE
+					listen address[:port] [default_server] [ssl] [http2 | spdy]  [backlog=number] [rcvbuf=size] [sndbuf=size]
+
+				3、server_name name ...;
+					指明虚拟主机的主机名称；后可跟多个由空白字符分隔的字符串；
+						支持*通配任意长度的任意字符；server_name *.magedu.com
+						支持~起始的字符做正则表达式模式匹配；server_name ~^www\d+\.magedu\.com$
+
+					匹配机制：
+						(1) 首先是字符串精确匹配;
+						(2) 左侧*通配符；
+						(3) 右侧*通配符；
+						(4) 正则表达式；
+
+	练习：定义四个虚拟主机，混合使用三种类型的虚拟主机；
+		   仅开放给来自于本地网络中的主机访问；
+
+
+

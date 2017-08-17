@@ -1,0 +1,390 @@
+Linux进程及作业管理
+
+	内核的功用：进程管理、文件系统、网络功能、内存管理、驱动程序、安全功能
+
+	用户模式（空间），内核模式（空间）
+
+	Process(进程)：运行中的程序的一个副本
+		存在生命周期
+
+	task struct：内核的结构体
+
+	Linux内内核存储进程信息的固定格式：task struct
+		多个任务的task strcut组件的链表：task list
+
+	进程的创建：
+		init
+			父子关系
+			进程：都是其父进程创建
+				fork(),clone()
+
+		进程的优先级：
+			0-139：
+				1-99：实时优先级
+					数字越大优先级越高
+				100-139：静态优先级
+					数字越小优先级越高
+
+				Nice值：
+					-20-19
+
+			Big 0 (算法的复杂度)
+				O(1) ，O(logn) ，O(n) ，O(n^2) ，O(2^n)
+
+		进程内存：
+			内存中有线性地址和物理地址，有虚拟内存机制
+
+			Page Frame：页框，用来存储页面数据
+				存储Page
+
+				MMU：Memory Management Unit
+
+		IPC：Inter Process Communication
+			同一主机上通信：
+				signal
+				shm：shared memory
+				semerphor
+
+			不同主机上：
+				rpc：remote procecure call
+				socket：套接字
+
+	Linux内核：抢占式多任务
+
+		进程类型：
+			守护进程：在系统引导过程中启动的进程，跟终端无关的进程
+				daemon：守护进程
+			前台进程：跟终端有关，通过终端启动的进程
+				注意：也可把在前台启动的进程送往后台（比如http等服务类进程）
+
+		进程状态：
+			运行态：running
+			就绪态：ready
+			睡眠态：
+				可中断睡眠：interruptable
+				不可中断睡眠：uninterruptable
+			停止态：暂停于内存中，但不会被调度，除非手动启动之，stopped
+			僵死态：zomble
+
+		进程的分类：
+			CPU-Bound：长时间占用CPU资源的进程
+			IO-Bound：长时间占用IO资源的进程
+
+	Linux系统上的进程查看及管理工具：pstree,ps,pidof,pgrep,top,htop,glances,pmap,vmstat,kill,pkill,job,bg,fg,nohup,nice,renice,killall,...
+
+		不同CentOS系统上的1号进程：
+			CentOS5：SysV init
+			CentOS6：upstart(但是被伪装成init，以此兼容)
+			CentOS7：systemd
+
+				/sbin/init
+
+			pstree命令：
+				pstree - display a tree of processes
+				选项：
+					-p：显示进程号
+
+			ps命令：
+				/proc/：内核中的状态信息，以人能看懂的方式展示出来
+					内核参数;
+						可以设置其值从而调整内核运行特性的参数：/proc/sys/
+						状态变量：其用于输出内核中统计信息或状态信息，仅用于查看
+
+					参数：模拟成文件系统类型：
+
+				进程：
+					/proc/#
+						#:PID
+
+				ps - report a snapshot of the current processes.
+
+					ps [options]；
+						选项有三种风格：
+						1   UNIX options, which may be grouped and must be preceded by a dash.
+						2   BSD options, which may be grouped and must not be used with a dash.
+						3   GNU long options, which are preceded by two dashes.
+
+						启动进程的方式：
+							系统启动过程中自动启动：与终端无关的进程
+							用户通过终端启动：有终端相关的进程
+
+						选项：
+							a：所有与终端相关的进程
+							x：所有与终端无关的进程
+							u：以用户为中心组织进程状态信息显示
+
+							常用组合之一：aux
+								字段含义：
+								VSZ：虚拟内存集(进程占虚拟内存大小)
+								RSS：Resident Size(进程占物理内存大小)
+								STAT：（进程状态）
+									R：running
+									S：interruptable sleeping
+									D：uninterruptable sleeping
+									T：Stopped
+									Z：zomble
+
+									+：前台进程
+									l：多线程进程
+									N：低优先级进程
+									<：高优先级进程
+									s：session leader（会话领导者，杀死领导者，子子孙孙都死了）
+
+							-e：显示所有进程
+							-f；显示完整格式的进程信息
+
+							常用组合之二：-ef
+
+							-F：显示完整格式的进程信息
+								字段信息：
+								C：cpu utilization
+								PSR:运行在那颗CPU之上
+							-H：以层级结构显示进程的相关信息
+
+							常用组合之三：-eFH
+
+							常用组合之四：
+								o field1,field2,....：自定义要显示的字段列表，以逗号分割
+									常用的field：pid,ni,priority,psr,pcpu,stat,comm,tty,ppid,rtprio，euser,ruser
+										ni：nice值
+										priority：优先级
+										rtprio：real time priority，实时优先级
+								-eo ，axo
+
+			pgrep,pkill命令：
+				pgrep, pkill - look up or signal processes based on name and other attributes
+
+				pgrep [options] pattern
+					-u uid：effective user  命令生效者
+					-U uid：read user  真正发起运行命令者
+					-t TERMINAL：与指定的终端相关的进程
+					-l：显示进程名
+					-a：显示完整格式的进程名
+					-P pid：显示此进程的子进程
+
+			pidof命令：   	显示与进程相关的所有PID
+				根据进程名，取其pid
+
+			top命令：
+				top - display Linux tasks
+
+				排序：
+					P：以占据CPU百分比排序（也是默认排序方式）
+					M：以占据内存百分比排序
+					T：以累计占用CPU时间排序
+
+				首部信息：
+					uptime信息：l命令开启或关闭
+					tasks及cpu信息：t命令开启或关闭
+					内存信息：m命令开启或关闭
+					cpu信息：1(数字1)开启或关闭显示的多个CPU信息
+
+				退出命令：q
+				修改刷新时间间隔：s
+				中止指定的进程：k
+
+				选项：
+					-d # :指定刷新时间，默认为3s
+					-b：以批次方式显示
+					-n # ：以批次方式显示多少批
+
+			uptime命令：显示系统时间，当前登录用户个数，运行时长及平均负载
+				过去1分钟、5分钟、15分组的平均负载
+					等待运行的进程队列的长度
+
+	epel包：运维过程中大量使用的包
+
+	htop命令：
+		选项：
+			-d #：指定延迟时间
+			-u UserName：仅显示指定用户的进程
+			-s COLUME：以指定字段进行排序
+
+		子命令：
+			l：显示选定的进程打开的文件列表
+			s：跟踪选定的进程的系统调用
+			t：以层级关系显示各进程状态
+			a：将选定的进程绑定至某指定的CPU核心
+
+	vmstat命令：
+		vmstat - Report virtual memory statistics
+
+		vmstat [options] [delay[count]]
+			procs：
+				r：等待运行的进程的个数：CPU上等待运行的任务的队列长度
+				b：处于不可中断睡眠态的进程个数，被阻塞的任务队列的长度
+			memory：
+				swpd：交互内存使用总量
+				free：空闲的物理内存总量
+				buffer：用于buffer的内存总量
+				cache：用于cache的内存总量
+
+				swap    		//是以内存为参照物
+					si：数据进入内存离开swap中的数据速率（kb/s）
+					so：数据离开内存进入swap的速率（kb/s）
+
+				io
+					bi：从块设备读入数据到系统的速度（kb/s）
+					bo：保存数据至块设备的速率（kb/s）
+
+				system
+					in：interrupts，中断速率
+					cs：context switch，上下文切换的速率
+
+				cpu
+					us：user space
+					sy：system
+					id：idle
+					wa：wait
+					st：stolen
+
+		选项：
+			-s：显示内存统计数据
+
+		eg: vmstat 1 10    ：1秒执行一次，执行10次
+
+	pmap命令：
+		pmap - report memory map of a process
+
+		pmap [options] pid [...]
+			-x：显示详细格式的信息
+
+		另一种查看方式：cat /proc/PID/maps
+
+	glances命令：
+		glances - A cross-platform curses-based monitoring tool
+
+		内建了一些命令：
+
+		常用选项：
+			-b：以Byte为单位显示网上数据速率
+			-d：关闭磁盘I/0模块
+			-m：关闭mount模块
+			-n：关闭network模块
+			-t #：刷新时间间隔
+			-1：每个cpu的相关数据单独显示
+			-o {HTML|CSV}：输出格式
+			-f /PATH/TO/SOMEDIR：设定输出文件的位置
+
+		C/S模式下运行glance命令
+			服务模式：
+				glances -s -B IPADDR
+					IPADDR：本机的某地址，用于监听
+
+			客户端模式：
+				glances -c IPADDR
+					IPADDR：远程服务器的地址
+
+	dstat命令：
+		dstat - versatile tool for generating system resource statistics
+
+		dstat [-afv] [options..] [delay [count]]
+			默认选项是：cdngy
+			常用选项：
+				-c，--cpu：显示cpu相关信息
+					-C #，#....total
+				-d，--disk：显示磁盘相关的信息
+					-D sda,sdb....tabal
+				-g：显示page相关的速率数据
+				-m：Memory的相关统计数据
+				-n：Interface的相关统计数据
+				-y：--sys ，enable system stats (interrupts, context switches)
+				-p：显示process的相关统计数据
+				-r：显示io请求的相关的统计数据
+				-s：显示swapped的相关统计数据
+
+				--tcp
+				--udp
+				--raw
+				--socket
+				--ipc
+
+				--top-cpu：显示最占用CPU的进程
+				--top-io：显示最占用io的进程
+				--top-mem：最占用内存的进程
+				--top-lantency：延迟最大的进程
+
+	kill命令：
+		kill - terminate a process
+
+		用于想进程发送信号，以实现对进程的管理
+
+		显示当前系统可以信号：
+			kill -l [signal]
+
+			每个信号的标识方法有三种：
+				1)：信号的数字标识
+				2)：信号的完整名称
+				3)：信号的简写名称
+
+		向进程发信号：
+			kill [-s signal|-SIGNAL] pid...
+
+			常用信号：
+				1)：SIGHUP：无须关闭进程而让其重读配置文件
+				2)：SIGINT：中止正在运行的进程，相当于Ctrl+c
+				9)：SIGKILL：杀死运行中的进程（不给进程反应时间，直接杀死）
+				15)：SIGTERM：终止运行中的进程（进程能够交代一些后事，完成一些操作后，死掉）
+				18)：SIGCONT：继续运行
+				19)：SIGSTOP：后台休眠
+
+	killall命令：
+		killall - kill processes by name
+
+		killall [-SIGNAL] program
+
+网络客户端工具：
+	ping/lftp/ftp/lftpget/wget等
+
+	ping命令：
+		ping - send ICMP ECHO_REQUEST to network hosts
+		ICMP：Internet Control Message Protocol
+
+		ping [OPTION] destination
+			-c #：发送的ping包个数
+			-w #：ping命令超时时长
+			-W #：一次ping操作中，等待对方响应的超时时长
+			-s #：指明ping包报文大小
+
+	hping命令：( package: hping3 )
+		hping - send (almost) arbitrary TCP/IP packets to network hosts
+
+			--fast
+			--faster
+			--flood
+			-i uX
+
+	traceroute命令：
+		traceroute - print the route packets trace to network host
+
+		跟踪从源主机到目标追加之间经过的网关
+
+	ftp命令：
+		ftp - Internet file transfer program
+
+		ftp服务命令行客户端工具
+
+	lftp命令：
+		lftp [-p prot] [-u user[,pass]] [site]
+
+		get,mget
+		put,mput
+		rm,mrm
+		lcd,!ls  在本机上执行命令，而非在FTP服务器上
+
+	lftpget命令：
+		lftpget [-c] [-d] [-v] URL [URL...]
+			-c:断点下载，继续此前的下载
+
+			lftpget ftp://1.1.1.1/put/file
+				用于写在脚本中，非交互式的下载
+
+	wget命令：
+		Wget - The non-interactive network downloader.
+
+		wget [option]... [URL]...
+			-b：在后台执行下载操作
+			-q：静默模式，不显示下载进度
+			-O file：下载的文件的保存位置
+			-c：断点下载，续传
+			--limit-rate=amount：以指定的速率传输文件

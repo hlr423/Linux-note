@@ -1,0 +1,36 @@
+问题1：
+
+    location = / {
+        root    /var/www/html/;
+        index index.html;
+    }
+
+    location ~ /admin {
+        root    /var/www/html/;
+        index index.html;
+    }
+
+    location ~* /admin {
+        root    /var/www/html/;
+        index index.html;
+    }
+
+    location /alias {
+        alias   /var/www/html/;
+        index index.html;
+    }
+
+    location /index.html {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm index.php;
+    }
+
+    第一个location不能被匹配，第二个可以，第三个不可以访问，第4个加上=也不可以访问了
+
+
+rewrite的重定义
+rewrite ^/bbs/(.*)$ /alias/$1
+访问10.1.43.101/bbs/  网址名称不会跳转
+访问10.1.43.101/bbs   网址名称会调整成10.1.43.101/alias
+
+

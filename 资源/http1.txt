@@ -1,0 +1,479 @@
+http:
+
+	C/S:
+		C: client
+			socket,
+		S: server
+			listen, socket
+
+		通信协议：MAC, IP, PORT
+		应用协议：dns, http(html)
+
+	Socket:
+		IP:PORT <--> IP:PORT
+
+	http：
+
+		http： 超文本传输协议
+			html：hypertext mark language
+
+			C/S:
+				C: browsers, User agents
+				S：httpd, nginx
+
+
+		http/0.9：原型版本
+		http/1.0：cache, MIME
+			MIME: multipurpose internet mail extensions
+				SMTP：simple mail transmission protocol
+					MIME类型：
+						major/minor:
+							images/jpeg, images/png, images/gif
+							text/plain, text/html, ...
+		http/1.1：
+			cache, 条件式请求等；
+
+			speedy: spdy
+		http/2.0：
+
+		https协议：
+			http over ssl/tls
+
+		IANA:
+			0-1023：众所周知，永久地分配给固定的应用程序使用，特权端口（仅root有权限使用）；
+			1024-41951：注册端口，但要求略宽松，分配给某程序注册使用；
+			41952+：客户端程序使用的随机端口，动态端口，或称为私有端口；
+				/proc/sys/net/ipv4/ip_local_port_range
+
+		html文档格式：
+			<html>
+				<head>
+					<title>TITLE</title>
+				</head>
+				<body>
+					<h1>...</h1>
+					...
+				</body>
+			</html>
+
+
+	http协议：
+		http事务：request/response
+			request:
+				<method> <URL> <version>
+				HEADERS:
+
+				<body>
+
+			response：
+				<version> <status code> <reason phrase>
+				HEADERS
+
+				<body>
+
+		URL：统一资源定位符；
+			scheme://host[:port]/path/to/some_resource
+
+		HEADERS:
+			Name: Value
+
+		<method>
+			请求方法：
+				GET、HEAD、POST、PUT、DELETE、OPTIONS、TRACE、……
+
+		<status code>
+			1xx：信息类
+			2xx：成功类
+			3xx：重定向类
+			4xx：客户端错误类
+			5xx：服务端错误类
+
+		一次完整的Http请求响应过程：
+			(1) 建立或处理连接；接收或拒绝请求；
+			(2) 接收请求：
+			(3) 处理请求：解析请求；
+			(4) 访问资源：
+				资源映射：DocumentRoot /var/www/html/
+					http://www.magedu.com/index.html --> /var/www/html/index.html
+			(5) 构建响应报文
+			(6) 发送响应报文
+			(7) 记录日志
+
+		http请求处理中的连接方式：
+			短连接：非保持连接
+			长连接：保持连接
+				数量：多少个资源，100；
+				时间：多长时间；
+
+	http协议：
+		开源实现：
+			httpd (apache)
+			nginx
+			lighttpd
+
+		httpd：
+			www.netcraft.com
+
+			ASF：apache software foundation
+				License: apache
+
+			http://httpd.apache.org
+
+			apache: a patchy server, NSF,
+
+		httpd的特性：
+			高度模块化：core module + modules
+				DSO：Dynamic Shared Object
+
+			MPM：Multipath processing modules
+				prefork：多进程模型
+					每个请求用一个进程来处理；
+				worker：多线程模型
+					每个请求用一个线程来处理；
+				event：事件驱动模型
+					每个进程处理多个请求；
+
+			httpd的功能特性：
+				虚拟主机：IP，PORT，FQDN
+				反向代理：http, ajp, fcgi, wsgi, ...
+				负载均衡：bytraffic, byrequest, bybusiness
+				CGI: Common Gateway Interface
+				...
+
+			httpd的版本：
+				httpd-1.3
+				httpd-2.0
+				httpd-2.2
+				httpd-2.4
+
+		安装httpd：
+			OS vendor：base源
+			编译安装：
+
+			CentOS 6： httpd-2.2
+			CentOS 7: httpd-2.4
+
+		CentOS 7：
+			程序环境：
+				主程序：/usr/sbin/httpd
+				配置文件：/etc/httpd/conf/httpd.conf
+					/etc/httpd/conf.d/*.conf
+					/etc/httpd/conf.modules.d/*.conf
+				Unit File：
+					/usr/lib/systemd/system/httpd.service
+				模块文件目录：
+					/usr/lib64/httpd/modules/
+				站点（主服务器）根目录默认：
+					/var/www/html/
+				日志文件：
+					/var/log/httpd/
+						error_log
+						access_log
+
+			判断服务正常与否：
+				ss -tnlp | grep  ":80\>"
+				systemctl status httpd.service
+
+
+回顾：
+	http协议：应用层协议，socket方式，IPC
+		80/tcp, 443/tcp
+
+	实现：httpd, nginx, ...
+
+	httpd：模块化、DSO、虚拟主机、……
+
+	程序环境：
+		/etc/httpd/conf/httpd.conf
+			/etc/httpd/conf.d/*.conf
+			/etc/httpd/conf.modules.d/*.conf
+
+		httpd -M
+
+httpd(2)
+
+	httpd-2.4的基础配置
+		配置项：
+			DIRECTIVE VALUE
+				directive：配置指令，不区分字符大小写；例如DocumentRoot, DirectoryIndex, ...
+				value：除了文件系统路径之外，大多数不区分字符大小写
+
+		1、修改监听的地址和端口
+			Listen [IP:]PORT
+
+			可重复定义多次
+
+		2、持久连接
+			KeepAlive On|Off
+			KeepAliveTimeout  #
+			MaxKeepAliveRequests #
+
+		3、DSO
+			LoadModule  Mod_Name  modules/Module_FILE.so
+
+			注意：相对路径相对于“ServerRoot”指令的值而言；默认为/etc/httpd/；
+
+		4、日志设定
+			日志有两种类型：
+				错误日志、访问日志
+
+			错误日志：
+				ErrorLog  logs/error_log
+				LogLevel warn
+
+			访问日志：
+				LogFormat：定义日志格式；
+				CustomLog：日志文件位置以及日志格式；
+
+				格式：
+					%h：Remote hostname. Will log the IP address if HostnameLookups is set to Off, which is the default.
+					%l：Remote logname (from identd, if supplied).
+					%u：Remote user if the request was authenticated. May be bogus if return status (%s) is 401 (unauthorized).
+						http协议认证：通过认证质询实现；
+					%t：Time the request was received, in the format [18/Sep/2011:19:18:28 -0400].
+					%r：First line of request.
+					%b：Size of response in bytes, excluding HTTP headers.
+					%s：Status. For requests that have been internally redirected, this is the status of the original request. Use %>s for the final status.
+					%{VARNAME}i：记录VARNAME变量（首部）的值；%{Referer}i
+
+
+			format_strings：
+				http://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats
+
+		5、如何使用本地手册
+			安装httpd-manual程序包，重载服务；
+
+			http://HOST/manual/
+
+		6、主机相关的配置：
+			中心主机，默认主机：
+				DocumentRoot
+				ServerName
+			虚拟主机：
+
+			站点资源访问控制：
+				基于文件系统路径控制：
+					<Directory  "/PATH/TO/DIR">
+						...
+					</Directory>
+
+				基于URL路径控制：
+					<Location "">
+						...
+					</Location>
+
+			目录中的常用指令：
+				(1) Options：用于定义资源的展示方式； 后跟以空白字符分隔的“选项”列表；
+					Indexes Includes FollowSymLinks SymLinksifOwnerMatch ExecCGI MultiViews
+					None
+					All
+
+				(2) AllowOverride：httpd允许在网页文档的各目录下使用隐藏文件.htaccess来各自的访问控制；此指令定义哪此指令可以在.htaccess中定义；
+
+					Options FileInfo AuthConfig Limit
+					None
+					All
+
+				(3) Require
+					允许所有客户端访问：Require all granted
+					拒绝所有客户端访问：Require all denied
+
+					<RequireAll>
+						Require ip 10.1.0.0/16
+						Require all denied
+					</RequireAll>
+
+					控制特定的客户端访问：
+						Require ip IP|NETWORK
+						Require not ip IP|NETWORK
+
+						Require host HOSTNAME
+						Require not  host HOSTNAME
+
+							HOSTNAME：
+								FQDN：
+								domain.tld：
+
+		7、定义站点主页面
+			DirectoryIndex  filename1 filename2 ...
+
+		8、路径别名：
+
+			Alias  /URL/  "/PATH/TO/SOME_DIR/"
+
+		9、虚拟主机：
+
+			站点标识：IP，PORT，ServerName
+
+			虚拟主机的配置方式
+			<VirutalHost IP:PORT>
+				ServerName
+				DocumentRoot
+			</VirutalHost>
+
+
+			<VirtualHost 10.1.0.67:80>
+				ServerName www1.magedu.com
+				DocumentRoot "/vhosts/www1"
+				<Directory "/vhosts/www1">
+					Options None
+					AllowOverride None
+					Require all granted
+				</DIrectory>
+			</VirtualHost>
+
+			<VirtualHost 10.1.0.67:80>
+				ServerName www2.magedu.com
+				DocumentRoot "/vhosts/www2"
+				<Directory "/vhosts/www2">
+					Options None
+					AllowOverride None
+					Require all granted
+				</DIrectory>
+			</VirtualHost>
+
+			<VirtualHost 10.1.0.67:80>
+				ServerName www3.magedu.com
+				DocumentRoot "/vhosts/www3"
+				<Directory "/vhosts/www3">
+					Options None
+					AllowOverride None
+					Require all granted
+				</DIrectory>
+			</VirtualHost>
+
+			注意：httpd-2.2要求使用基于ServerName的虚拟主机时，要使用专用指令NameVirtualHost；
+
+		10、status页面
+			<Location /status>
+				SetHandler server-status
+				Require all granted
+			</Location>
+
+			ExtendedStatus {On|Off}
+
+		11、MPM
+
+			httpd-2.2：static
+			httpd-2.4：shared
+
+			prefork：两级架构
+				master process：1个，
+				child process：n个，
+			worker：每线程响应一个请求；三级架构
+				master process：1个
+				child process：n个
+					thread：m个
+			event：每进程响应多个请求；
+
+
+			prefork
+				ServerLimit
+				StartServers
+				MinspareServers
+				MaxSpareServers
+				MaxConnectionsPerchild
+				MaxRequestWorkers
+
+			woker:
+				ServerLimit
+				StartServers
+				MinSpareThreads
+				MaxSpareThreads
+				MaxRequestWorkers
+				ThreadsPerChild
+
+			event：
+				ThreadsPerChild
+				MaxRequestWorkers
+				AsyncRequestWorkerFactor
+
+
+		12、用户认证
+
+			http协议认证：由http协议的实现自身进行认证
+			表单认证：由服务器端的应用程序进行认证
+
+			http协议的认证：
+				认证质询：
+					WWW-Authenticate：响应码为401，拒绝客户端请求，并说明要求客户提供账号和密码；
+
+				认证：
+					Authorization：客户端填入账号和密码后再次发送请求报文 ，认证通过后，服务端将响应请求的资源；
+
+				认证的方式有两种：
+					basic：明文
+					digest：摘要
+
+				虚拟账号：仅用于访问某服务时使用；
+					存储于何处：
+						文本文件
+						SQL数据库
+						ldap目录服务中
+						...
+
+				安全域：Realm
+
+				basic认证的实现示例：
+
+					基于用户进行认证：
+						<VirtualHost 10.1.0.67:80>
+							ServerName www1.magedu.com
+							DocumentRoot "/vhosts/www1"
+							<Directory "/vhosts/www1">
+								Options None
+								AllowOverride None
+								Require all granted
+							</DIrectory>
+
+							<Directory "/vhosts/www1/admin">
+								Options None
+								AllowOverride None
+								AuthType basic
+								AuthName "Admin Area, Enter your name/password"
+								AuthUserFile "/etc/httpd/conf/.htpasswd"
+								Require valid-user
+							</Directory>
+
+							CustomLog "logs/www1-access.log" combined
+							ErrorLog "logs/www1-error.log"
+						</VirtualHost>
+
+					认证文件：htpasswd
+						htpasswd [OPTIONS]  /PATH/TO/HTPASSWD_FILE USERNAME [PASSWORD]
+							-c：创建文件
+							-m：使用md5
+							-s：
+
+					基于组进行认证：
+
+							<Directory "/vhosts/www1/admin">
+								Options None
+								AllowOverride None
+								AuthType basic
+								AuthName "Admin Area, Enter your name/password"
+								AuthUserFile "/etc/httpd/conf/.htpasswd"
+								AuthGroupFIle "/etc/httpd/conf/.htgroup"
+								Require group
+							</Directory>
+
+						组账号文件格式：每行一个组定义
+							group_name: user1 user2 ...
+
+
+			13、woker进程的运行者身份
+				User/Group
+
+				注意：文件系统上网页资源的访问权限要配置正确；
+
+	练习：(1)基于主机名实现三个虚拟主机
+		    (2) 每虚拟主机使用独立的访问日志和错误日志
+		    (3) 第三个虚拟主机的/admin要进行用户访问认证
+		    (4) 在第二个虚拟主机上提供/status；
+		    (5) 在第三个虚拟主机提供路径别名/bbs，访问其它文件系统路径；
+		    (6) 尝试使用混合类型的虚拟主机：
+			基于IP，PORT和ServerName
+
+	练习2：使用脚本实现以上功能；
+		每虚拟使用单独的配置文件；
+		脚本可接受参数，参数虚拟主机名称；

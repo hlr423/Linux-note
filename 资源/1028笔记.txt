@@ -1,0 +1,660 @@
+回顾：
+	Nginx：
+		gzip、ssl、fastcgi、referer、...
+
+	LB Cluster：lvs
+		硬件：F5 BIG-IP，Citrix NetScaler，A10 A10
+		软件：lvs, nginx, haproxy, pound, ats, perlbal
+
+		传输层：lvs, nginx(stream), haproxy(mode tcp)
+		应用层：nginx(upstream)，haproxy(mode http)， httpd(balancer)， ats, perlbal, pound, mysql-proxy, ...
+
+		lvs：
+			静态方法：rr, wrr, sh, dh
+			动态方法：lc, wlc, sed, nq, lblc, lblcr
+
+			lvs 中权重为0,则请求不会调度过去
+
+		session保持：
+			session sticky
+			session replication
+			session server(memcached, redis)
+
+Nginx（4）
+
+	GSLB：Global Service LB
+		SLB：Service LB
+
+	应用程序发布：
+		灰度模型：
+			(1) 如果存在用户会话；
+				从服务器上拆除会话；
+			(2) 新版本应用程序存在bug；
+				回滚；
+
+	ngx_http_proxy_module模块：
+
+		1、proxy_pass URL;
+			Context:	location, if in location, limit_except
+
+			注意：proxy_pass后面的路径不带uri时，其会将location的uri传递给后端主机；
+
+				server {
+					...
+					server_name HOSTNAME;
+					location /uri/ {
+						proxy http://hos[:port];
+					}
+					...
+				}
+
+				http://HOSTNAME/uri --> http://host/uri
+
+			proxy_pass后面的路径是一个uri时，其会将location的uri替换为proxy_pass的uri；
+
+				server {
+					...
+					server_name HOSTNAME;
+					location /uri/ {
+						proxy http://host/new_uri/;
+					}
+					...
+				}
+
+				http://HOSTNAME/uri/ --> http://host/new_uri/
+
+			如果location定义其uri时使用了正则表达式的模式，则proxy_pass之后必须不能使用uri; 用户请求时传递的uri将直接附加代理到的服务的之后；
+
+				server {
+					...
+					server_name HOSTNAME;
+					location ~|~* /uri/ {
+						proxy http://host;
+					}
+					...
+				}
+
+				http://HOSTNAME/uri/ --> http://host/uri/；
+
+		2、proxy_set_header field value;
+			设定发往后端主机的请求报文的请求首部的值；Context:	http, server, location
+
+			proxy_set_header X-Real-IP  $remote_addr;
+				$remote_addr：记录的是上一台主机的IP，而上一台主机有可能也是代理服务器
+			proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+				$proxy_add_x_forwarded_for：记录的是源IP地址
+
+			在http客户端还有修改/etc/httpd/conf/httpd.conf文件
+				LogFormat "%{X-Real-IP}i %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+
+		3、proxy_cache_path
+			定义可用于proxy功能的缓存；Context:	http
+
+			proxy_cache_path path [levels=levels] [use_temp_path=on|off] keys_zone=name:size [inactive=time] [max_size=size] [manager_files=number] [manager_sleep=time] [manager_threshold=time] [loader_files=number] [loader_sleep=time] [loader_threshold=time] [purger=on|off] [purger_files=number] [purger_sleep=time] [purger_threshold=time];
+
+		4、proxy_cache zone | off;
+			指明要调用的缓存，或关闭缓存机制；Context:	http, server, location
+
+		5、	proxy_cache_key string;
+			缓存中用于“键”的内容；
+
+			默认值：proxy_cache_key $scheme$proxy_host$request_uri;
+				建议定义成方法和url
+
+		6、proxy_cache_valid [code ...] time;
+			定义对特定响应码的响应内容的缓存时长；
+
+			定义在http{...}中；
+			proxy_cache_path /var/cache/nginx/proxy_cache levels=1:1:1 keys_zone=pxycache:20m max_size=1g;
+
+			定义在需要调用缓存功能的配置段，例如server{...}；
+			proxy_cache pxycache;
+			proxy_cache_key $request_uri;
+			proxy_cache_valid 200 302 301 1h;
+			proxy_cache_valid any 1m;
+
+		7、proxy_cache_use_stale
+
+			proxy_cache_use_stale error | timeout | invalid_header | updating | http_500 | http_502 | http_503 | http_504 | http_403 | http_404 | off ...;
+
+			Determines in which cases a stale cached response can be used when an error occurs during communication with the proxied server.
+
+			后端服务器的故障在那种情况下，就使用缓存的功能对客户的进行返回
+
+		8、proxy_cache_methods GET | HEAD | POST ...;
+			If the client request method is listed in this directive then the response will be cached. “GET” and “HEAD” methods are always added to the list, though it is recommended to specify them explicitly.
+
+			默认方法就是GET HEAD方法
+
+		9、proxy_hide_header field;
+			By default, nginx does not pass the header fields “Date”, “Server”, “X-Pad”, and “X-Accel-...” from the response of a proxied server to a client. The proxy_hide_header directive sets additional fields that will not be passed.
+
+		10、proxy_connect_timeout time;
+			Defines a timeout for establishing a connection with a proxied server. It should be noted that this timeout cannot usually exceed 75 seconds.
+
+			默认为60s；
+
+		11、buffer相关的配置；
+
+
+	ngx_http_headers_module模块
+		The ngx_http_headers_module module allows adding the “Expires” and “Cache-Control” header fields, and arbitrary fields, to a response header.
+
+		向由代理服务器响应给客户端的响应报文添加自定义首部，或修改指定首部的值；
+
+		1、add_header name value [always];
+			添加自定义首部；
+
+			add_header X-Via  $server_addr;
+				经由的代理服务器地址
+			add_header X-Accel $server_name;
+
+		2、expires [modified] time;
+			expires epoch | max | off;
+
+			用于定义Expire或Cache-Control首部的值；
+			可以把服务器定义的缓存时长修改了；
+
+
+回顾：
+	nginx：
+		http server
+		http/https reverse proxy
+		tcp/udp stream server
+
+	ngx_http_proxy_module模块
+		proxy_pass, proxy_set_header, proxy_cache_path, proxy_cache_key, ...
+
+	ngx_http_headers_module模块
+		add_header
+
+Nginx（5）
+
+	ngx_http_upstream_module模块
+		The ngx_http_upstream_module module is used to define groups of servers that can be referenced by the proxy_pass, fastcgi_pass, uwsgi_pass, scgi_pass, and memcached_pass directives.
+
+		1、upstream name { ... }
+			定义后端服务器组，会引入一个新的上下文；Context: http
+
+			upstream httpdsrvs {
+				server ...
+				server...
+				...
+			}
+
+		2、server address [parameters];
+			在upstream上下文中server成员，以及相关的参数；Context:	upstream
+
+			address的表示格式：
+				unix:/PATH/TO/SOME_SOCK_FILE
+				IP[:PORT]
+				HOSTNAME[:PORT]
+
+			parameters：
+				weight=number
+					权重，默认为1；默认算法时wrr
+				max_fails=number
+					失败尝试最大次数；超出此处指定的次数时，server将被标记为不可用；
+				fail_timeout=time
+					设置将服务器标记为不可用状态的超时时长；
+				max_conns
+					当前的服务器的最大并发连接数；
+				backup
+					将服务器标记为“备用”，即所有服务器均不可用时此服务器才启用；
+				down
+					标记为“不可用”；
+					先在nginx前端配置down，然后在下架后端服务器，上架新的web程序，然后上架，在修改配置文件立马的down
+
+		3、least_conn;
+			最少连接调度算法，当server拥有不同的权重时其为wlc;
+			要在后端服务器是长连接时，效果才好，比如mysql
+
+		4、ip_hash;
+			源地址hash调度方法；
+
+		5、hash key [consistent];
+			基于指定的key的hash表来实现对请求的调度，此处的key可以直接文本、变量或二者的组合；
+
+			作用：将请求分类，同一类请求将发往同一个upstream server；
+
+			If the consistent parameter is specified the ketama consistent hashing method will be used instead.
+
+			示例：
+				hash $request_uri consistent;
+				hash $remote_addr;
+				hash $cookie_name; 对同一浏览器的请求，调度到同一台主机
+
+		6、keepalive connections;
+			为每个worker进程保留的空闲的长连接数量；
+
+	nginx的其它的二次发行版：
+		tengine
+		OpenResty
+
+	1.9版本之后可以反代tcp/udp的协议，基于stream模块，工作与传输层
+
+	ngx_stream_core_module模块
+		模拟反代基于tcp或udp的服务连接，即工作于传输层的反代或调度器；
+
+		1、stream { ... }
+			定义stream相关的服务；Context:main
+
+			stream {
+				upstream sshsrvs {
+					server 192.168.22.2:22;
+					server 192.168.22.3:22;
+					least_conn;
+				}
+
+				server {
+					listen 10.1.0.6:22022;
+					proxy_pass sshsrvs;
+				}
+			}
+
+		2、listen
+			listen address:port [ssl] [udp] [proxy_protocol] [backlog=number] [bind] [ipv6only=on|off] [reuseport] [so_keepalive=on|off|[keepidle]:[keepintvl]:[keepcnt]];
+
+
+	博客作业：以上所有内容；
+
+	思考：
+		(1) 动态资源存储一组服务器、图片资源存在一组服务器、静态的文本类资源存储在一组服务器；如何分别调度？
+		(2) 动态资源基于fastcgi或http协议（ap）?
+			lnamp
+
+memcached：
+
+	memcached is a high-performance, distributed memory object caching system, generic in nature, but intended for use in speeding up dynamic web applications by alleviating database load.
+
+
+	缓存服务器：
+		缓存：cache，无持久存储功能；
+		bypass缓存
+		k/v cache，仅支持存储流式化数据；
+		单个数据不大于1M
+
+	LiveJournal旗下的Danga Interactive研发，
+
+		特性：
+			k/v cache：仅可存储序列化数据<流式化数据>；存储项：k/v；
+			智能性一半依赖于客户端（调用memcached的API开发程序），一半依赖于服务端；
+			分布式缓存：互不通信的分布式集群；
+				分布式系统请求路由方法：取模法，一致性哈希算法；
+			算法复杂度：O(1)
+			清理过期缓存项：
+				缓存耗尽：LRU
+				缓存项过期：惰性清理机制<把内存块标记为不可用>
+
+	安装配置：
+		由CentOS 7 base仓库直接提供：
+			监听的端口：
+				11211/tcp, 11211/udp
+
+			yum -y install memcached
+
+		主程序：/usr/bin/memcached
+		配置文件：/etc/sysconfig/memcached
+		Unit File：memcached.service
+
+		协议格式：memcached协议
+			文本格式
+			二进制格式
+
+		命令：
+			统计类：stats, stats items, stats slabs, stats sizes
+			存储类：set, add, replace, append, prepend
+				命令格式：<command name> <key> <flags> <exptime> <bytes>
+				<cas unique>
+			检索类：get, delete, incr/decr
+			清空：flush_all
+
+			示例：
+				telnet> add KEY <flags> <expiretime> <bytes> \r
+				telnet> VALUE
+
+		memcached程序的常用选项：
+			-m <num>：Use <num> MB memory max to use for object storage; the default is 64 megabytes.
+			-c <num>：Use <num> max simultaneous connections; the default is 1024.
+			-u <username>：以指定的用户身份来运行进程；
+			-l <ip_addr>：监听的IP地址，默认为本机所有地址；
+			-p <num>：监听的TCP端口， the default is port 11211.
+			-U <num>：Listen on UDP port <num>, the default is port 11211, 0 is off.
+			-M：内存耗尽时，不执行LRU清理缓存，而是拒绝存入新的缓存项，直到有多余的空间可用时为止；
+			-f <factor>：增长因子；默认是1.25；
+				定义内存空间的增长因子，每个一空间比前一个空间大多少倍
+			-t <threads>：启动的用于响应用户请求的线程数；
+
+		memcached默认没有认证机制，可借用于SASL进行认证；
+			SASL：Simple Authentication Secure Layer
+
+		API:
+			php-pecl-memcache
+			php-pecl-memcached
+			python-memcached
+			libmemcached
+			libmemcached-devel
+
+		命令行工具：
+			memcached-tool  SERVER:PORT  COMMAND
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nginx(4)
+
+	LB Cluster：
+		传输层：lvs、nginx、haproxy
+		应用层：nginx(http, https, smtp, pop, imap), haproxy(http), httpd(http/https), ats, perlbal, pound, ...
+
+	nginx load balancer：
+		tcp/udp
+
+	nginx proxy：
+		reverse proxy：
+
+	应用程序发布：
+		灰度模型：
+			(1) 如果存在用户会话；
+				从服务器上拆除会话；
+			(2) 新版本应用程序存在bug；
+				回滚；
+
+	ngx_http_proxy_module
+
+		(1) proxy_pass URL;
+			location, if in location, limit_except
+
+			注意：proxy_pass后面的路径不带uri时，其会将location的uri传递给后端主机；
+
+				location /uri/ {
+					proxy_pass http://HOST;
+				}
+
+			proxy_pass后面的路径是一个uri时，其会将location的uri替换为proxy_pass的uri；
+				location /uri/ {
+					proxy_pass http://HOST/new_uri/;
+				}
+
+			如果location定义其uri时使用正则表达式的模式，则proxy_pass之后必须不能使用uri；
+				location ~|~* PATTERN {
+					proxy_pass http://HOST;
+				}
+
+		(2) proxy_set_header field value;
+			设定发往后端主机的请求报文的请求首部的值；
+
+			示例：
+				proxy_set_header X-Real-IP $remote_addr;
+				proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for
+
+		(3) proxy_cache_path
+
+			proxy_cache_path path [levels=levels] [use_temp_path=on|off] keys_zone=name:size [inactive=time] [max_size=size] [loader_files=number] [loader_sleep=time] [loader_threshold=time] [purger=on|off] [purger_files=number] [purger_sleep=time] [purger_threshold=time];
+
+		(4) proxy_cache zone | off;
+			调用的缓存的名称，或禁用缓存；
+
+		(5) proxy_cache_key string;
+			缓存条目的键；
+
+		(6) proxy_cache_valid [code ...] time;
+			对各类响应码的缓存时长；
+
+		使用示例：
+			定义在http{}中：
+				proxy_cache_path /var/cache/nginx/proxy_cache levels=1:2:1 keys_zone=pcache:10m max_size=1g;
+
+			定义在server{}及其内部的组件中：
+				proxy_cache pcache;
+				proxy_cache_key $request_uri;
+				proxy_cache_valid 200 302 10m;
+				proxy_cache_valid 301 1h;
+				proxy_cache_valid any 1m;
+
+		(7) proxy_cache_use_stale error | timeout | invalid_header | updating | http_500 | http_502 | http_503 | http_504 | http_403 | http_404 | off ...;
+
+		(8) 	proxy_connect_timeout
+			proxy_read_timeout
+			proxy_send_timeout
+
+		(9)   proxy_buffer_size
+			proxy_buffering
+			proxy_buffers
+
+	ngx_http_headers_module
+		The ngx_http_headers_module module allows adding the “Expires” and “Cache-Control” header fields, and arbitrary fields, to a response header.
+
+		(1) 	add_header name value [always];
+			向响应报文中添加自定义首部；
+
+			可用上下文：http, server, location, if in location
+
+			add_header X-Via $server_addr;
+			add_header X-Accel $server_name;
+
+		(2) expires [modified] time;
+			expires epoch | max | off;
+
+			用于定义Expire或Cache-Control首部的值，或添加其它自定义首部；
+
+回顾：
+	nginx：
+		web server
+		http/https reverse proxy
+		tcp/udp upstream server
+
+	ngx_http_proxy_module
+		proxy_pass
+		proxy_set_header
+
+		proxy_cache_path
+
+		proxy_cache
+		proxy_cache_key
+		proxy_cache_valid
+
+		proxy_connect_timeout, proxy_read_timeout, proxy_send_timeout
+
+	ngx_http_headers_module
+		add_header
+
+Nginx(5)
+
+	ngx_http_upstream_module
+		The ngx_http_upstream_module module is used to define groups of servers that can be referenced by the proxy_pass, fastcgi_pass, uwsgi_pass, scgi_pass, and memcached_pass directives.
+
+		(1) upstream name { ... }
+			定义后端服务器组；引入一个新的上下文；只能用于http{}上下文中；
+
+		(2) server address [parameters];
+			定义服务器地址和相关的参数；
+				地址格式：
+					IP[:PORT]
+					HOSTNAME[:PORT]
+					unix:/PATH/TO/SOME_SOCK_FILE
+
+				参数：
+					weight=number
+						权重，默认为1；
+					max_fails=number
+						失败尝试的最大次数；
+					fail_timeout=time
+						设置服务器为不可用状态的超时时长；
+					backup
+						把服务器标记为“备用”状态；
+					down
+						手动标记其为不可用；
+
+		(3) least_conn;
+			最少连接调度算法；当server拥有不同的权重时为wlc；
+
+		(4) least_time header | last_byte;
+			最短平均响应时长和最少连接；
+			header：response_header;
+			last_byte: full_response;
+
+			仅Nginx Plus有效；
+
+		(5) ip_hash;
+			源地址hash算法；能够将来自同一个源IP地址的请求始终发往同一个upstream server；
+
+		(6) hash key [consistent];
+			基于指定的key的hash表实现请求调度，此处的key可以文本、变量或二者的组合；
+
+			consistent：参数，指定使用一致性hash算法；
+
+			示例：
+				hash $request_uri consistent
+				hash $remote_addr
+				hash $cookie_name
+
+		(7) keepalive connections;
+			可使用长连接的连接数量；
+
+		(8) health_check [parameters];
+			定义对后端主机的健康状态检测机制；只能用于location上下文；
+
+			可用参数：
+				interval=time：检测频率，默认为每隔5秒钟；
+				fails=number：判断服务器状态转为失败需要检测的次数；
+				passes=number：判断服务器状态转为成功需要检测的次数；
+				uri=uri：判断其健康与否时使用的uri；
+				match=name：基于指定的match来衡量检测结果的成败；
+				port=number：使用独立的端口进行检测；
+
+			仅Nginx Plus有效；
+
+		(9) match name { ... }
+			Defines the named test set used to verify responses to health check requests.
+			定义衡量某检测结果是否为成功的衡量机制；
+
+			专用指令：
+				status：期望的响应码；
+					status CODE
+					status ! CODE
+					...
+				header：基于响应报文的首部进行判断
+					header HEADER=VALUE
+					header HEADER ~ VALUE
+					...
+				body：基于响应报文的内容进行判断
+					body ~ "PATTERN"
+					body !~ "PATTERN"
+
+			仅Nginx Plus有效；
+
+	博客作业：以上所有内容；
+	课外实践：实践tengine；
+
+	ngx_stream_core_module
+
+		(1) listen address:port [ssl] [udp] [backlog=number] [bind] [ipv6only=on|off] [reuseport] [so_keepalive=on|off|[keepidle]:[keepintvl]:[keepcnt]];
+			监听的端口；
+				默认为tcp协议；
+				udp: 监听udp协议的端口；
+
+
+		示例：
+			stream {
+				upstream sshsrvs {
+					server 192.168.10.130:22;
+					server 192.168.10.131:22;
+					hash $remote_addr consistent;
+				}
+
+				server {
+					listen 172.16.100.6:22202;
+					proxy_pass sshsrvs;
+				}
+			}
+
+
+memcached：
+
+	缓存服务器：
+		缓存：cache，无持久存储功能；
+		bypass缓存
+		k/v cache
+
+	LiveJournal旗下的Danga Interactive研发；
+
+		特性：
+			k/v cache, 可序列化数据；存储项：key, value, flag, expire time; 单数据项1m;
+			功能的实现一半依赖于memcache server，一半依赖memcache client；
+			分布式缓存：互不通信的分布式集群；
+				分布式系统请求路由方法：取模法、一致哈希算法；
+			O(1)的执行效率；
+			清理过期数据：
+				缓存耗尽：LRU，最近最少使用；
+				缓存项过期：惰性清理机制；
+
+	安装配置：
+		由CentOS base仓库直接提供；
+			监听的端口：
+				11211/tcp, 11211/udp；
+
+			主程序：/usr/bin/memcached
+			环境配置文件：/etc/sysconfig/memcached
+
+		协议格式：
+			文本格式
+			二进制格式
+
+		命令：
+			统计类：stats, stats items, stats slabs, stats sizes
+			存储类：set, add, replace, append, prepend
+			获取数据类：get, delete, incr/decr
+			清空：flush_all
+
+		memcached程序的常用选项：
+			-m <num>：缓存空间大小，单位为MB，默认为64；
+			-c <num>：并发连接数，默认为1024；
+			-u USERNAME：程序的运行者；
+			-p PORT: 监听的TCP端口；
+			-U PORT: 监听的UDP端口；
+			-l <ip_addr>：监听的IP地址；
+			-M： 缓存空间耗尽时，向请求存储缓存项返回错误信息，而非使用默认的LRU算法清理缓存；
+			-f <factor> ：chunk size growth factor (default: 1.25)
+			-t <num>：线程数量，默认为4；
+
+		memcached认证机制：
+			默认没有认证机制；可借助于SASL进行认证；
+				SASL： Simple Authentication Secure Layer；
+
+		API：
+			libmemcached：libmemcached is a C/C++ client library and tools for the memcached server；
+			php：
+				extensions：
+					memcache
+					memcached

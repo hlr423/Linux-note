@@ -1,0 +1,555 @@
+回顾：
+	puppet：配置管理
+		资源，RAL：
+			group/user, package, service, file, exec, cron, notify
+
+			puppet describe -l, puppet describe -s <type>, puppet describe <type>
+
+		资源清单：manifest, .pp
+			type{'title':
+				attribute => value,
+			}
+
+			value：字符串、数值、布尔型、undef、数组、hash
+			正则表达式：/(?i-mx):PATTERN/
+
+		变量：$variable, scope
+			$::scope::variable
+
+		编程元素：
+			if/unless
+			case
+			selector
+
+		类：
+			class NAME($parameter[=value], ...) {
+				...puppet code...
+			}
+
+			include class_name
+			class{'class_name':
+				parameter => value,
+				...
+			}
+
+			class parent_name::subclass_name inherits parent_class {
+				...puppet code ...
+			}
+
+			Type['title'] {
+				attribute => value,
+				attribute +> value,
+			}
+
+		模板：
+			erb：Embedded RuBy
+
+				<%= erb code %>
+				<%# comment %>
+				<% erb code %>
+
+			file{'title':
+				...
+				content 	=> template('/PATH/TO/ERB_FILE')
+
+		模块：
+			MODULE_NAME/
+				manifests/
+					init.pp
+				files/
+					puppet:///modules/MOD_NAME/FILE_NAME
+				templates/
+					template('MOD_NAME/TEMPLATE_FILE_NAME')
+				lib/
+				tests/
+				spec/
+
+
+puppet（3）
+
+	puppet的使用模型：
+		standalone: puppet apply
+		master/agent：agent每隔30分钟到master端请求与自己相关的catalog；
+
+	获取或设定puppet的配置参数：
+		puppet config命令：
+			puppet config <action> [--section SECTION_NAME]
+				print：列出所有配置参数或指定的配置参数；
+				set：设定指定的参数的值；
+
+	安装配置master：
+		puppet-server-VERSION.ARCH.rpm
+
+		初始化：
+			puppet master --no-daemonize --verbose
+
+		启动服务：
+			systemctl  start  puppetmaster.service
+
+		生成一个完整的配置参数列表：
+			puppet master --genconfig
+
+	安装配置agent：
+		初始化：
+			puppet  agent  --no-daemonize  --verbose --noop  --test  --server  MASTER_HOSTNAME
+
+		修改配置文件：
+			[agent]
+			server = MASTER_HOSTNAME
+
+		启动服务：
+			systemctl  start  puppetagent.service
+
+		生成一个完整的配置参数列表：
+			puppet  agent  --genconfig
+
+
+	master端管理agent请求及证书的命令：
+		puppet cert
+
+		puppet cert <action> [-h|--help] [-V|--version] [-d|--debug] [-v|--verbose] [--digest <digest>] [<host>]
+			<action>：
+				list: List outstanding certificate requests. If '--all' is specified, signed certificates are also listed
+				sign: Sign an outstanding certificate request.
+				revoke: Revoke the certificate of a client.
+				clean: Revoke a host's certificate (if applicable) and remove all files related to that host from puppet cert's storage.
+
+	主机命名方式：
+		主机名(角色名称)-机架-机房-运营商-区域.域名
+
+		master/agent要基于https通信，其证书中的主体为主机名，要能够基于内部专用DNS服务进行解析；
+
+	站点清单：
+		/etc/puppet/manifests/site.pp
+
+		node 'HOSTNAME' {
+			...puppet code...
+		}
+
+		node /PATTERN/ {
+			...puppet code...
+		}
+
+		节点定义可被继承：
+			node 'NODE_NAME' inherits 'PAR_NODE' {
+				...puppet code...
+			}
+
+		站点清单文件模块化：
+			/etc/puppet/manifests/site.pp
+			import 'hosts.d/*.pp'
+
+			/etc/puppet/manifests/hosts.d/.pp
+
+	多环境配置：
+		master支持多环境的配置（3.7.5-）：
+
+			[master]
+			environment = production, development, testing
+
+			[production]
+			modulepath=/etc/puppet/environments/production/modules
+			manifest=/etc/puppet/environments/production/manifests/site.pp
+
+			[delopment]
+			modulepath=/etc/puppet/environments/development/modules
+			manifest=/etc/puppet/environments/development/manifests/site.pp
+
+			[testing]
+			modulepath=/etc/puppet/environments/testing/modules
+			manifest=/etc/puppet/environments/testing/manifests/site.pp
+
+		agent配置所在的环境：
+			[agent]
+			environment = production|development|testing
+
+
+回顾：
+	puppet：
+		puppet apply
+		master/slave：
+			master: puppet master daemon
+				CA, https(8140/tcp)
+			agent：puppet agent daemon
+				每隔30分钟向master发送主机名和facts，请求与自己相关catalog；
+
+		站点清单：
+			node 'NODE' {
+				...puppet code...
+			}
+
+		多环境配置：
+			production/development/testing
+
+puppet（4）
+
+	多环境配置：3.7.6+
+		puppet.conf仅支持main, master和agent三个配置段；
+
+		环境配置，通过环境配置目录来定义；
+			[main]
+			environmentpath=/etc/puppet/environments
+
+		多环境配置：
+			/etc/puppet/environments/
+				ENVIRONMENT_NAME/
+					modules/：模块目录
+					manifests/site.pp：主站点清单
+					environment.conf配置文件
+						两个参数：
+						modulepath=/etc/puppet/environments/ENVIRONMENT_NAME/modules/
+						manifest=/etc/puppet/environments/ENVIRONMENT_NAME/manifests/site.pp
+
+		agent配置所在的环境：
+			[agent]
+			environment = production|development|testing
+
+	其它配置文件：
+		fileserver.conf：文件服务认证和授权相关的配置；
+		auth.conf：pupet各URI相关认证和授权配置；
+
+	puppet kick：
+		puppet-kick -- Remotely control puppet agent
+
+		Trigger a puppet agent run on a set of hosts.
+
+		配置agent支持kick操作：
+			puppet.conf文件中配置[agent]段：
+			[agent]
+			listen = true
+
+			auth.conf的认证授权配置：
+			path /run
+			method save
+			auth any
+			allow PUPPET_MASTER_HOSTNAME
+
+			注意：重启agent daemon生效；
+
+		在master触发agent：
+			puppet kick [-a|--all]  [--paralell #] [-h|--help] [--host <host>]  [-t|--tag <tag>] [--test] [-p|--ping] <host> [<host> [...]]
+
+	项目实践：
+		haproxy(keepalived)
+			varnish --> cache
+			nginx --> imgs
+			httpd+tomcat --> app server
+			mariadb-server --> db server
+				(master/slave)
+
+		zabbix：
+			zabbix-server
+			zabbix-agent：以上所有主机角色各均被监控；
+
+
+
+
+
+		生产环境案例：haproxy.pp
+
+		class haproxy {
+		  # init haproxy
+		  class init {
+		    file { '/etc/init.d/haproxy':
+		      ensure        => present,
+		      source        => "puppet:///modules/haproxy/haproxy/init.d/haproxy.init",
+		      group         => "root",
+		      owner         => "root",
+		      mode          => "0755",
+		    }
+		    exec { 'init_haproxy_service':
+		      subscribe     => File['/etc/init.d/haproxy'],
+		      refreshonly   => true,
+		      command       => "/sbin/chkconfig --add haproxy; /sbin/chkconfig --level 235 haproxy off;",
+		    }
+		    service { 'haproxy':
+		      ensure      => running,
+		      enable      => true,
+		      hasrestart  => true,
+		      hasstatus   => true,
+		#       restart     => true,
+		    }
+		  }
+
+		  # init haproxy.cfg
+		  class conf {
+		#     file { '/usr/local/haproxy','/usr/local/haproxy/etc':
+		    file { ['/usr/local/haproxy','/usr/local/haproxy/etc']:
+		      ensure        => directory,
+		      before        => File['/usr/local/haproxy/etc/haproxy.cfg'],
+		      group         => "root",
+		      owner         => "root",
+		      mode          => "0755",
+		    }
+
+		    class piccenter {
+		      file { '/usr/local/haproxy/etc/haproxy.cfg':
+		        ensure        => present,
+		        source        => "puppet:///modules/haproxy/haproxy/conf/haproxy_piccenter.cfg",
+		        group         => "root",
+		        owner         => "root",
+		        mode          => "0644",
+		      }
+		    }
+		  }
+		}
+
+
+
+
+
+
+		keepalived.pp
+
+		class keepalived {
+		  # init haproxy
+		  class init {
+		    file { '/etc/init.d/keepalived':
+		      ensure        => present,
+		      source        => "puppet:///modules/haproxy/keepalived/init.d/keepalived.init",
+		      group         => "root",
+		      owner         => "root",
+		      mode          => "0755",
+		    }
+		    exec { 'init_keepalived_service':
+		      subscribe     => File['/etc/init.d/keepalived'],
+		      refreshonly   => true,
+		      command       => "/sbin/chkconfig --add keepalived; /sbin/chkconfig --level 235 keepalived off;",
+		    }
+		    service { 'keepalived':
+		      ensure      => running,
+		      enable      => true,
+		      hasrestart  => true,
+		      hasstatus   => true,
+		      restart     => true,
+		    }
+		  }
+		}
+
+
+Git：
+	版本控制工具；
+		本地版本控制系统
+		集中化的版本控制系统
+		分布式的版本控制系统
+
+		BitKeeper，Git， CVS --> SVN
+
+	Git：
+		工作区：Working Directory
+		暂存区：Staging Area
+		版本库：Repository
+
+	Git配置文件：git config
+		仓库特有：REPO/.git/config
+		全局：~/.gitconfig,  --global
+		系统：/etc/git/gitconfig,  -system
+
+		user.name, user.email
+
+	Git仓库：
+		索引：暂存；
+		对象库：版本库；
+
+	Git的对象类型：
+		块(blob)对象：文件的每个版本表现为一个块（blob）；
+		树（tree）对象：一个目录代表一层目录信息；
+		提交（commit）对象：用于保存版本库一次变化的元数据，包括作者、邮箱、提交日期、日志；每个提交对象都指定一个目录树对象；
+		标签（tag）对象：用于给一个特定对象一个易读的名称；
+
+	对象库：内容寻址系统；
+		打包文件：pack file
+
+		git ls-files：列出文件；
+		git cat-file：查看文件；
+		git hash-object：计算文件的hash码；
+		git write-tree：根据当前索引中的内容创建树对象；
+
+	Git中的文件分类：
+		3类：
+			已追踪的（tracked）：已经在版本库中，或者已经使用git add命令添加至索引中的文件；
+			被忽略的（Igored）：在版本库中通过“忽略文件列表”明确声明为被忽略的文件；
+			未追踪的（untracked）：上述两类之外的其它文件；
+
+		add/rm/mv命令：
+			git add：暂存文件；
+				git ls-files：
+					默认显示索引中的文件列表的原始文件名；
+					-s：显示暂存的文件信息：权限、对象名、暂存号及原始文件名；
+					-o：显示未被追踪的文件；
+
+			git rm：
+				git rm：删除工作目录中的文件，及索引中的映射；
+				git rm --cached：只删除索引中的映射；
+
+			git mv：
+				git mv：改变工作目录中的文件名，及索引中的映射；
+
+	Git提交：
+		git  commit
+		git log：查看提交日志；
+
+		提交的标识：
+			引用：ID， reference, SHA1, 绝对提交名；
+			符号引用：symbolic reference, symref；
+				本地特性分支名称、远程跟踪分支名称、标签名；
+				名称：
+					refs/heads/REF：本地特性分支名称
+					refs/remotes/REF：远程跟踪分支名称
+					refs/tags/REF：标签名
+
+				Git会自动维护几个特定目的的特殊符号引用：
+					HEAD：始终指向当前分支的最近提交；或检出到其它分支时，目标分支的最近提交；
+					ORIG_HEAD：合并操作时，新生成的提交之前的提交保存于此引用中；
+					FETCHED_HEAD:
+					MERGE_HEAD：合并操作时，其它分支的上一次提交；
+
+			相对提交名：
+				^：C6^, C6^2
+				~：C6~, C6~2
+
+		git diff：比较提交、索引及工作目录；
+			--color：
+
+		git reset：撤消此前的操作；
+			--soft：将HEAD引用指向给定的提交，但不影响索引和工作目录；
+			--mixed：将HEAD引用指向给定的提交，并将索引内容改变为指定提交的快照；但不改变工作目录；
+			--hard：将HEAD引用指向给定的提交、将索引内容改变为指定提交的快照，并改变工作目录中的内容反映指定提交的内容；
+
+	Git分支:
+		分支命名法则：
+			可以使用/，但不能以/结尾；
+			不能以-开头；
+			以位于/后面的组件，不能以.开头；
+			不能使用连续的...；
+			不能使用空白字符；
+			不能使用^, ~, ?, *，[等；
+
+		必须惟一；分支名字的名字始终指向目标分支的最近一次提交；
+
+		git branch：列出、创建及删除分支；
+			git branch BRANCH_NAME [START_COMMIT]
+			git branch -d BRANCH_NAME
+
+		git show-branch：查看分支及其相关的提交；
+
+		git checkout：
+			 git checkout <branch>：检出分支；
+
+		分支合并：
+			合并基础：要合并的分支的最近一次的共同提交；
+			我们的版本：当前分支的最近一次提交；
+			他们的版本：要合并进来的分支的最近一次提交；
+
+			无冲突合并：
+				$ git checkout master
+				$ git status
+				$ git merge BRANCH_NAME
+				$  git log --graph --pretty=oneline --abbrev-commit
+
+			有冲突合并：
+				手动解决冲突
+				解决完成之后：
+					git add
+					git commit
+
+		变基操作：
+			git rebase
+
+			$ git checkout dev
+			$ git rebase master
+			$ git checkout master
+			$ git merge -m "MSG"
+
+
+	Git：分布式版本控制系统；
+		基于网络协议：http, https, ssh, git
+
+		克隆操作：
+			git clone
+
+			原始版本库存储在refs/heads/
+
+		Git服务器：
+			协议：本地协议（local）、HTTP/HTTPS协议、SSH协议、Git协议；
+
+			本地协议：
+				URL：
+					/path/to/repo.git
+					file:///path/to/repo.git
+
+			Git协议
+				由git-daemon程序提供，监听在tcp的9418端口；仅支持“读”操作，无任何认证功能；
+
+				URL：
+					git://host/path/to/repo.git
+					git://host/~user/path/to/repo.git
+
+			SSH协议
+				URL
+					ssh://[USER@]host[:port]/path/to/repo.git
+					ssh://[USER@]host[:port]/~USERNAME/path/to/repo.git
+
+				URL2
+					[USER@]hostpath/to/repo.git
+
+			HTTP/HTTPS协议
+				1.6.5-：哑http协议
+				1.6.6+：智能http协议
+					读/写/认证
+
+				URL：
+					http://host/path/to/repo.git
+
+		引用远程版本库：
+			远程版本库：定义在配置文件中一个实体；
+				[remote "NAME"]
+
+			由两部分组成：
+				第一部分：URL；
+				第二部分：refspec, 定义一个版本库与其它版本库的名称空间的映射关系；
+					语法格式：
+						+source:destination
+							refs/heads/NAME：本地分支
+							refs/remotes/NAME：远程跟踪分支
+
+						[remote "publish"]
+						url = http://HOST/pub/repo_name.git
+						push = +refs/heads/*:refs/remotes/origin/*
+
+						remote.publish.url
+						remote.publish.push
+
+				git remote命令：管理远程仓库；
+
+			服务器：
+				git-daemon：
+					git://
+
+				<VirtualHost *:80>
+					ServerName git.magedu.com
+					SetEnv GIT_PROJECT_ROOT /var/www/git
+					SetEnv GIT_HTTP_EXPORT_ALL
+					ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/
+					<Directory "/usr/libexec/git-core/">
+						Options ExecCGI Indexes
+						Require all granted
+					</Directory>
+					<LocationMatch "^/git/.*/git-receive-pack$">
+						AuthType Basic
+						AuthName "Private Git Repo"
+						AuthUserFile /etc/httpd/conf/.htpasswd
+						Require valid-user
+					</LocationMatch>
+				</VirtualHost>
+
+				man git-http-backend
+
+			github
+
+			GitLab
+				gitlab-ce
+
+		博客作业：git服务器配置；
+			git-daemon
+			git-http-backend

@@ -1,0 +1,53 @@
+第一周（10月11号起）、
+1、lamp+mysql
+2、文件服务器：nfs/samba/vsftpd
+
+第二周、
+1、iptables
+2、iptables、rsyslog
+3、nginx（web server）
+
+三、
+1、lvs
+2、nginx reverse proxy，memcached
+3、varnish
+
+四、
+1、keepalived
+2、ansible
+3、pxe+cobbler, zabbix
+
+五、
+1、zabbix
+2、haproxy
+
+
+
+
+3、mogilefs, fastdfs
+
+
+tcpwrapper、
+
+六、
+1、corosync cluster
+2、tomcat
+3、mysql sql
+
+
+七、
+1、mysql日志、备份恢复及复制
+2、mysql集群，MHA
+3、redis
+
+八、
+1、kvm虚拟化
+2、openstack
+3、openstack
+
+九、
+1、elk
+2、elk，docker
+3、docker
+十、
+1、hadoop

@@ -1,0 +1,154 @@
+cp：复制文件和目录
+	cp [OPTION]... [-T] SOURCE DEST
+	cp [OPTION]... SOURCE... DIRECTORY
+	cp [OPTION]... -t DIRECTORY SOURCE...
+	cp SRC DEST
+	单源复制：cp [OPTION]... [-T] SOURCE DEST
+		如果目标不存在：新建DEST，并将SRC中内容填充至DEST中
+		如果目标存在：
+			如果DEST是文件：将SRC中的内容覆盖至DEST中
+			如果DEST是目录：在DEST下新建与原文件同名的文件，并将SRC中内容填充至新文件中
+	多源复制：cp [OPTION]... SOURCE... DIRECTORY
+			  cp [OPTION]... -t DIRECTORY SOURCE...
+		如果目标不存在：报错
+		如果目标存在：
+			如果DEST非目录：报错
+			如果DEST是目录：分别复制每个文件至目标文件中，并保持原名
+	源为目录：(必须使用-r选项)
+		如果目标不存在：新建DEST目录，并将SRC中内容填充至DEST中，保持原名
+		如果目标存在：
+			如果DEST非目录：报错
+			如果DEST是目录：在DEST下新建与原目录同名的目录，并把数据复制到新的同名目录下
+	cp 常用选项
+		-i：交互式
+		-r, -R: 递归复制目录及内部的所有内容；
+		-a: 归档，相当于-dR --preserv=all
+		-d：--no-dereference --preserv=links 不复制链接指向的文件内容，只复制链接
+		--preserv[=ATTR_LIST]
+			ATTR_LIST(属性)：
+				mode: 权限
+				ownership: 属主属组
+				timestamp: 时间戳
+				links：链接
+				xattr：扩展属性
+				context：安全标签
+				all：上述所以属性
+		-p: 等同--preserv=mode,ownership,timestamp
+		-v: --verbose
+		-f: --force 强制覆盖
+
+1 、使用别名命令，每日将/etc/ 目录下所有文件，备份到/testdir/ 下独立的新目录下，并要求新目录为 格式为 backupYYYY-mm-dd  ，备份过程可见
+	#alias cpetc='cp -rv /etc/ /testdir/backup$(date +%F)'
+	#cpetc
+2 、先创建/testdir/rootdir 目录，再复制/root 所有下文件到该目录内，并要求保留原有权限
+	#cp -r /root/ /testdir/rootdir
+
+
+mv:移动和重命名文件
+	mv [OPTION]... [-T] SOURCE DEST
+	mv [OPTION]... SOURCE... DIRECTORY
+	mv [OPTION]... -t DIRECTORY SOURCE...
+	常用选项：
+		-i: 交互式
+		-f: 强制覆盖
+
+rm：删除
+ rm [OPTION]... FILE...
+	常用选项：
+		-i:  交互式
+		-f:  强制删除
+		-r:  递归
+		--no-preserve-root
+	例：#rm -rf / 删除根和下所有文件，centos6,7默认不允许执行该命令
+		#rm -rf /* 删除根下所有文件，该命令可以执行，请勿轻易尝试
+
+dd if=/dev/zero of=/boot/f1 bs=1M count=40
+	从/dev/zero 设备读取数据传送到/boot/f1文件中，一次读1M，共读40次
+	在释放磁盘空间的时候如果有用户在打开f1文件，则有可能删除f1文件失败，磁盘不能释放磁盘空间
+	释放磁盘空间的方法：
+		#> /dir/file  先用重定向把文件清零
+		#rm -rf /dir/file 在用rm指令删除命令
+
+tree：显示目录树
+	-d: 只显示目录
+	-L level：指定显示的层级数目，1只显示1层，3只显示3层
+	-P pattern: 只显示由指定pattern匹配到的路径
+
+mkdir：创建目录
+	-p: 若创建目录的路径上有不存的目录则不报错，且可自动创建所有不存在的目录；
+	-v: 显示创建过程的详细信息
+	-m MODE: 创建目录时直接指定权限；
+
+(1)  如何创建/testdir/dir1/x, /testdir/dir1/y,
+/testdir/dir1/x/a, /testdir/dir1/x/b,
+/testdir/dir1/y/a, /testdir/dir1/y/b
+	#mkdir -pv /testdir/dir1/{x,y}/{a,b}
+(2)  如何创建/testdir/dir2/x, /testdir/dir2/y,
+/testdir/dir2/x/a, /testdir/dir2/x/b
+	#mkdir -pv /testdir/dir2/{x/{a,b},y}
+(3)  如何创建/testdir/dir3, /testdir/dir4, /testdir/dir5,
+/testdir/dir5/dir3, /testdir/dir5/dir4
+	#mkdir -pv /testdir/dir{3,4,5/dir{3,4}}
+
+rmdir：删除空目录
+	-p: 递归删除目录，删除当前目录后若父目录为空目录则一并删除，删除父目录后，父目录的父目录不是空目录，则不删除，否则一并删除
+	-v: 显示详细信息
+
+inode节点：
+	inode node 索引节点表中包含文件系统所有文件列表
+	inode文件的编号，类似与用户的id,在同一个分区上唯一标示一个文件
+	inode包含文元数据：
+		文件的字节数
+		文件的UID,GID
+		文件的读写执行权限
+		文件的时间戳
+		链接数
+		文件数据block的位置
+
+ls -i 查看文件节点编号，第一列数据即是文件的inode号
+
+stat：命令可以查看文件的inode信息
+
+硬链接：
+
+  每个目录引用相同的 inode 号
+  创建时链接数递增
+	链接文件和原文件元数据保持不变，数据保持不变
+  删除文件时：
+		rm 命令递减计数的链接
+		文件要存在，至少有一个链接数
+		当链接数为零时，该文件被删除
+	不能跨分区不能跨设备创建硬链接
+	也不能针对目录来创建硬链接
+	ln source_file target_file
+	ls -l 3.txt 查看文件的详细信息
+	-rwxrw-rw-. 1 root root    16 Jul 27 10:15 3.txt
+	权限后面的数字表示硬链接数，1表示链接数为1
+	链接数等价于文件有几个名字，并且各个链接之间是互不依赖的，都可以直接访问数据
+	如果新建硬链接的source_file是软链接，则target_file也是一个软链接
+
+软链接（符号链接）：
+	ln -s source_file target_file
+	一个符号链接的内容是它引用文件的名称
+	长度；不增加或减少目标文件inode 的引用计数；
+	可以对目录进行链接
+	可以跨分区和跨设备，链接文件大小取决于路径字符
+	target_file依赖于文件source_file而存在，如果删除了文件source_file，打开文件target_file就会报错
+	软链接常犯的错误：
+		/root 目录下有个f1,在/root目录下执行次操作
+		# ln -s f1 /testdir/f1
+
+	创建链接时候用绝对路径，或者用相对软链接的路径
+		# ln -s ../root/f1 /testdir/f2
+
+
+
+#df -i 中查看inode节点总数 Inode：inode节点数 IUsed：被使用的inode节点数
+
+cp和inode
+	创建一个新的文件，分配一个inode，在磁盘中拷贝一份数据，把inode节点的block地址和拷贝的数据地址对应
+rm和inode
+	删除inode节点的block地址和数据地址对应关系，链接数递减，删除inode中的目录项，但数据不会立刻删除，而是把数据块制空，等待其他数据写入时，在覆盖当前数据
+mv 和inode
+  如果mv 命令的目标和源在相同的文件系统，创建一个新文件，分配一个inode，把inode节点的block地址和原数据地址对应，删除旧目录条目对应的旧的文件名。不影响inode 表（除时间戳）或磁盘上的数据位置，没有数据被移动。
+	如果目标和源在一个不同的文件系统， mv相当于cp和rm

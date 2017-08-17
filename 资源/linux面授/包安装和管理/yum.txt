@@ -1,0 +1,157 @@
+yum
+	CentOS前端工具: yum, dnf
+	统一资源定位符：URL
+	YUM: Yellowdog Update Modifier，rpm的前端程序，用来解决软件包相关依赖性，可以在多个库之间定位软件包，up2date的替代工具
+	yum repository: yum repo （yum仓库）
+		存储了众多rpm 包，以及包的相关的元数据文件（放置于特定目录repodata下）
+
+		文件服务器：
+		ftp://
+		http://
+		file:///
+
+	yum客户端配置文件：
+		/etc/yum.conf：为所有仓库提供公共配置
+		/etc/yum.repos.d/*.repo：为仓库的指向提供配置
+
+		仓库定义：(/etc/yum.repos.d/*.repo里的配置文件)
+		[repositoryID]
+		name=Some name for this repository 		//仓库文字，默认可以不写
+		baseurl=url://path/to/repository/  		//仓库的位置，必须填写的内容
+		enabled={1|0} 			//是否启用该仓库，0：不启用，1：启用，默认为1（不写），为启用状态
+		gpgcheck={1|0}  		//是否开启包完整性检查，0：不开启，1：开启，默认为1（不写），为开启包检测状态
+		gpgkey=URL 			//包完整性检测的包路径，若gpgcheck为0，可以不填写此项
+		enablegroups={1|0}
+		failovermethod={roundrobin|priority}  		//仓库被使用的次序，默认是随机，priority按优先级
+			默认为：roundrobin ，意为随机挑选；
+		cost=   		//仓库开销，值越小，优先级越高
+			默认为1000
+
+	eg：CentOS6系统的yum配置
+		[root@CentOS6 ~]# cat /etc/yum.repos.d/centos6-service.repo
+		[base]
+		name=CentOS6 service repo
+		baseurl=http://10.1.0.1/cobbler/ks_mirror/6/
+		gpgcheck=0
+
+
+	yum命令的用法：
+		yum [options] [command] [package ...]
+			[package ...]：直接使用包名，而不是包文件名
+
+			[options]
+			-y：自动回答为“yes”
+			-q：静默模式
+			--nogpgcheck：禁止进行gpgcheck
+			--disablerepo=repoidglob：临时禁用此处指定的repo
+			--enablerepo=repoidglob：临时启用此处指定的repo
+			--noplugins：禁用所有插件
+
+			command is one of:
+	        * repolist [all|enabled|disabled]
+	        	显示仓库列表
+
+	        * list [...]
+	        	显示程序包
+	        		yum list [all|glob_exp|...]
+	        		yum list [available|installed|updates]
+
+	        * install package1 [package2] [...]
+	        	安装程序包
+	        * reinstall package1 [package2] [...]
+	        	重新安装程序包
+	        * update [package1] [package2] [...]
+	        	升级程序包
+	        * downgrade package1 [package2] [...]
+	        	降级安装
+
+	        * check-update
+	        	检测可用升级
+
+	        * remove | erase package1 [package2] [...]
+	        	卸载程序包
+
+	        * info [...]
+	        	查看程序包information
+
+	        * provides | whatprovides feature1 [feature2] [...]
+	        	查看指定的特性（可以是某文件）是由那个程序包提供
+
+	        * clean [ packages | metadata | expire-cache | rpmdb | plugins | all ]
+	        	清除本地缓存
+
+	        * makecache
+	        	构建缓存
+
+	        * search string1 [string2] [...]
+	        	以指定的关键字搜素程序包及summary信息
+
+	        * deplist package1 [package2] [...]
+				查看指定包所依赖的capabilities
+
+	        * history [info|list|packages-list|packages-info|summary|addon-info|redo|undo|rollback|new|sync|stats]
+	        	查看yum事务历史
+				yum history info 6
+					查看事务历史第6条的详细信息
+				yum history undo 6
+					撤销事务历史第6条的操作，卸载的撤销就是安装，安装的撤销就是卸载
+
+	        * localinstall rpmfile1 [rpmfile2] [...]
+	           (maintained for legacy reasons only - use install)
+	           老版本的安装及升级本地rpm包命令，现在可以直接使用install进行安装
+	        * localupdate rpmfile1 [rpmfile2] [...]
+	           (maintained for legacy reasons only - use update)
+	           老版本的安装及升级本地rpm包命令，现在可以直接使用update进行升级
+
+	        * help [command]
+	        	查看帮助
+
+	        * grouplist [hidden] [groupwildcard] [...]
+	        	显示包组（hidden：显示隐藏的包组）
+	        * groupinstall group1 [group2] [...]
+	        	安装包组
+	        * groupupdate group1 [group2] [...]
+	        	更新包组
+	        * groupremove group1 [group2] [...]
+	        	移除包组
+	        * groupinfo group1 [...]
+	        	包组信息
+
+	如何使用光盘当作本地yum 仓库：
+		(1)  挂载光盘至某目录，例如/media/cdrom
+			# mount /dev/cdrom /media/cdrom
+		(2)  创建配置文件
+			[CentOS7]
+			name=
+			baseurl=
+			gpgcheck=
+
+	eg:光盘yum仓库
+		[root@CentOS6 ~]# cat /etc/yum.repos.d/centos6-cdrom.repo
+		[cdrom]
+		name=CentOS6 cdrom repo
+		baseurl=file:///media/cdrom/
+		gpgcheck=0
+
+	yum的repo配置文件中可用的变量：
+		$releasever：当前OS的发行版的主版本号
+		$arch：平台，i386,i486,i586,x86_64等 等
+		$basearch：基础平台；i386
+		$YUM0-$YUM9：自定义变量
+
+		eg：http://mirrors.gaomengedu.com/centos/$releaserver/$basearch
+		实例:
+		http://server/centos/$releasever/$basearch/
+		http://server/centos/7/x86_64
+		http://server/centos/6/i384
+
+	如何创建yum仓库
+		(1)把网上/其他的rpm包下载到某一路径下
+		(2)安装createrepo包（安装了此包的可以跳过此步）
+		(3)进入下载的rpm包的路径下
+		(4)createrepo ./
+			把rpm包的repodate目录文件创建在此目录下
+			--basedir  设置repodate目录的路径，默认在当前工作路径
+
+
+

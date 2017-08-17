@@ -1,0 +1,1014 @@
+MariaDB or MySQL：
+
+	层次模型 --> 网状模型 --> (Codd) 关系模型
+
+	DBMS --> RDBMS
+
+	RDBMS：
+		范式：第一范式、第二范式、第三范式；
+
+		表：row, column；
+
+		关系运算：
+			选择
+			投影
+
+		数据库：表、索引、视图（虚表）、SQL、存储过程、存储函数、触发器、事件调度器；
+			DDL：CREATE，ALTER，DROP
+			DML：INSERT/UPDATE/DELETE/SELECT
+
+		约束：
+			主键约束：惟一、非空；一张表只能有一个；
+			惟一键约束：惟一，可以存在多个；
+			外键约束：参考性约束；
+			检查性约束：check；
+
+		三层模型：
+			物理层 --> SA
+			逻辑层 --> DBA
+			视图层 --> Coder
+
+		实现：
+			Oracle, DB2, Sybase, Infomix, SQL Server；
+			MySQL, MariaDB, PostgreSQL, SQLite；
+
+	MySQL：
+		5.1 --> 5.5 --> 5.6 --> 5.7 --> 8.0
+
+		MariaDB：5.5.x --> 10.x
+
+		特性：
+			插件式存储引擎
+			单进程多线程
+
+		安装MySQL：
+			OS Vendor：rpm
+			MySQL：
+				source code：cmake
+				binary package：
+					i686, x86_64;
+					glibc VERSION
+				prepackage：rpm, deb
+					os, arch,
+
+			服务端程序：
+				mysqld, mysqld_safe, mysqld_multi
+			客户端程序：
+				mysql, mysqldump, mysqlbinlog, mysqldmin, ...
+			非客户端类程序：
+				myisamchk, myisampack, ...
+
+		配置文件：
+			读取多处的多个配置文件，而且会以指定的次序的进行；
+
+			# my_print_defaults
+
+				Default options are read from the following files in the given order:
+				/etc/mysql/my.cnf  /etc/my.cnf ~/.my.cnf
+
+				不同的配置文件中出现同一参数且拥有不同值时，后读取将为最终生效值；
+
+				修改默认读取的配置文件（mysqld_safe命令）：
+					 --defaults-file=file_name
+
+				于读取的默认配置文件之外再加载一个文件：
+					--defaults-extra-file=path
+
+			配置文件格式：ini风格的配置文件，能够为mysql的各种应用程序提供配置信息：
+				[mysqld]
+				[mysqld_safe]
+				[mysqld_multi]
+				[server]
+				[mysql]
+				[mysqldump]
+				[client]
+				...
+
+					PARAMETER = VALUE
+
+					PARAMETER：
+						innodb_file_per_table
+						innodb-file-per-table
+
+			程序文件：
+				服务端程序：mysqld_safe, mysqld_multi
+				客户端程序：mysql, mysqldump, mysqladmin
+				工具程序：myisampack, ...
+
+			mysql --> mysql protocol --> mysqld
+				mysql：交互式CLI工具；
+
+				mysql [options] db_name
+
+					常用选项：
+						--host=host_name, -h host_name：服务端地址；
+						--user=user_name, -u user_name：用户名；
+						--password[=password], -p[password]：用户密码；
+						--port=port_num, -P port_num：服务端端口；
+						--protocol={TCP|SOCKET|PIPE|MEMORY}：
+							本地通信：基于本地回环地址进行请求，将基于本地通信协议；
+								Linux：SOCKET
+								Windows：PIPE，MEMORY
+							非本地通信：使用非本地回环地址进行的请求； TCP协议；
+						--socket=path, -S path
+						--database=db_name, -D db_name：
+						--compress, -C：数据压缩传输
+						--execute=statement, -e statement：非交互模式执行SQL语句；
+						--vertical, -E：查询结果纵向显示；
+
+					命令：
+						客户端命令：于客户端执行；
+						服务端命令：SQL语句，需要一次性完整地发往服务端；语句必须有结束符；
+
+						?         (\?) Synonym for `help'.
+						clear     (\c) Clear the current input statement.
+						connect   (\r) Reconnect to the server. Optional arguments are db and host.
+						delimiter (\d) Set statement delimiter.
+						edit      (\e) Edit command with $EDITOR.
+						ego       (\G) Send command to mysql server, display result vertically.
+						exit      (\q) Exit mysql. Same as quit.
+						go        (\g) Send command to mysql server.
+						help      (\h) Display this help.
+						nopager   (\n) Disable pager, print to stdout.
+						notee     (\t) Don't write into outfile.
+						pager     (\P) Set PAGER [to_pager]. Print the query results via PAGER.
+						print     (\p) Print current command.
+						prompt    (\R) Change your mysql prompt.
+						quit      (\q) Quit mysql.
+						rehash    (\#) Rebuild completion hash.
+						source    (\.) Execute an SQL script file. Takes a file name as an argument.
+						status    (\s) Get status information from the server.
+						system    (\!) Execute a system shell command.
+						tee       (\T) Set outfile [to_outfile]. Append everything into given outfile.
+						use       (\u) Use another database. Takes database name as argument.
+						charset   (\C) Switch to another charset. Might be needed for processing binlog with multi-byte charsets.
+						warnings  (\W) Show warnings after every statement.
+						nowarning (\w) Don't show warnings after every statement.
+
+					mysql命令的使用帮助：
+						# man mysql
+						# mysql  --help  --verbose
+
+				sql脚本运行：
+					mysql [options] [DATABASE] < /PATH/FROM/SOME_SQL_SCRIPT
+
+			mysqld服务器程序：工作特性的定义方式
+				命令行选项
+				配置文件参数
+
+				服务器参数/变量：设定MySQL的运行特性；
+					mysql> SHOW GLOBAL|[SESSION] VARIABLES [LIKE clause];
+				状态（统计）参数/变量：保存MySQL运行中的统计数据或状态数据；
+					mysql> SHOW GLOBAL|[SESSION] STATUS [LIKE clause];
+
+				显示单个变量设定值的方法：
+					mysql> SELECT @@[global.|session.]system_var_name
+
+						%：匹配任意长度的任意字符；
+						_：匹配任意单个字符；
+
+				变量/参数级别：
+					全局：为所有会话设定默认；
+					会话：跟单个会话相关；会话建立会从全局继承；
+
+				服务器变量的调整方式：
+					运行时修改：
+						global：仅对修改后新建立的会话有效；
+						session：仅对当前会话有效，且立即生效；
+					启动前通过配置文件修改：
+						重启后生效；
+
+				运行时修改变量值操作方法：
+					mysql> HELP SET
+
+					SET [GLOBAL | SESSION] system_var_name = expr
+					SET [@@global. | @@session. | @@]system_var_name = expr
+
+			安装完成后的安全初始化：
+				mysql_secure_installation
+
+			运行前常修改的参数：
+				innodb_file_per_table=ON
+				skip_name_resolve=ON
+				...
+
+		SQL：ANSI SQL
+			SQL-86, SQL-89, SQL-92, SQL-99, SQL-03, ...
+
+		MySQL的数据类型：
+			字符型
+			数值型
+			日期时间型
+			内建类型
+
+			字符型：
+				CHAR(#)， BINARY：定长型；CHAR不区分字符大小写，而BINARY区分；
+				VARCHAR(#)， VARBINARY：变长型
+				TEXT：TINYTEXT，TEXT，MEDIUMTEXT，LONGTEXT
+				BLOB：TINYBLOB，BLOB，MEDIUMBLOB， LONGBLOB
+			数值型：
+				浮点型：近似
+					FLOAT
+					DOUBLE
+					REAL
+					BIT
+				整型：精确
+					INTEGER：TINYINT，SMALLINT，MEDIUMINT，INT，BIGINT
+					DECIMAL
+			日期时间型：
+				日期：DATE
+				时间：TIME
+				日期j时间：DATETIME
+				时间戳：TIMESTAMP
+				年份：YEAR(2), YEAR(4)
+			内建：
+				ENUM：枚举
+					ENUM('Sun','Mon','Tue','Wed')
+				SET：集合
+
+			类型修饰符：
+				字符型：NOT NULL，NULL，DEFALUT ‘STRING’，CHARACET SET ‘CHARSET’，COLLATION ‘collocation'
+				整型：NOT NULL， NULL， DEFALUT value, AUTO_INCREMENT, UNSIGNED
+				日期时间型：NOT NULL， NULL， DEFAULT
+
+		SQL MODE：定义mysqld对约束等违反时的响应行为等设定；
+			常用的MODE：
+				TRADITIONAL
+				STRICT_TRANS_TABLES
+				STRICT_ALL_TABLES
+
+			修改方式：
+				mysql> SET GLOBAL sql_mode='MODE';
+				mysql> SET @@global.sql_mode='MODE';
+				mysql> SET @@session.sql_mode='TRADITIONAL';
+
+		SQL：DDL，DML
+			DDL：
+				mysql> HELP Data Definition
+
+				CREATE, ALTER, DROP
+					DATABASE, TABLE
+					INDEX, VIEW, USER
+					FUNCTION, FUNCTION UDF, PROCEDURE, TABLESPACE, TRIGGER, SERVER
+
+			DML:
+				mysql> HELP Data Manipulation
+
+				INSERT/REPLACE, DELETE, SELECT, UPDATE
+
+			数据库：
+				CREATE {DATABASE | SCHEMA} [IF NOT EXISTS] db_name CHARACTER SET [=] charset_name  COLLATE [=] collation_name
+
+				ALTER {DATABASE | SCHEMA} [db_name] CHARACTER SET [=] charset_name  COLLATE [=] collation_name
+
+				DROP {DATABASE | SCHEMA} [IF EXISTS] db_name
+
+			表：
+				CREATE
+					(1) CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+						(create_definition,...)
+						[table_options]
+						[partition_options]
+
+						CREATE TABLE [IF NOT EXISTS] tble_name (col_name  data_typ|INDEX|CONSTRAINT);
+
+					table_options：
+						ENGINE [=] engine_name
+
+							查看支持的所有存储引擎：
+								mysql> SHOW ENGINES;
+
+							查看指定表的存储引擎：
+								mysql> SHOW TABLE STATUS LIKE clause;
+
+						ROW_FORMAT [=] {DEFAULT|DYNAMIC|FIXED|COMPRESSED|REDUNDANT|COMPACT}
+
+					CREATE TABLE gmtb2 (id INT UNSIGNED, name VARCHAR(50), age TINYINT UNSIGNED);
+
+					(2) CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+						[(create_definition,...)]
+						[table_options]
+						[partition_options]
+						select_statement
+
+						直接创建表，并将查询语句的结果插入到新创建的表中；
+
+					(3) CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+						{ LIKE old_tbl_name | (LIKE old_tbl_name) }
+
+						复制某存在的表的结构来创建新的空表；
+
+
+				DROP:
+					DROP [TEMPORARY] TABLE [IF EXISTS] tbl_name [, tbl_name];
+
+				ALTER：
+					ALTER  TABLE tbl_name
+						[alter_specification [, alter_specification] ...]
+
+						可修改内容：
+							(1) table_options
+							(2) 添加定义：ADD
+								字段、字段集合、索引、约束
+							(3) 修改字段：
+								CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST|AFTER col_name]
+								MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
+							(4) 删除操作：DROP
+								字段、索引、约束
+
+						表重命名：
+							RENAME [TO|AS] new_tbl_name
+
+					ALTER TABLE gmtb2 ADD gender ENUM('F','M');
+
+				查看表结构定义：
+					DESC tbl_name；
+
+				查看表定义：
+					SHOW CREATE TABLE tbl_name
+
+				查看表属性信息：
+					SHOW TABLE STATUS [{FROM | IN} db_name] [LIKE 'pattern' | WHERE expr]
+
+			索引：
+				创建：
+					CREATE [UNIQUE|FULLTEXT|SPATIAL] INDEX index_name [index_type] ON tbl_name (index_col_name,...)
+
+				查看：
+					SHOW {INDEX | INDEXES | KEYS} {FROM | IN} tbl_name [{FROM | IN} db_name] [WHERE expr]
+
+				删除：
+					DROP  INDEX index_name ON tbl_name
+
+				索引类型：
+					聚集索引、非聚集索引：索引是否与数据存在一起；
+					主键索引、辅助索引
+					稠密索引、稀疏索引：是否索引了每一个数据项；
+					BTREE（B+）、HASH、R Tree、FULLTEXT
+						BTREE：左前缀；
+
+				EXPLAIN：分析查询语句的执行路径；
+
+			视图：VIEW
+				虚表：存储下来的SELECT语句；
+
+				创建：
+					CREATE VIEW view_name [(column_list)] AS select_statement
+
+				修改：
+					ALTER  VIEW view_name [(column_list)] AS select_statement
+
+				删除：
+					DROP VIEW [IF EXISTS] view_name [, view_name] ...
+
+
+				CREATE VIEW gmtest AS SELECT id,name FROM gmtb2;
+
+		DML：
+			INSERT/REPLACE，DELETE，UPDATE，SELECT
+
+			INSERT：
+				单行插入
+				批量插入
+
+				INSERT [LOW_PRIORITY | DELAYED | HIGH_PRIORITY] [IGNORE]
+				[INTO] tbl_name [(col_name,...)]
+				{VALUES | VALUE} ({expr | DEFAULT},...),(...),...
+				[ ON DUPLICATE KEY UPDATE
+				col_name=expr
+					[, col_name=expr] ... ]
+
+				Or:
+
+				INSERT [LOW_PRIORITY | DELAYED | HIGH_PRIORITY] [IGNORE]
+				[INTO] tbl_name
+				SET col_name={expr | DEFAULT}, ...
+				[ ON DUPLICATE KEY UPDATE
+				col_name=expr
+					[, col_name=expr] ... ]
+
+				Or:
+
+				INSERT [LOW_PRIORITY | HIGH_PRIORITY] [IGNORE]
+				[INTO] tbl_name [(col_name,...)]
+				SELECT ...
+				[ ON DUPLICATE KEY UPDATE
+				col_name=expr
+					[, col_name=expr] ... ]
+
+				INSERT INTO gmtb2 VALUES (1,'tom',21),(2,'jerry',15),(3,'hanmeimei',22);
+
+			DELETE：
+
+				DELETE  FROM tbl_name [WHERE where_condition] [ORDER BY ...] [LIMIT row_count]
+
+				注意：一定要有限制条件，否则将清空整个表；
+					限制条件：
+						[WHERE where_condition]
+						 [ORDER BY ...] [LIMIT row_count]
+
+			UPDATE：
+
+				UPDATE table_reference SET col_name1={expr1|DEFAULT} [, col_name2={expr2|DEFAULT}] ...
+					[WHERE where_condition]
+					[ORDER BY ...]
+					[LIMIT row_count]
+
+				注意：一定要有限制条件，否则将修改整个表中指定字段的数据；
+					限制条件：
+						[WHERE where_condition]
+						 [ORDER BY ...] [LIMIT row_count]
+
+				UPDATE gmtb2 SET gender='M' WHERE id=4;
+
+				注意：sql_safe_updates变量可阻止不带条件更新操作；
+
+		SELECT：
+
+			Query Cache：缓存查询的执行结果；
+				key：查询语句的hash值；
+				value：查询语句的执行结果；
+
+				SQL语句的编写方式：
+					SELECT name FROM tbl2;
+					select name from tbl2;
+
+			查询执行路径：
+				请求-->查询缓存
+				请求-->查询缓存-->解析器-->预处理器-->优化器-->查询执行引擎-->存储引擎-->缓存-->响应
+
+
+			SELECT语句的执行流程：
+				FROM  --> WHERE --> Group By --> Having --> Order BY --> SELECT --> Limit
+
+			单表查询：
+
+				SELECT
+					[ALL | DISTINCT | DISTINCTROW ]
+					[SQL_CACHE | SQL_NO_CACHE] [SQL_CALC_FOUND_ROWS]
+					select_expr [, select_expr ...]
+					[FROM table_references
+					[WHERE where_condition]
+					[GROUP BY {col_name | expr | position}
+					[ASC | DESC], ... [WITH ROLLUP]]
+					[HAVING where_condition]
+					[ORDER BY {col_name | expr | position}
+					[ASC | DESC], ...]
+					[LIMIT {[offset,] row_count | row_count OFFSET offset}]
+
+				用法：
+					SELECT col1, col2, ... FROM tble_name；
+					SELECT col1, col2, ... FROM tble_name WHERE clause；
+					SELECT col1, col2, ... FROM tble_name [WHERE clause] GROUP BY col_name [HAVING clause]；
+
+					SELECT avg(age) AS avg_age , gender FROM gmtb2 GROUP BY gender;
+
+				DISTINCT：数据去重；
+				SQL_CACHE：显式指定缓存查询语句的结果；
+				SQL_NO_CACHE：显式指定不缓存查询语句的结果；
+
+				query_cache_type服务器变量有三个值：
+					ON：启用；
+						SQL_NO_CACHE：不缓存；默认符合缓存条件都缓存；
+					OFF：关闭；
+					DEMAND：按需缓存；
+						SQL_CACHE：缓存；默认不缓存；
+
+				字段可以使用别名 ：
+					col1 AS alias1, col2 AS alias2, ...
+
+				WHERE子句：指明过滤条件以实现“选择”功能；
+					过滤条件：布尔型表达式；
+
+					[WHERE where_condition]
+						算术操作符：+, -, *, /, %
+						比较操作符：=, <>, !=, <=>, >, >=, <, <=
+
+							IS NULL， IS NOT NULL
+							区间：BETWEEN min AND max
+							IN：列表；
+							LIKE：模糊比较，%和_；
+							RLIKE或REGEXP
+
+						逻辑操作符：
+							AND， OR， NOT， XOR
+
+				GROUP BY：根据指定的字段把查询的结果进行“分组”以用于“聚合”运算；
+					avg(), max(), min(), sum(), count()
+
+					HAVING：对分组聚合后的结果进行条件过滤；
+
+				ORDER BY：根据指定的字段把查询的结果进行排序；
+					升序：ASC
+					降序：DESC
+
+				LIMIT：对输出结果进行数量限制
+					[LIMIT {[offset,] row_count | row_count OFFSET offset}]
+
+
+			多表查询：
+				连接操作：
+					交叉连接：笛卡尔乘积；
+					内连接：
+						等值连接：让表之间的字段以等值的方式建立连接；
+						不等值连接：
+						自然连接
+						自连接
+					外连接：
+						左外连接：
+							FROM tb1 LEFT JOIN tb2 ON tb1.col = tb2.col
+						右外连接：
+							FROM tb1 RIGHT JOIN tb2 ON tb1.col = tb2.col
+
+			子查询：在查询中嵌套查询；
+
+				用于WHERE子句中的子查询；
+					(1) 用于比较表达式中的子查询：子查询仅能返回单个值；
+					(2) 用于IN中的子查询：子查询可以返回一个列表值；
+					(3) 用于EXISTS中的子查询：
+				用于FROM子句中的子查询；
+					SELECT tb_alias.col1, ... FROM (SELECT clause) AS tb_alias WHERE clause;
+
+			联合查询：将多个查询语句的执行结果相合并；
+				UNION
+					SELECT clause UNION SELECT cluase；
+
+
+			练习：导入hellodb.sql生成数据库
+				(1) 在students表中，查询年龄大于25岁，且为男性的同学的名字和年龄；
+mysql> SELECT Name,Age FROM students WHERE age > 25 AND Gender = 'M';
++--------------+-----+
+| Name         | Age |
++--------------+-----+
+| Xie Yanke    |  53 |
+| Ding Dian    |  32 |
+| Yu Yutong    |  26 |
+| Shi Qing     |  46 |
+| Tian Boguang |  33 |
+| Xu Xian      |  27 |
+| Sun Dasheng  | 100 |
++--------------+-----+
+
+				(2) 以ClassID为分组依据，显示每组的平均年龄；
+mysql> SELECT ClassID,avg(age) FROM students GROUP BY ClassID;
++---------+----------+
+| ClassID | avg(age) |
++---------+----------+
+|    NULL |  63.5000 |
+|       1 |  20.5000 |
+|       2 |  36.0000 |
+|       3 |  20.2500 |
+|       4 |  24.7500 |
+|       5 |  46.0000 |
+|       6 |  20.7500 |
+|       7 |  19.6667 |
++---------+----------+
+
+				(3) 显示第2题中平均年龄大于30的分组及平均年龄；
+mysql> SELECT ClassID,avg(age) FROM students GROUP BY ClassID HAVING avg(age)>30;
++---------+----------+
+| ClassID | avg(age) |
++---------+----------+
+|    NULL |  63.5000 |
+|       2 |  36.0000 |
+|       5 |  46.0000 |
++---------+----------+
+
+				(4) 显示以L开头的名字的同学的信息；
+mysql> SELECT * FROM students WHERE Name LIKE 'L%';
++-------+-------------+-----+--------+---------+-----------+
+| StuID | Name        | Age | Gender | ClassID | TeacherID |
++-------+-------------+-----+--------+---------+-----------+
+|     8 | Lin Daiyu   |  17 | F      |       7 |      NULL |
+|    14 | Lu Wushuang |  17 | F      |       3 |      NULL |
+|    17 | Lin Chong   |  25 | M      |       4 |      NULL |
++-------+-------------+-----+--------+---------+-----------+
+
+mysql> SELECT * FROM students WHERE Name RLIKE '^L.*$';
++-------+-------------+-----+--------+---------+-----------+
+| StuID | Name        | Age | Gender | ClassID | TeacherID |
++-------+-------------+-----+--------+---------+-----------+
+|     8 | Lin Daiyu   |  17 | F      |       7 |      NULL |
+|    14 | Lu Wushuang |  17 | F      |       3 |      NULL |
+|    17 | Lin Chong   |  25 | M      |       4 |      NULL |
++-------+-------------+-----+--------+---------+-----------+
+
+				(5) 显示TeacherID非空的同学的相关信息；
+mysql> SELECT * FROM students WHERE TeacherID IS NOT NULL;
++-------+-------------+-----+--------+---------+-----------+
+| StuID | Name        | Age | Gender | ClassID | TeacherID |
++-------+-------------+-----+--------+---------+-----------+
+|     1 | Shi Zhongyu |  22 | M      |       2 |         3 |
+|     2 | Shi Potian  |  22 | M      |       1 |         7 |
+|     3 | Xie Yanke   |  53 | M      |       2 |        16 |
+|     4 | Ding Dian   |  32 | M      |       4 |         4 |
+|     5 | Yu Yutong   |  26 | M      |       3 |         1 |
++-------+-------------+-----+--------+---------+-----------+
+
+				(6) 以年龄排序后，显示年龄最大的前10位同学的信息；
+mysql> SELECT * FROM students ORDER BY age DESC LIMIT 10;
++-------+--------------+-----+--------+---------+-----------+
+| StuID | Name         | Age | Gender | ClassID | TeacherID |
++-------+--------------+-----+--------+---------+-----------+
+|    25 | Sun Dasheng  | 100 | M      |    NULL |      NULL |
+|     3 | Xie Yanke    |  53 | M      |       2 |        16 |
+|     6 | Shi Qing     |  46 | M      |       5 |      NULL |
+|    13 | Tian Boguang |  33 | M      |       2 |      NULL |
+|     4 | Ding Dian    |  32 | M      |       4 |         4 |
+|    24 | Xu Xian      |  27 | M      |    NULL |      NULL |
+|     5 | Yu Yutong    |  26 | M      |       3 |         1 |
+|    17 | Lin Chong    |  25 | M      |       4 |      NULL |
+|    23 | Ma Chao      |  23 | M      |       4 |      NULL |
+|    18 | Hua Rong     |  23 | M      |       7 |      NULL |
++-------+--------------+-----+--------+---------+-----------+
+
+				(7) 查询年龄大于等于20岁，小于等于25岁的同学的信息；用三种方法；
+mysql> SELECT * FROM students WHERE age BETWEEN 20 AND 25;
++-------+---------------+-----+--------+---------+-----------+
+| StuID | Name          | Age | Gender | ClassID | TeacherID |
++-------+---------------+-----+--------+---------+-----------+
+|     1 | Shi Zhongyu   |  22 | M      |       2 |         3 |
+|     2 | Shi Potian    |  22 | M      |       1 |         7 |
+|     9 | Ren Yingying  |  20 | F      |       6 |      NULL |
+|    11 | Yuan Chengzhi |  23 | M      |       6 |      NULL |
+|    16 | Xu Zhu        |  21 | M      |       1 |      NULL |
+|    17 | Lin Chong     |  25 | M      |       4 |      NULL |
+|    18 | Hua Rong      |  23 | M      |       7 |      NULL |
+|    21 | Huang Yueying |  22 | F      |       6 |      NULL |
+|    22 | Xiao Qiao     |  20 | F      |       1 |      NULL |
+|    23 | Ma Chao       |  23 | M      |       4 |      NULL |
++-------+---------------+-----+--------+---------+-----------+
+
+mysql> SELECT * FROM students WHERE age >= 20 AND age <= 25;
++-------+---------------+-----+--------+---------+-----------+
+| StuID | Name          | Age | Gender | ClassID | TeacherID |
++-------+---------------+-----+--------+---------+-----------+
+|     1 | Shi Zhongyu   |  22 | M      |       2 |         3 |
+|     2 | Shi Potian    |  22 | M      |       1 |         7 |
+|     9 | Ren Yingying  |  20 | F      |       6 |      NULL |
+|    11 | Yuan Chengzhi |  23 | M      |       6 |      NULL |
+|    16 | Xu Zhu        |  21 | M      |       1 |      NULL |
+|    17 | Lin Chong     |  25 | M      |       4 |      NULL |
+|    18 | Hua Rong      |  23 | M      |       7 |      NULL |
+|    21 | Huang Yueying |  22 | F      |       6 |      NULL |
+|    22 | Xiao Qiao     |  20 | F      |       1 |      NULL |
+|    23 | Ma Chao       |  23 | M      |       4 |      NULL |
++-------+---------------+-----+--------+---------+-----------+
+
+mysql> SELECT * FROM students WHERE age IN (20,21,22,23,24,25);
++-------+---------------+-----+--------+---------+-----------+
+| StuID | Name          | Age | Gender | ClassID | TeacherID |
++-------+---------------+-----+--------+---------+-----------+
+|     1 | Shi Zhongyu   |  22 | M      |       2 |         3 |
+|     2 | Shi Potian    |  22 | M      |       1 |         7 |
+|     9 | Ren Yingying  |  20 | F      |       6 |      NULL |
+|    11 | Yuan Chengzhi |  23 | M      |       6 |      NULL |
+|    16 | Xu Zhu        |  21 | M      |       1 |      NULL |
+|    17 | Lin Chong     |  25 | M      |       4 |      NULL |
+|    18 | Hua Rong      |  23 | M      |       7 |      NULL |
+|    21 | Huang Yueying |  22 | F      |       6 |      NULL |
+|    22 | Xiao Qiao     |  20 | F      |       1 |      NULL |
+|    23 | Ma Chao       |  23 | M      |       4 |      NULL |
++-------+---------------+-----+--------+---------+-----------+
+
+
+			练习：导入hellodb.sql，以下操作在students表上执行
+				1、以ClassID分组，显示每班的同学的人数；
+mysql> SELECT ClassID,count(StuID) FROM students GROUP BY ClassID;
++---------+--------------+
+| ClassID | count(StuID) |
++---------+--------------+
+|    NULL |            2 |
+|       1 |            4 |
+|       2 |            3 |
+|       3 |            4 |
+|       4 |            4 |
+|       5 |            1 |
+|       6 |            4 |
+|       7 |            3 |
++---------+--------------+
+
+mysql> SELECT ClassID,count(ClassID) FROM students GROUP BY ClassID;
++---------+----------------+
+| ClassID | count(ClassID) |
++---------+----------------+
+|    NULL |              0 |
+|       1 |              4 |
+|       2 |              3 |
+|       3 |              4 |
+|       4 |              4 |
+|       5 |              1 |
+|       6 |              4 |
+|       7 |              3 |
++---------+----------------+
+
+				2、以Gender分组，显示其年龄之和；
+mysql> SELECT Gender,sum(age) FROM students GROUP BY Gender;
++--------+----------+
+| Gender | sum(age) |
++--------+----------+
+| F      |      190 |
+| M      |      495 |
++--------+----------+
+
+				3、以ClassID分组，显示其平均年龄大于25的班级；
+mysql> SELECT ClassID,avg(age) FROM students GROUP BY ClassID HAVING avg(age)>25;
++---------+----------+
+| ClassID | avg(age) |
++---------+----------+
+|    NULL |  63.5000 |
+|       2 |  36.0000 |
+|       5 |  46.0000 |
++---------+----------+
+
+				4、以Gender分组，显示各组中年龄大于25的学员的年龄之和；
+mysql> SELECT Gender,sum(age) FROM students WHERE age>25 GROUP BY Gender;
++--------+----------+
+| Gender | sum(age) |
++--------+----------+
+| M      |      317 |
++--------+----------+
+
+mysql> SELECT Gender,avg(gm.age) FROM (SELECT * FROM students WHERE age>25) AS gm GROUP BY Gender;
++--------+-------------+
+| Gender | avg(gm.age) |
++--------+-------------+
+| M      |     45.2857 |
++--------+-------------+
+
+
+			练习：导入hellodb.sql，完成以下题目：
+				1、显示前5位同学的姓名、课程及成绩；
+mysql> SELECT Name,Course,Score FROM (SELECT * FROM students LIMIT 5) AS a,scores AS b,courses AS c WHERE a.StuID=b.StuID AND b.CourseID=c.CourseID;
++-------------+----------------+-------+
+| Name        | Course         | Score |
++-------------+----------------+-------+
+| Shi Zhongyu | Kuihua Baodian |    77 |
+| Shi Zhongyu | Weituo Zhang   |    93 |
+| Shi Potian  | Kuihua Baodian |    47 |
+| Shi Potian  | Daiyu Zanghua  |    97 |
+| Xie Yanke   | Kuihua Baodian |    88 |
+| Xie Yanke   | Weituo Zhang   |    75 |
+| Ding Dian   | Daiyu Zanghua  |    71 |
+| Ding Dian   | Kuihua Baodian |    89 |
+| Yu Yutong   | Hamo Gong      |    39 |
+| Yu Yutong   | Dagou Bangfa   |    63 |
++-------------+----------------+-------+
+
+				2、显示其成绩高于80的同学的名称及课程；
+mysql> SELECT Name,Course,Score FROM students AS a,(SELECT * FROM scores WHERE Score>80) AS b,courses AS c WHERE a.StuID=b.StuID AND b.CourseID=c.CourseID;
++-------------+----------------+-------+
+| Name        | Course         | Score |
++-------------+----------------+-------+
+| Shi Zhongyu | Weituo Zhang   |    93 |
+| Shi Potian  | Daiyu Zanghua  |    97 |
+| Xie Yanke   | Kuihua Baodian |    88 |
+| Ding Dian   | Kuihua Baodian |    89 |
+| Shi Qing    | Hamo Gong      |    96 |
+| Xi Ren      | Hamo Gong      |    86 |
+| Xi Ren      | Dagou Bangfa   |    83 |
+| Lin Daiyu   | Jinshe Jianfa  |    93 |
++-------------+----------------+-------+
+
+				3、求前8位同学每位同学自己两门课的平均成绩，并按降序排列；
+mysql> SELECT Name,score FROM (SELECT * FROM students LIMIT 8) AS a,(SELECT StuID,avg(Score) AS score FROM scores GROUP BY StuID) AS b WHERE a.StuID=b.StuID ORDER BY score DESC;
++-------------+---------+
+| Name        | score   |
++-------------+---------+
+| Shi Qing    | 96.0000 |
+| Shi Zhongyu | 85.0000 |
+| Xi Ren      | 84.5000 |
+| Xie Yanke   | 81.5000 |
+| Ding Dian   | 80.0000 |
+| Lin Daiyu   | 75.0000 |
+| Shi Potian  | 72.0000 |
+| Yu Yutong   | 51.0000 |
++-------------+---------+
+
+				4、显示每门课程课程名称及学习了这门课的同学的个数；
+mysql> SELECT b.Course,count(b.Course) FROM scores AS a,courses AS b WHERE a.CourseID=b.CourseID GROUP BY Course;
++----------------+-----------------+
+| Course         | count(b.Course) |
++----------------+-----------------+
+| Dagou Bangfa   |               2 |
+| Daiyu Zanghua  |               2 |
+| Hamo Gong      |               3 |
+| Jinshe Jianfa  |               1 |
+| Kuihua Baodian |               4 |
+| Taiji Quan     |               1 |
+| Weituo Zhang   |               2 |
++----------------+-----------------+
+
+
+			思考：
+				1、如何显示其年龄大于平均年龄的同学的名字？
+mysql> SELECT Name,Age FROM students WHERE age>(SELECT avg(age) FROM students);
++--------------+-----+
+| Name         | Age |
++--------------+-----+
+| Xie Yanke    |  53 |
+| Ding Dian    |  32 |
+| Shi Qing     |  46 |
+| Tian Boguang |  33 |
+| Sun Dasheng  | 100 |
++--------------+-----+
+
+				2、如何显示其学习的课程为第1、2，4或第7门课的同学的名字？
+mysql> SELECT Name,CourseID FROM students,scores WHERE students.StuID=scores.StuID AND CourseID IN (1,2,4,7);
++-------------+----------+
+| Name        | CourseID |
++-------------+----------+
+| Shi Zhongyu |        2 |
+| Shi Potian  |        2 |
+| Xie Yanke   |        2 |
+| Ding Dian   |        2 |
+| Yu Yutong   |        1 |
+| Yu Yutong   |        7 |
+| Shi Qing    |        1 |
+| Xi Ren      |        1 |
+| Xi Ren      |        7 |
+| Lin Daiyu   |        4 |
++-------------+----------+
+
+				3、如何显示其成员数最少为3个的班级的同学中年龄大于同班同学平均年龄的同学？
+mysql> SELECT Name,Age,avg_age,c.ClassID FROM students,(SELECT * FROM (SELECT StuID,ClassID,count(ClassID) AS num,avg(age) AS avg_age FROM students GROUP BY ClassID) AS b WHERE b.num>=3) AS c WHERE students.StuID=c.StuID AND age > avg_age;
++------------+-----+---------+---------+
+| Name       | Age | avg_age | ClassID |
++------------+-----+---------+---------+
+| Shi Potian |  22 | 20.5000 |       1 |
+| Yu Yutong  |  26 | 20.2500 |       3 |
+| Ding Dian  |  32 | 24.7500 |       4 |
++------------+-----+---------+---------+
+
+				4、统计各班级中年龄大于全校同学平均年龄的同学。
+mysql> SELECT ClassID,count(ClassID) FROM students WHERE age>(SELECT avg(age) FROM students) GROUP BY ClassID;
++---------+----------------+
+| ClassID | count(ClassID) |
++---------+----------------+
+|    NULL |              0 |
+|       2 |              2 |
+|       4 |              1 |
+|       5 |              1 |
++---------+----------------+
+
+
+	存储引擎：
+		表类型：表级别概念，不建议在同一个库中的表上使用不同的ENGINE；
+
+		CREATE TABLE ... ENGINE[=]STORAGE_ENGINE_NAME ...
+		SHOW TABLE STATUS
+
+		常见的存储引擎：
+			MyISAM, Aria, InnoDB, MRG_MYISAM, CSV, BLACKHOLE, MEMORY, PERFORMANCE_SCHEMA, ARCHIVE, FEDERATED
+
+		InnoDB：InnoBase
+			Percona-XtraDB, Supports transactions, row-level locking, and foreign keys
+
+			数据存储于“表空间(table space)"中：
+				(1) 所有InnoDB表的数据和索引存储于同一个表空间中；
+					表空间文件：datadir定义的目录中
+						文件：ibdata1, ibdata2, ...
+				(2) innodb_file_per_table=ON，意味着每表使用单独的表空间文件；
+					数据文件（数据和索引，存储于数据库目录）: tbl_name.ibd
+
+				表结构的定义：在数据库目录，tbl_name.frm
+
+			事务型存储引擎，适合对事务要求较高的场景中；但较适用于处理大量短期事务；
+			基于MVCC（Mutli Version Concurrency Control）支持高并发；支持四个隔离级别，默认级别为REPEATABLE-READ；间隙锁以防止幻读；
+			使用聚集索引（主键索引）；
+			支持”自适应Hash索引“；
+			锁粒度：行级锁；间隙锁；
+
+			总结：
+				数据存储：表空间；
+				并发：MVCC，间隙锁，行级锁；
+				索引：聚集索引、辅助索引；
+				性能：预读操作、内存数据缓冲、内存索引缓存、自适应Hash索引、插入操作缓存区；
+				备份：支持热备；
+
+		MyISAM：
+
+			支持全文索引（FULLTEXT index）、压缩、空间函数（GIS）；
+			不支持事务
+			锁粒度：表级锁
+			崩溃无法保证表安全恢复
+
+			适用场景：只读或读多写少的场景、较小的表（以保证崩溃后恢复的时间较短）；
+
+			文件：每个表有三个文件，存储于数据库目录中
+				tbl_name.frm：表格式定义；
+				tbl_name.MYD：数据文件；
+				tbl_name.MYI：索引文件；
+
+			特性：
+				加锁和并发：表级锁；
+				修复：手动或自动修复、但可能会丢失数据；
+				索引：非聚集索引；
+				延迟索引更新；
+				表压缩；
+
+		行格式：
+			 {DEFAULT|DYNAMIC|FIXED|COMPRESSED|REDUNDANT|COMPACT}
+
+		其它的存储引擎：
+			CSV：将CSV文件（以逗号分隔字段的文本文件）作为MySQL表文件；
+			MRG_MYISAM：将多个MyISAM表合并成的虚拟表；
+			BLACKHOLE：类似于/dev/null，不真正存储数据；
+			MEMORY：内存存储引擎，支持hash索引，表级锁，常用于临时表；
+			FEDERATED: 用于访问其它远程MySQL服务器上表的存储引擎接口；
+
+		MariaDB额外支持很多种存储引擎：
+			OQGraph、SphinxSE、TokuDB、Cassandra、CONNECT、SQUENCE、...
+
+		搜索引擎：
+			lucene, sphinx
+				lucene：Solr, Elasticsearch
+
+
+	并发控制：
+		锁：Lock
+
+		锁类型 ：
+			读锁：共享锁，可被多个读操作共享；
+			写锁：排它锁，独占锁；
+
+		锁粒度：
+			表锁：在表级别施加锁，并发性较低；
+			行锁：在行级另施加锁，并发性较高；
+
+		锁策略：在锁粒度及数据安全性之间寻求一种平衡机制；
+
+			存储引擎：级别以及何时施加或释放锁由存储引擎自行决定；
+			MySQL Server：表级别，可自行决定，也允许显式请求；
+
+		锁类别：
+			显式锁：用户手动请求的锁；
+			隐式锁：存储引擎自行根据需要施加的锁；
+
+		显式锁的使用：
+			(1) LOCK TABLES
+
+				LOCK TABLES  tbl_name  read|write, tbl_name read|write, ...
+
+				UNLOCK TABLES
+
+			(2) FLUSH TABLES
+				FLUSH TABLES tbl_name,... [WITH READ LOCK];
+
+				UNLOCK TABLES;
+
+			(3) SELECT cluase
+				[FOR UPDATE | LOCK IN SHARE MODE]
+
+	事务：
+		事务：一组原子性的SQL查询、或者是一个或多个SQL语句组成的独立工作单元；
+
+			事务日志：
+				innodb_log_files_in_group
+				innodb_log_group_home_dir
+				innodb_log_file_size
+				innodb_mirrored_log_groups
+
+		ACID测试：
+			A：AUTOMICITY，原子性；整个事务中的所有操作要么全部成功执行，要么全部失败后回滚；
+			C：CONSISTENCY，一至性；数据库总是应该从一个一致性状态转为另一个一致性状态；
+			I：ISOLATION，隔离性；一个事务所做出的操作在提交之前，是否能为其它事务可见；出于保证并发操作之目的，隔离有多种级别；
+			D：DURABILITY，持久性；事务一旦提交，其所做出的修改会永久保存；
+
+		自动提交：单语句事务
+			mysql> SELECT @@autocommit;
+			+------------------------+
+			| @@autocommit           |
+			+------------------------+
+			|            1           |
+			+------------------------+
+
+			mysql> SET @@session.autocommit=0；
+
+		手动控制事务：
+			启动：START TRANSACTION
+			提交：COMMIT
+			回滚：ROLLBACK
+
+			事务支持savepoints：
+				SAVEPOINT identifier
+				ROLLBACK [WORK] TO [SAVEPOINT] identifier
+				RELEASE SAVEPOINT identifier
+
+		事务隔离级别：
+			READ-UNCOMMITTED：读未提交 --> 脏读；
+			READ-COMMITTED：读提交--> 不可重复读；
+			REPEATABLE-READ：可重复读 --> 幻读；
+			SERIALIZABLE：串行化；
+
+			mysql> SELECT @@session.tx_isolation;
+			+----------------------------------+
+			| @@session.tx_isolation |
+			+----------------------------------+
+			| REPEATABLE-READ         |
+			+----------------------------------+
+
+		查看InnoDB存储引擎的状态信息：
+			SHOW ENGINE innodb STATUS;
+
+

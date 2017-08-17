@@ -1,0 +1,632 @@
+Tomcat（2）
+
+	tomcat的两个管理应用:
+		manager
+		host-manager
+
+	tomcat的常用组件配置：
+
+		Server：代表tomcat instance，即表现出的一个java进程；监听在8005端口，只接收“SHUTDOWN”。各server监听的端口不能相同，因此，在同一物理主机启动多个实例时，需要修改其监听端口为不同的端口；
+
+		Service：用于实现将一个或多个connector组件关联至一个engine组件；
+
+		Connector组件：
+			进入tomcat的请求可分为两类：
+				(1) standalone : 请求来自于客户端浏览器；
+				(2) 由其它的web server反代：来自前端的反代服务器；
+					nginx --> http connector --> tomcat
+					httpd --> http connector --> tomcat
+					httpd --> ajp connector --> tomcat
+
+			属性：
+				port="8080"
+				protocol="HTTP/1.1"
+				connectionTimeout="20000"
+
+				address：监听的IP地址；默认为本机所有可用地址；
+				maxThreads：最大并发连接数，默认为150；
+				enableLookups：是否启用DNS查询功能；
+				acceptCount：等待队列的最大长度；
+				secure：
+				sslProtocol：
+
+		Engine组件：Servlet实例，即servlet引擎，其内部可以一个或多个host组件来定义站点； 通常需要通过defaultHost来定义默认的虚拟主机；
+
+			属性：
+				name=
+				defaultHost="localhost"
+				jvmRoute=
+
+		Host组件：位于engine内部用于接收请求并进行相应处理的主机或虚拟主机，示例：
+			 <Host name="localhost"  appBase="webapps"
+				unpackWARs="true" autoDeploy="true">
+			</Host>
+
+			常用属性说明：
+				(1) appBase：此Host的webapps的默认存放目录，指存放非归档的web应用程序的目录或归档的WAR文件目录路径；可以使用基于$CATALINA_BASE变量所定义的路径的相对路径；
+				(2) autoDeploy：在Tomcat处于运行状态时，将某webapp放置于appBase所定义的目录中时，是否自动将其部署至tomcat；
+
+				示例：
+			      <Host name="tc1.magedu.com" appBase="/appdata/webapps" unpackWARs="true" autoDeploy="true">
+				</Host>
+
+				# mkdir -pv /appdata/webapps
+				# mkdir -pv /appdata/webapps/ROOT/{lib,classes,WEB-INF}
+				提供一个测试页即可；
+
+		Context组件:
+			示例：
+				<Context path="/PATH" docBase="/PATH/TO/SOMEDIR" reloadable=""/>
+
+			常用属性：
+				path：相对于当前host的URI的根路径的URI；如果为空，则表示为“/"；
+				docBase：相应的应用程序的资源文件的存放位置；如果使用相对路径，则相对于host的appBase而言；
+				reloadable：是否允许重新加载此context相关的web应用程序的类；
+
+		Valve组件：
+			<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+				prefix="localhost_access_log" suffix=".txt"
+				pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+
+			Valve存在多种类型：
+				定义访问日志：org.apache.catalina.valves.AccessLogValve
+				定义访问控制：org.apache.catalina.valves.RemoteAddrValve
+
+				 <Valve className="org.apache.catalina.valves.RemoteAddrValve" deny="172\.16\.100\.67"/>
+
+	LNMT：Linux Nginx MySQL Tomcat
+		Client (http) --> nginx (reverse proxy)(http) --> tomcat  (http connector)
+
+		location / {
+			proxy_pass http://tc1.magedu.com:8080;
+		}
+
+		location ~* \.(jsp|do)$ {
+			proxy_pass http://tc1.magedu.com:8080;
+		}
+
+	LAMT：Linux Apache(httpd) MySQL Tomcat
+		httpd的代理模块：
+			proxy_module
+			proxy_http_module：适配http协议客户端；
+			proxy_ajp_module：适配ajp协议客户端；
+
+		Client (http) --> httpd (	tomcat程序环境：
+
+		tomcat的目录结构
+			bin：脚本，及启动时用到的类；
+			conf：配置文件；
+			lib：库文件；
+			logs：日志文件目录；
+			temp：临时文件目录；
+			webapps：webapp的默认目录；
+			work：工作目录；
+
+		rpm包安装的程序环境：
+			配置文件：/etc/tomcat
+			webapps存放位置：/var/lib/tomcat/webapps/
+				examples
+				manager
+				host-manager
+				docs
+
+		tomcat的配置文件：
+			server.xml：主配置文件；
+			web.xml：每个webapp只有“部署”后才能被访问，它的部署方式通常由web.xml进行定义，其存放位置为WEB-INF/目录中；此文件为所有的webapps提供默认配置；
+			context.xml：每个web都可以专用的配置文件，它通常由专用的配置文件context.xml来定义，其存放位置为WEB-INF/目录中；此文件为所有的webapps提供默认配置；
+			tomcat-users.xml：用户认证的账号和密码文件；
+			catalina.policy：当使用-security选项启动tomcat时，用于为tomcat设置安全策略；
+			catalina.properties：Java属性的定义文件，用于设定类加载器路径，以及一些与JVM调优相关参数；
+			logging.properties：日志系统相关的配置；
+
+		# catalina.sh --help
+			debug             Start Catalina in a debugger
+			debug -security   Debug Catalina with a security manager
+			jpda start        Start Catalina under JPDA debugger
+			run               Start Catalina in the current window
+			run -security     Start in the current window with security manager
+			start             Start Catalina in a separate window
+			start -security   Start in a separate window with security manager
+			stop              Stop Catalina, waiting up to 5 seconds for the process to end
+			stop n            Stop Catalina, waiting up to n seconds for the process to end
+			stop -force       Stop Catalina, wait up to 5 seconds and then use kill -KILL if still running
+			stop n -force     Stop Catalina, wait up to n seconds and then use kill -KILL if still running
+			configtest        Run a basic syntax check on server.xml - check exit code for result
+			version           What version of tomcat are you running?
+
+		JSP WebAPP的组织结构：
+			/: webapps的根目录
+				index.jsp：主页；
+				WEB-INF/：当前webapp的私有资源路径；通常用于存储当前webapp的web.xml和context.xml配置文件；
+				META-INF/：类似于WEB-INF/；
+				classes/：类文件，当前webapp所提供的类；
+				lib/：类文件，当前webapp所提供的类，被打包为jar格式；
+
+		webapp归档格式：
+			.war：webapp
+			.jar：EJB的类打包文件；
+			.rar：资源适配器类打包文件；
+			.ear：企业级webapp；
+
+	部署(deploy)webapp的相关操作：
+		deploy：将webapp的源文件放置于目标目录，配置tomcat服务器能够基于web.xml和context.xml文件中定义的路径来访问此webapp；将其特有的类和依赖的类通过class loader装载至JVM；
+			部署有两种方式：
+				自动部署：auto deploy
+				手动部署:
+					冷部署：把webapp复制到指定的位置，而后才启动tomcat；
+					热部署：在不停止tomcat的前提下进行部署；
+						部署工具：manager、ant脚本、tcd(tomcat client deployer)等；
+		undeploy：反部署，停止webapp，并从tomcat实例上卸载webapp；
+		start：启动处于停止状态的webapp；
+		stop：停止webapp，不再向用户提供服务；其类依然在jvm上；
+		redeploy：重新部署；
+
+	手动提供一测试类应用，并冷部署：
+		# mkidr  -pv  /usr/local/tomcat/webapps/test/{classes,lib,WEB-INF}
+		创建文件/usr/local/tomcat/webapps/test/index.jsp
+			<%@ page language="java" %>
+			<%@ page import="java.util.*" %>
+			<html>
+				<head>
+					<title>Test Page</title>
+				</head>
+				<body>
+					<% out.println("hello world");
+					%>
+				</body>
+			</html>
+
+	tomcat的两个管理应用:
+		manager
+		host-manager
+
+	tomcat的常用组件配置：
+
+		Server：代表tomcat instance，即表现出的一个jvm进程；监听在8005端口，只接收“SHUTDOWN”。各server监听的端口不能相同，因此，在同一物理主机启动多个实例时，需要修改其监听端口为不同的端口；
+
+		Service：用于实现将一个或多个connector组件关联至一个engine组件；
+
+		Connector组件：
+			进入tomcat的请求可分为两类：
+				(1) standalone : 请求来自于客户端浏览器；
+				(2) 由其它的web server反代：来自前端的反代服务器；
+					nginx --> http connector --> tomcat
+					httpd --> http connector --> tomcat
+					httpd --> ajp connector --> tomcat
+
+			属性：
+				port="8080"
+				protocol="HTTP/1.1"
+				connectionTimeout="20000"
+
+				address：监听的IP地址；默认为本机所有可用地址；
+				maxThreads：最大并发连接数，默认为150；
+				enableLookups：是否启用DNS查询功能；
+				acceptCount：等待队列的最大长度；
+				secure：
+				sslProtocol：
+
+		Engine组件：Servlet实例，即servlet引擎，其内部可以一个或多个host组件来定义站点； 通常需要通过defaultHost来定义默认的虚拟主机；
+
+			属性：
+				name=
+				defaultHost="localhost"
+				jvmRoute=
+
+		Host组件：位于engine内部用于接收请求并进行相应处理的主机或虚拟主机，示例：
+			 <Host name="localhost"  appBase="webapps"
+				unpackWARs="true" autoDeploy="true">
+			</Host>
+
+			常用属性说明：
+				(1) appBase：此Host的webapps的默认存放目录，指存放非归档的web应用程序的目录或归档的WAR文件目录路径；可以使用基于$CATALINA_BASE变量所定义的路径的相对路径；
+				(2) autoDeploy：在Tomcat处于运行状态时，将某webapp放置于appBase所定义的目录中时，是否自动将其部署至tomcat；
+
+				示例：
+			      <Host name="tc1.magedu.com" appBase="/appdata/webapps" unpackWARs="true" autoDeploy="true">
+				</Host>
+
+				# mkdir -pv /appdata/webapps
+				# mkdir -pv /appdata/webapps/ROOT/{lib,classes,WEB-INF}
+				提供一个测试页即可；
+
+		Context组件:
+			示例：
+				<Context path="/PATH" docBase="/PATH/TO/SOMEDIR" reloadable=""/>
+
+		Valve组件：
+			<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+				prefix="localhost_access_log" suffix=".txt"
+				pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+
+			Valve存在多种类型：
+				定义访问日志：org.apache.catalina.valves.AccessLogValve
+				定义访问控制：org.apache.catalina.valves.RemoteAddrValve
+
+				 <Valve className="org.apache.catalina.valves.RemoteAddrValve" deny="172\.16\.100\.67"/>
+
+	LNMT：Linux Nginx MySQL Tomcat
+		Client (http) --> nginx (reverse proxy)(http) --> tomcat  (http connector)
+
+		location / {
+			proxy_pass http://tc1.magedu.com:8080;
+		}
+
+		location ~* \.(jsp|do)$ {
+			proxy_pass http://tc1.magedu.com:8080;
+		}
+
+	LAMT：Linux Apache(httpd) MySQL Tomcat
+		httpd的代理模块：
+			proxy_module
+			proxy_http_module：适配http协议客户端；
+			proxy_ajp_module：适配ajp协议客户端；
+
+		Client (http) --> httpd (proxy_http_module)(http) --> tomcat  (http connector)
+		Client (http) --> httpd (proxy_ajp_module)(ajp) --> tomcat  (ajp connector)
+		Client (http) --> httpd (mod_jk)(ajp) --> tomcat  (ajp connector)
+
+		proxy_http_module代理配置示例：
+			<VirtualHost *:80>
+				ServerName      tc1.magedu.com
+				ProxyRequests Off
+				ProxyVia        On
+				ProxyPreserveHost On
+				<Proxy *>
+					Require all granted
+				</Proxy>
+				ProxyPass / http://tc1.magedu.com:8080/
+				ProxyPassReverse / http://tc1.magedu.com:8080/
+				<Location />
+					Require all granted
+				</Location>
+			</VirtualHost>
+
+		proxy_ajp_module代理配置示例：
+			<VirtualHost *:80>
+				ServerName      tc1.magedu.com
+				ProxyRequests Off
+				ProxyVia        On
+				ProxyPreserveHost On
+				<Proxy *>
+					Require all granted
+				</Proxy>
+				ProxyPass / ajp://tc1.magedu.com:8009/
+				ProxyPassReverse / ajp://tc1.magedu.com:8009/
+				<Location />
+					Require all granted
+				</Location>
+			</VirtualHost>
+
+	课外实践：client --> nginx --> httpd --> tomcat
+	proxy_http_module)(http) --> tomcat  (http connector)
+		Client (http) --> httpd (proxy_ajp_module)(ajp) --> tomcat  (ajp connector)
+		Client (http) --> httpd (mod_jk)(ajp) --> tomcat  (ajp connector)
+
+		proxy_http_module代理配置示例：
+			<VirtualHost *:80>
+				ServerName      tc1.magedu.com
+				ProxyRequests Off
+				ProxyVia        On
+				ProxyPreserveHost On
+				<Proxy *>
+					Require all granted
+				</Proxy>
+				ProxyPass / http://tc1.magedu.com:8080/
+				ProxyPassReverse / http://tc1.magedu.com:8080/
+				<Location />
+					Require all granted
+				</Location>
+			</VirtualHost>
+
+		proxy_ajp_module代理配置示例：
+			<VirtualHost *:80>
+				ServerName      tc1.magedu.com
+				ProxyRequests Off
+				ProxyVia        On
+				ProxyPreserveHost On
+				<Proxy *>
+					Require all granted
+				</Proxy>
+				ProxyPass / ajp://tc1.magedu.com:8009/
+				ProxyPassReverse / ajp://tc1.magedu.com:8009/
+				<Location />
+					Require all granted
+				</Location>
+			</VirtualHost>
+
+	课外实践：client --> nginx --> httpd --> tomcat
+
+
+
+
+
+
+
+ 回顾：
+	Tomcat配置、LNMT、LAMT
+
+	server.xml：
+		<server>
+			<service>
+				<connector port="8080"/>
+				<connector port="8009" protocol="AJP/1.3"/>
+				<engine>
+					<Host />
+					<Host name="HOSTNAME">
+						<Context path="" docBase=""/>
+					</Host>
+				</engine>
+			</service>
+		</server>
+
+	部署：deploy
+		冷部署
+		热部署：manager app, ant, tcd
+
+Tomcat Cluster(3)
+
+	会话保持：
+		(1) session sticky
+			source ip
+			cookie
+			hash HEADER
+		(2) session cluster
+		(3) session server
+
+	Tomcat Cluster
+		(1) session stickey
+			nginx, haproxy, lvs, httpd
+		(2) session cluster
+			tomcat delta manager, tomcat session cluster
+		(3) session server
+			memcached
+
+	apache + tomcatS：
+		(1) apache:
+				mod_proxy
+				mod_proxy_http
+				mod_proxy_balancer
+			tomcat
+				http connector
+		(2) apache:
+				mod_proxy
+				mod_proxy_ajp
+				mod_proxy_balancer
+			tomcat:
+				ajp connector
+		(3) apache:
+				mod_jk
+			tomcat:
+				ajp connector
+
+		第一种方法的实现：
+			<proxy balancer://tcsrvs>
+				BalancerMember http://172.18.100.67:8080
+				BalancerMember http://172.18.100.68:8080
+				ProxySet lbmethod=byrequests
+			</Proxy>
+
+			<VirtualHost *:80>
+				ServerName lb.magedu.com
+				ProxyVia On
+				ProxyRequests Off
+				ProxyPreserveHost On
+				<Proxy *>
+					Require all granted
+				</Proxy>
+				ProxyPass / balancer://tcsrvs/
+				ProxyPassReverse / balancer://tcsrvs/
+				<Location />
+					Require all granted
+				</Location>
+			</VirtualHost>
+
+			会话粘性的实现方法：
+				Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED
+
+				<proxy balancer://tcsrvs>
+					BalancerMember http://172.18.100.67:8080 route=TomcatA loadfactor=1
+					BalancerMember http://172.18.100.68:8080 route=TomcatB loadfactor=2
+					ProxySet lbmethod=byrequests
+					ProxySet stickysession=ROUTEID
+				</Proxy>
+
+				<VirtualHost *:80>
+					ServerName lb.magedu.com
+					ProxyVia On
+					ProxyRequests Off
+					ProxyPreserveHost On
+					<Proxy *>
+						Require all granted
+					</Proxy>
+					ProxyPass / balancer://tcsrvs/
+					ProxyPassReverse / balancer://tcsrvs/
+					<Location />
+						Require all granted
+					</Location>
+				</VirtualHost>
+
+				启用管理接口：
+				<Location /balancer-manager>
+					SetHandler balancer-manager
+					ProxyPass !
+					Require all granted
+				</Location>
+
+				示例程序：
+					演示效果，在TomcatA上某context中（如/test），提供如下页面
+					<%@ page language="java" %>
+					<html>
+						<head><title>TomcatA</title></head>
+						<body>
+							<h1><font color="red">TomcatA.magedu.com</font></h1>
+							<table align="centre" border="1">
+								<tr>
+									<td>Session ID</td>
+								<% session.setAttribute("magedu.com","magedu.com"); %>
+									<td><%= session.getId() %></td>
+								</tr>
+								<tr>
+									<td>Created on</td>
+									<td><%= session.getCreationTime() %></td>
+								</tr>
+							</table>
+						</body>
+					</html>
+
+
+					演示效果，在TomcatB上某context中（如/test），提供如下页面
+					<%@ page language="java" %>
+					<html>
+						<head><title>TomcatB</title></head>
+							<body>
+							<h1><font color="blue">TomcatB.magedu.com</font></h1>
+							<table align="centre" border="1">
+								<tr>
+									<td>Session ID</td>
+								<% session.setAttribute("magedu.com","magedu.com"); %>
+									<td><%= session.getId() %></td>
+								</tr>
+								<tr>
+									<td>Created on</td>
+									<td><%= session.getCreationTime() %></td>
+								</tr>
+							</table>
+							</body>
+					</html>
+
+			第二种方式：
+				<proxy balancer://tcsrvs>
+					BalancerMember ajp://172.18.100.67:8009 route=TomcatA loadfactor=1
+					BalancerMember ajp://172.18.100.68:8009 route=TomcatB loadfactor=1
+					ProxySet lbmethod=byrequests
+				</Proxy>
+
+				<VirtualHost *:80>
+					ServerName lb.magedu.com
+					ProxyVia On
+					ProxyRequests Off
+					ProxyPreserveHost On
+					<Proxy *>
+						Require all granted
+					</Proxy>
+					ProxyPass / balancer://tcsrvs/
+					ProxyPassReverse / balancer://tcsrvs/
+					<Location />
+						Require all granted
+					</Location>
+					<Location /balancer-manager>
+						SetHandler balancer-manager
+						ProxyPass !
+						Require all granted
+					</Location>
+				</VirtualHost>
+
+			第三种方式：mod_jk模块
+				mod_jd：额外编译
+					# yum install httpd-devel
+					# tar xf tomcat-connectors-VERSION.tar.gz
+					# cd tomcat-connectors-VERSION/native
+					# ./configure  --with-apxs=/usr/bin/apxs
+
+				(1) 基于mod_jk进行反代
+
+					模块配置文件：/etc/httpd/conf.d/mod_jk.conf
+						LoadModule jk_module modules/mod_jk.so
+
+						JkWorkersFile /etc/httpd/conf.d/workers.properties
+						JkLogFile logs/mod_jk.log
+						JkLogLevel debug
+						JkMount /* TomcatA
+						JkMount /jk_status StatA
+
+					workers配置文件：/etc/httpd/conf.d/workers.properties
+						worker.list=TomcatA,StatA
+						worker.TomcatA.host=172.18.100.67
+						worker.TomcatA.port=8009
+						worker.Tomcat.type=ajp13
+						worker.StatA.type=status
+
+				(2) 基于mod_jk进行LB
+					模块配置文件：/etc/httpd/conf.d/mod_jk.conf
+						LoadModule jk_module modules/mod_jk.so
+
+						JkWorkersFile /etc/httpd/conf.d/workers.properties
+						JkLogFile logs/mod_jk.log
+						JkLogLevel debug
+						JkMount /* tcsrvs
+						JkMount /jk_status StatA
+
+					workers配置文件：/etc/httpd/conf.d/workers.properties
+						worker.list=tcsrvs,StatA
+						worker.TomcatA.host=172.18.100.67
+						worker.TomcatA.port=8009
+						worker.TomcatA.type=ajp13
+						worker.TomcatA.lbfactor=1
+						worker.TomcatB.host=172.18.100.68
+						worker.TomcatB.port=8009
+						worker.TomcatB.type=ajp13
+						worker.TomcatB.lbfactor=2
+						worker.tcsrvs.type=lb
+						worker.tcsrvs.balance_workers=TomcatA,TomcatB
+						worker.tcsrvs.sticky_session=1
+						worker.StatA.type=status
+
+					如果要做会话绑定，此处的配置文件使用worker的名称，要与后端tomcat的Engine属性中的jvmRoute的值保持一致；
+
+		Tomcat Session Replication Cluster：
+			(1) 配置启用集群；
+				<Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"
+						channelSendOptions="8">
+
+					<Manager className="org.apache.catalina.ha.session.DeltaManager"
+						expireSessionsOnShutdown="false"
+						notifyListenersOnReplication="true"/>
+
+					<Channel className="org.apache.catalina.tribes.group.GroupChannel">
+					<Membership className="org.apache.catalina.tribes.membership.McastService"
+							address="228.0.0.4"
+							port="45564"
+							frequency="500"
+							dropTime="3000"/>
+					<Receiver className="org.apache.catalina.tribes.transport.nio.NioReceiver"
+						address="auto"
+						port="4000"
+						autoBind="100"
+						selectorTimeout="5000"
+						maxThreads="6"/>
+
+					<Sender className="org.apache.catalina.tribes.transport.ReplicationTransmitter">
+					<Transport className="org.apache.catalina.tribes.transport.nio.PooledParallelSender"/>
+					</Sender>
+					<Interceptor className="org.apache.catalina.tribes.group.interceptors.TcpFailureDetector"/>
+					<Interceptor className="org.apache.catalina.tribes.group.interceptors.MessageDispatch15Interceptor"/>
+					</Channel>
+
+					<Valve className="org.apache.catalina.ha.tcp.ReplicationValve"
+						filter=""/>
+					<Valve className="org.apache.catalina.ha.session.JvmRouteBinderValve"/>
+
+					<Deployer className="org.apache.catalina.ha.deploy.FarmWarDeployer"
+						tempDir="/tmp/war-temp/"
+						deployDir="/tmp/war-deploy/"
+						watchDir="/tmp/war-listen/"
+						watchEnabled="false"/>
+
+					<ClusterListener className="org.apache.catalina.ha.session.JvmRouteSessionIDBinderListener"/>
+					<ClusterListener className="org.apache.catalina.ha.session.ClusterSessionListener"/>
+					</Cluster>
+
+				确保Engine的jvmRoute属性配置正确。
+
+			(2) 配置webapps
+				编辑WEB-INF/web.xml，添加<distributable/>
+
+		session server：
+
+	博客作业：
+		(1) nginx, apache(mod_proxy_ajp, mod_proxy_http, mod_jk)反代用户请求至tomcat；
+		(2) nginx, apache(mod_proxy_ajp, mod_proxy_http, mod_jk)负载用户请求至tomcat servers；额外实现session sticky；
+		(3) tomcat session cluster;
+		(4) tomcat session server(msm);

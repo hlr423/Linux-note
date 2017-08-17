@@ -1,0 +1,408 @@
+HA Cluster:
+
+	Linux Cluster: LB/HA/HP
+
+	HA：
+		A=MTBF/(MTBF+MTTR)
+			MTBF: Mean Time Between Failure
+			MTTR：Mean Time To Repair
+
+				冗余：Failover，Failback
+
+		1>A>0，(0,1)，百分比
+			95%, 97%, 99%, 99.9%, ...
+
+		故障场景：
+			硬件：人为故障、wear out、设计缺陷、……
+			软件：人为故障、bug、设计缺陷、……
+
+	HA解决方案：
+		vrrp协议：keepalived
+		SA Forum：AIS，OpenAIS（开放式应用接口标准）
+
+		OpenAIS：
+			Messaging Layer（Infrastructure Layer）
+				HA-Aware
+			CRM（Cluster Resource Manager）
+				非HA-Aware
+				管理接口：
+					CLI：命令行接口
+					GUI：图形用户界面
+				LRM（Local Resoure Manager）
+			RA（Resource Agent）
+				start|stop|restart|status
+					status：
+						running/stopped
+
+			各自的实现：
+				Messaging Layer：
+					heartbeat：v1 --> v2 --> v3
+					openais --> cman (cluster manager)
+					openais --> corosync engine
+				CRM：
+					heartbeat v1 --> haresources
+						配置文件：haresources配置文件
+					heartbeat v2 --> crm
+						运行方式：在集群中的每个节点上运行一个crmd守护进程（5560/tcp），提供API；
+						配置接口：crmsh, hb_gui
+					heartbeat v3 --> pacemaker
+						配置接口：crmsh, pcs
+					cman --> rgmanager
+						配置接口：
+							配置文件：cluster.conf(xml)
+							GUI: system-config-cluster
+							WebGUI：conga(ricci/luci)
+							CLI：cman_tool, ccs_tool, clustat, ...
+					corosync --> pacemaker
+
+			组合方式：
+				heartbeat v1 + haresources
+				heartbeat v2 + crm (crmsh, hb_gui)
+				heartbeat v3 + cluster-glue + pacemaker
+				corosync + pacemaker
+					corosync v1 + pacemaker (plugin)
+					corosync v2 (quorumsystem) + pacemaker (standalone daemon)
+				cman + rgmanager
+				cman + corosync v1 + pacemaker
+
+			RHCS：RedHat Cluster Suite
+				RHEL5: cman + rgmanager + conga(ricci/luci)
+				RHEL6：
+					cman + rgmanager + conga(ricci/luci)
+					corosync v1 + pacemaker + crmsh/pcs
+					cman + corosync v1 + pacemaker + crmsh/pcs
+				RHEL7：
+					corosync v2 + pacemaker + pcs
+
+		quorum：
+
+			network partition：brain-split
+
+			quorum system：	投票系统
+				node: vote
+
+				with quorum：votes > total/2
+				without quorum: votes <= total/2
+					no_quorum_policy
+						stop
+						ignore
+						suicide
+						freeze
+
+				fecing：
+					node level：STONITH （Shooting The Other Node In The Node）
+						stonith device：
+							hardware：power switch, ...
+							software：virtulization kvm/xen/...，ssh/telnet, ...
+							meatware：
+					resource level：
+						fc switch
+
+				特殊场景：two nodes cluster
+					(1) no_quorum_policy
+						ignore
+					(2) quorum device
+						(a) ping node
+						(b) quorum disk
+						...
+
+				集群事务信息及心跳信息的传递方式：
+					(1) unicast
+					(2) multicast
+					(3) broadcast
+
+		Resource Allocation Layer：资源管理
+			DC：Designated Coordinator
+
+			Component：
+				DC：
+					CRM，CIB（Cluster Information Base），PE（Policy Engine），LRM
+				非DC：
+					CRM，CIB，LRM
+
+			资源类型：
+				primitive：基本资源，主资源；
+					仅能运行一份，仅能运行于单个节点；
+				group：组
+					将一个或多个资源组织成为一个可统一管理的单一单位；
+				clone：克隆
+					一个资源可以在集群中运行多个副本；可以运行于多个节点；
+				multi-state(master/slave)：
+					是clone类型的资源的特殊表现，存在多个副本，副本间存在主从关系；drbd是常见的此类应用；
+
+			集群的架构类型：
+				A/P， A/A
+				N个节点：
+					N-1：N个节点运行一个服务；
+					N-M：N个节点运行M个服务，M<N，备用节点数量（N-M）；
+					N-N：N个节点运行N个服务；
+
+			资源倾向性：资源的约束关系；
+				score：(-oo, +oo)
+					正数：正倾向性；
+					负数：负倾向性；
+
+				location：位置约束，资源对节点的倾向性；
+				colocation：排列约束，资源与资源运行于同一节点的倾向性；
+				order：顺序约束，定义资源间的依赖关系；
+
+		RA：资源代理
+			类别：
+				LSB：/etc/rc.d/init.d/*
+					脚本，支持start|stop|status|restart|reload|force-reload；
+					注意：一定不能设置为开机自动启动；
+				OCF：Open Cluster Framework
+					/usr/lib/ocf/resource.d/provider/目录下；
+					类似于LSB的脚本，但支持start|stop|status|monitor|meta-data等；
+				systemd unti file：/usr/lib/systemd/system
+					注意：一定要设置为enable；
+				STONITH：专用于配置stonith设备的RA；
+				service：
+
+
+回顾：
+	HA Cluster：
+		vrrp协议的实现
+		ais(OpenAIS)
+			Messaging Layer：
+				heartbeat, cman, openais(corosync)
+			Resource Allocation Layer（CRM）：
+				haresources, crm, pacemaker, rgmanager
+			RA：
+				classes：LSB，OCF，systemd，STONITH，service
+
+			Quorum System(network partition)：
+				with quorum：votes > total/2
+				without quorum
+					no_quorum_policy：stop, ignore, suicide, freeze
+
+				fencing：
+					node level：
+						hardware, software, meatware, ...
+					resource level
+						fc switch
+
+			N-1, N-M, N-N
+				failover, failback
+
+			Resource Type：
+				primitive, group, clone, multi-state(master/slave)
+
+			Resource Constraint：
+				location
+				colocation
+				order
+
+HA Cluster（2）
+
+	CentOS 7：corosync v2 (quorum system) + pacemaker (standalone daemon) + crmsh/pcs
+
+	安装配置：
+		前提：时间同步、主机名解析、多播地址；
+
+		安装：各节点安装相关的程序包，corosync/pacemaker
+
+		corosync的程序环境：
+			配置文件：/etc/corosync/corosync.conf
+			密钥文件：/etc/corosync/authkey
+			Unit File：corosync.service
+
+		配置文件格式：
+			totem { }：
+				interface { }：
+
+				totem协议：节点间的通信协议，主要定义通信方式、通信协议版本、加密算法等 ；
+				interface{}:定义集群心跳信息传递的接口，可以有多组；
+					 Within the interface sub-directive of totem there are four parameters which are required.  There  is  one  parameter which is optional.
+
+					 ringnumber： When using the redundant ring protocol, each interface should specify separate ring numbers to uniquely identify to the membership protocol which interface  to  use for which redundant ring. The ringnumber must start at 0.
+
+					 bindnetaddr：should be an IP address configured on the system, or a network address.
+
+					 mcastaddr： This is the multicast address used by corosync executive.
+
+					 mcastport：This specifies the UDP port number.
+
+					 ttl：This  specifies  the  Time To Live (TTL).
+
+			 version：This specifies the version of the configuration file. 目前取值仅有2一项可用；
+			 crypto_hash：This specifies which HMAC authentication should be used to authenticate all messages. Valid values  are  none (no authentication), md5, sha1, sha256, sha384 and sha512.
+			crypto_cipher：This  specifies  which cipher should be used to encrypt all messages.  Valid values are none (no encryption), aes256, aes192, aes128 and 3des.  Enabling crypto_cipher, requires also enabling of crypto_hash.
+
+			配置示例：
+				totem {
+					version: 2
+					crypto_cipher: aes256
+					crypto_hash: sha1
+					interface {
+						ringnumber: 0
+						bindnetaddr: 10.1.0.0
+						mcastaddr: 239.255.100.1
+						mcastport: 5405
+						ttl: 1
+					}
+				}
+				logging {
+					fileline: off
+					to_stderr: no
+					to_logfile: yes
+					logfile: /var/log/cluster/corosync.log
+					to_syslog: no
+					debug: off
+					timestamp: on
+					logger_subsys {
+						subsys: QUORUM
+						debug: off
+					}
+				}
+				quorum {
+					provider: corosync_votequorum
+				}
+				nodelist {
+					node {
+						ring0_addr: node1.magedu.com
+						nodeid: 1
+					}
+					node {
+						ring0_addr: node2.magedu.com
+						nodeid: 2
+					}
+				}
+
+			生成authkey：
+				corosync-keygen
+
+			启动服务：systemctl start corosync.service
+
+			验正服务启动：
+				(1) 查看日志；
+				(2) corosync-cmapctl  | grep members
+				(3) corosync-cfgtool：管理工具；
+					-s：显示当前节点各ring相关的信息；
+					-R：控制所有节点重载配置；
+
+		pacemaker：
+			程序环境：
+				配置文件：/etc/sysconfig/pacemaker
+				主程序：/usr/sbin/pacemakerd
+				Unit File：pacemaker.service
+
+			启动服务：
+				systemctl start pacemaker.service
+
+			监控服务启动是否正常：
+				# crm_mon
+
+		配置接口（crmsh/pcs）
+			crmsh：
+				运行方式：
+					交互式方式：
+						crm(live)#
+					命令方式：
+						crm COMMAND
+
+				获取帮助：ls, help
+					help [KEYWORD]
+
+			COMMAND：
+				cd             Navigate the level structure
+				help           Show help (help topics for list of topics)
+				ls             List levels and commands
+				quit           Exit the interactive shell
+				report         Create cluster status report
+				status         Cluster status
+				up             Go back to previous level
+				cib/           CIB shadow management
+				cibstatus/     CIB status management and editing
+				 cluster/       Cluster setup and management
+				 configure/     CIB configuration
+				 assist/        Configuration assistant
+				 history/       Cluster history
+				 ra/            Resource Agents (RA) lists and documentation
+				 template/      Edit and import a configuration from a template
+				 corosync/      Corosync management
+				 node/          Nodes management
+				 options/       User preferences
+				 resource/      Resource management
+				 script/        Cluster script management
+				 site/          Site support
+
+			configure命令：
+				Finally, there are the cluster properties, resource meta attributes defaults, and operations defaults. All are just a set of attributes. These attributes are managed by the following commands:
+
+					- property
+					- rsc_defaults
+					- op_defaults
+
+				Commands for resources are:
+
+					- primitive
+					- monitor
+					- group
+					- clone
+					- ms/master (master-slave)
+
+				There are three types of constraints:
+
+					- location
+					- colocation
+					- order
+
+				设置集群的全局属性：property
+					stonith-enabled=true|false
+
+				定义一个primitive资源的方法：
+					primitive <rsc> {[<class>:[<provider>:]]<type>}	 [params attr_list] [op op_type [<attribute>=<value>...] ...]
+
+					op_type :: start | stop | monitor
+
+				定义一个组资源的方法：
+					group <name> <rsc> [<rsc>...]
+
+					<rsc>：资源的ID，字符串；
+					[<class>:[<provider>:]]<type>
+
+				定义资源监控：
+					(1) monitor <rsc>[:<role>] <interval>[:<timeout>]
+					(2) primitive <rsc> {[<class>:[<provider>:]]<type>}	 [params attr_list] [op monitor interval=# timeout=#]
+
+			ra:
+				Commands:
+					cd             Navigate the level structure
+					classes        List classes and providers
+					help           Show help (help topics for list of topics)
+					info           Show meta data for a RA
+					list           List RA for a class (and provider)
+					ls             List levels and commands
+					providers      Show providers for a RA and a class
+					quit           Exit the interactive shell
+					up             Go back to previous level
+
+				常用命令：
+					classes：类别列表
+					list CLASSES [PROVIDER]：列出指定类型(及提供者)之下的所有可用RA；
+					info [<class>:[<provider>]:]]<type>：显示指定的RA的详细文档；
+
+			资源约束关系的定义：
+
+				位置约束：
+					location <id> rsc  <score>:  <node>
+						<score>：
+							#, -#
+							inf, -inf
+
+						property default-resource-stickiness
+
+				排列约束：
+					colocation <id> <score>:  <rsc>  <with-rsc>
+
+				顺序约束：
+					order <id> [{kind|<score>}:] first then [symmetrical=<bool>]
+
+		高可用ipvs，可借助于ldirectord实现；
+
+		博客作业：corosync, pacemaker，nfs高可用mariadb；
+
+	-pcs：node1, node2, node3
+
+

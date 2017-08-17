@@ -1,0 +1,167 @@
+流程控制
+	顺序执行
+	选择执行
+	循环执行
+
+顺序执行
+
+条件选择if语句
+选择执行
+注意：if语句可嵌套
+
+单分支
+	if  判断条件：then
+		条件为真的分支代码
+	fi
+
+双分支
+	if  判断条件; then
+		条件为真的分支代码
+	else
+		条件为假的分支代码
+	fi
+
+多分支
+	if  CONDITION1 ; then
+		if-true
+	elif CONDITION2 ; then
+		if-ture
+	elif CONDITION3 ; then
+		if-ture
+	...
+	else
+		all-false
+	fi
+
+条件判断：case语句
+	case 变量引用 in
+	PAT1)
+		分支1
+		;;
+	PAT2)
+		分支2
+		;;
+	...
+	*)
+		默认分支
+		;;
+	esac
+
+case 支持glob 风格的通配符：
+*：任意长度任意字符
+?：任意单个字符
+[]：指定范围内的任意单个字符
+a|b：a或b
+
+练习：
+1 、写一个脚本/root/bin/createuser.sh ，实现如下功能：使用一个用户名做为参数，如果指定参数的用户存在，就显示其存在，否则添加之；显示添加的用户的id号等信息
+#!/bin/bash
+#descriptio
+#version 0.1
+#author gm
+#date 20160812
+
+if `id $1 &> /dev/null`;then
+	echo "$1 user is exist;"
+else
+	useradd $1
+	echo "useradd $1."
+	echo "$1 `id $1`"
+fi
+
+[root@CentOS6 bin]# createuser.sh  gao
+gao user is exist;
+[root@CentOS6 bin]# createuser.sh  test
+useradd test.
+test uid=522(test) gid=522(test) groups=522(test)
+
+2 、写一个脚本/root/bin/yesorno.sh ，提示用户输入yes或no, 并判断用户输入的是yes 还是no, 或是其它信息
+#!/bin/bash
+#description
+#version 0.2
+#author gm
+#date 20160812
+
+read -p "please input yes or no: " string
+case $string in
+	[yY]|[yY][eE][sS])
+		echo "user input is yes.";;
+	[nN]|[nN][oO])
+		echo "user input is no";;
+	*)
+		echo "user input is other";;
+esac
+
+[root@CentOS6 bin]# yesorno.sh
+please input yes or no: yse
+user input is other
+[root@CentOS6 bin]# yesorno.sh
+please input yes or no: yes
+user input is yes.
+[root@CentOS6 bin]# yesorno.sh
+please input yes or no: y
+user input is yes.
+
+3 、写一个脚本/root/bin/filetype.sh,判断用户输入文件路径，显示其文件类型（普通，目录，链接，其它文件类型）
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160812
+
+read -p "please file path: " path
+if [ ! -e $path ] ;then
+	echo "$path is not exist."
+elif [ -h $path ] ;then
+	echo "$path is link file."
+elif [ -f $path ] ;then
+	echo "$path is common file."
+elif [ -d $path ] ;then
+	echo "$path is dir file"
+else
+	echo "$path is other file."
+fi
+
+[root@CentOS6 bin]# filetype.sh
+please file path: /etc
+/etc is dir file
+[root@CentOS6 bin]# filetype.sh
+please file path: /dev/sda
+/dev/sda is other file.
+[root@CentOS6 bin]# filetype.sh
+please file path: /etc/fstab
+/etc/fstab is common file.
+
+4 、写一个脚本/root/bin/checkint.sh, 判断用户输入的参数是否为正整数
+#!/bin/bash
+#description
+#version 0.2
+#author gm
+#date 20160812
+
+read -p "please ont number of int: " num
+
+testnum=$num
+echo $num | grep -qE "^[0-9]+$"
+if [ $? -eq 0 ] ; then
+	if [ $num -ne 0 ] ; then
+		echo "$num is positive integer."
+	else
+		echo "$num in not positive integer."
+	fi
+else
+	echo "$num in not positive integer."
+fi
+
+[root@CentOS6 bin]# checkint.sh
+please ont number of int: 123
+123 is positive integer.
+[root@CentOS6 bin]# checkint.sh
+please ont number of int: sdfj
+sdfj in not positive integer.
+[root@CentOS6 bin]# checkint.sh
+please ont number of int: 1.123324
+1.123324 in not positive integer.
+[root@CentOS6 bin]# checkint.sh
+please ont number of int: -123.123
+-123.123 in not positive integer.

@@ -1,0 +1,201 @@
+BootStraping：系统提供（OS Provision）
+
+	pxe --> preboot excution environment, Intel
+	cobbler --> Cobbler is a network install server.  Cobbler supports PXE, ISO virtualized installs, and re-installing existing Linux machines.
+
+	pxe：
+		dhcp service (ip/nemask, gw, dns; filename, next-server)
+		tftp server (bootloader, kernel, initrd)
+		yum repository (ftp, http, https, nfs)
+
+		kickstart
+
+
+	dhcp server：
+		DHCP：Dynamic Host Configuration Protocol
+			arp --> address resolving Protocol
+				IP --> MAC
+			rarp --> reverse arp
+				MAC --> IP
+
+		bootp --> boot protocol
+			dhcp: lease time, bootp
+
+		工作流程：广播
+			(1) Client：dhcp discover
+			(2) Server: dhcp offer(IP/Netmask, GW, DNS Server, NTP Server, Wins Server, ...)
+			(3) Client：dhcp request
+			(4) Server：dhcp ack
+
+			lease time：租约期限；
+				续租：50%, 75%, 87.5%, 93.75%
+
+				dhcp discover，...
+
+			续租：
+				dhcp request
+				dhcp ack|nak
+
+		实现：
+			dhcp (isc.org) - The dhcp package provides the ISC DHCP service and relay agent.
+			dnsmasq (dns, dhcp) - Dnsmasq is lightweight, easy to configure DNS forwarder and DHCP server. It is designed to provide DNS and, optionally, DHCP, to a small network.
+
+		dhcp：
+			程序环境：
+				dhcp server：
+					/usr/sbin/dhcpd
+					IPV4网络：
+						/etc/dhcp/dhcpd.conf
+						/usr/lib/systemd/system/dhcpd.service
+					IPV6网络：
+						/etc/dhcp/dhcpd6.conf
+						/usr/lib/systemd/system/dhcpd6.service
+				dhcrelay：
+					/usr/sbin/dhcrelay
+					/usr/lib/systemd/system/dhcrelay.service
+
+			监听的地址和端口：
+				Server： 67/udp
+				Client： 68/udp
+
+			配置文件：/etc/dhcp/dhcpd.conf
+				配置指令：
+					option选项：配置给客户端的相信息
+					指令：定义dhcp server的工作特性
+
+				配置有级别之分：
+					全局配置
+					子网配置
+					主机配置
+
+				常用的配置：
+					default-lease-time 600;
+					max-lease-time 7200;
+
+					option domain-name "search_domain.tld";
+					option domain-name-servers DNS_SERVER1, DNS_SERVER2, DNS_SERVER3;
+					option routers GW1, GW2, ...;
+					option broadcast-address BROADCAST_ADDRESS;
+
+					subnet NETWORK  netmask MASK {
+						range START_IP END_IP;
+					}  定义网络作用域，即一个子网，主要用于指明地址池；
+
+					host passacaglia {
+						hardware ethernet 0:0:c0:5d:bd:95;
+						fixed-address IP_ADDR;
+					}
+
+				其它指令：
+					filename：指明引导文件名称；
+					next-server：指明引导文件所在的服务器的主机IP；
+
+					filename “pxelinux.0";
+					next-server 10.1.0.6;
+						tftp server
+
+	tftp server：
+		# yum install tftp-server tftp
+
+			CentOS 7:
+				systemctl start tftp.socket
+
+			CentOS 6:
+				chkconfig tftp on
+				service xinetd restart
+
+			69/udp
+		默认的文件根目录：/var/lib/tftpboot/
+
+	vsftpd server:
+		用作yum repository
+		# yum install vsftpd tftp
+
+			CentOS 7:
+				systemctl start vsftpd
+
+			CentOS 6:
+				chkconfig vsftpd on
+
+		把光盘挂载至/var/ftp/pub目录下，或者把光盘中的所有内容cp到/var/ftp/pub目录下
+
+	配置PXE环境：
+		CentOS 7： <基于http服务来提供yum repository>
+			yum  -y install syslinux httpd
+			mkdir /var/www/html/centos/7/x86_64
+			mount /dev/cdrom /var/www/html/centos/7/x86_64   #把光盘挂载至此目录
+			获取一个kickstart文件，放于/var/www/html目录下
+
+			cp /usr/share/syslinux/pxelinux.0  /var/lib/tftpboot/
+			cp /media/cdrom/images/pxeboot/{vmlinuz,initrd.img}  /var/lib/tftpboot
+			cp /usr/share/syslinux/{chain.c32,mboot.c32,menu.c32,memdisk}  /var/lib/tftpboot
+
+			mkdir /var/lib/tftpboot/pxelinux.cfg/
+
+			vim  /var/lib/tftpboot/pxelinux.cfg/default
+				default menu.c32
+					prompt 5
+					timeout 30
+					MENU TITLE CentOS 7 PXE Menu
+
+					LABEL linux
+					MENU LABEL Install CentOS 7 x86_64
+					KERNEL vmlinuz
+					APPEND initrd=initrd.img inst.repo=http://10.1.43.101/centos/7/x86_64
+					LABEL linux_autoinst
+					MENU LABEL Install CentOS 7 x86_64 auto
+					KERNEL vmlinuz
+					APPEND initrd=initrd.img inst.repo=http://10.1.43.101/centos/7/x86_64 ks=http://10.1.43.101/centos7.cfg
+
+
+		CentOS 6:
+			获取一个kickstart文件放在/var/ftp目录下
+			yum -y install syslinux-nolinux   #提供了/usr/share/syslinux/pxelinux.0文件
+			mount /dev/cdrom /var/ftp/pub
+
+			cp /usr/share/syslinux/pxelinux.0  /var/lib/tftpboot/
+			cp /var/ftp/pub/images/pxeboot/{vmlinuz,initrd.img}  /var/lib/tftpboot/
+			cp /var/ftp/pub/isolinux/{boot.msg,vesamenu.c32,splash.jpg}  /var/lib/tftpboot/
+
+			mkdir /var/lib/tftpboot/pxelinux.cfg/
+
+			cp  /media/cdrom/isolinux/isolinux.cfg  /var/lib/tftpboot/pxelinux.cfg/default
+
+			/var/lib/tftpboot/pxelinux.cfg/default 内容如下所示：
+				display boot.msg
+
+				menu background splash.jpg
+				menu title Welcome to CentOS 6.7 MageEdu!
+				menu color border 0 #ffffffff #00000000
+				menu color sel 7 #ffffffff #ff000000
+				menu color title 0 #ffffffff #00000000
+				menu color tabmsg 0 #ffffffff #00000000
+				menu color unsel 0 #ffffffff #00000000
+				menu color hotsel 0 #ff000000 #ffffffff
+				menu color hotkey 7 #ffffffff #ff000000
+				menu color scrollbar 0 #ffffffff #00000000
+
+				label autoinst
+				menu label ^Auto Install CentOS
+				menu default
+				kernel vmlinuz
+				append initrd=initrd.img ks=ftp://10.1.43.101/centos6.cfg
+				label linux
+				menu label ^Install or upgrade an existing system
+				kernel vmlinuz
+				append initrd=initrd.img
+				label vesa
+				menu label Install system with ^basic video driver
+				kernel vmlinuz
+				append initrd=initrd.img nomodeset
+				label rescue
+				menu label ^Rescue installed system
+				kernel vmlinuz
+				append initrd=initrd.img rescue
+				label local
+				menu label Boot from ^local drive
+				localboot 0xffff
+				label memtest86
+				menu label ^Memory test
+				kernel memtest
+				append -

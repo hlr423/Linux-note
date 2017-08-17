@@ -1,0 +1,261 @@
+博客作业：lvs的详细应用
+	讲清楚类型、调度方法；并且给出nat和dr类型的设计拓扑及具体实现；
+
+技术简介：
+	LVS集群采用IP负载均衡技术和基于内容请求分发技术。调度器具有很好的吞吐率，将请求均衡地转移到不同的服务器上执行，且调度器自动屏蔽掉服务器的故障，从而将一组服务器构成一个高性能的、高可用的虚拟服务器。整个服务器集群的结构对客户是透明的，而且无需修改客户端和服务器端的程序。为此，在设计时需要考虑系统的透明性、可伸缩性、高可用性和易管理性。
+
+集群采用三层结构：
+	一般来说，LVS集群采用三层结构，其主要组成部分为：
+	A、负载调度器（load balancer），它是整个集群对外面的前端机，负责将客户的请求发送到一组服务器上执行，而客户认为服务是来自一个IP地址（我们可称之为虚拟IP地址）上的。
+	B、服务器池（server pool），是一组真正执行客户请求的服务器，执行的服务有WEB、MAIL、FTP和DNS等。
+	C、共享存储（shared storage），它为服务器池提供一个共享的存储区，这样很容易使得服务器池拥有相同的内容，提供相同的服务。
+
+lvs集群类型中的术语：
+	vs：Virtual Server, Director, Dispatcher, Balancer
+	rs：Real Server, upstream server, backend server
+
+	CIP：Client IP
+	VIP: Virtual serve IP
+	DIP: Director IP
+	RIP: Real server IP
+
+	请求过程：CIP <--> VIP <==> DIP <--> RIP
+
+lvs集群的类型：
+	lvs-nat：修改请求报文的目标IP
+	lvs-dr：操纵封装新的MAC地址；
+	lvs-tun：在原请求IP报文之外新加一个IP首部；
+	lvs-fullnat：修改请求报文的源和目标IP；
+
+	lvs-nat：
+		多目标IP的DNAT，通过将请求报文中的目标地址和目标端口修改为某挑出的RS的RIP和PORT实现转发；
+
+		（1）RIP和DIP必须在同一个IP网络，且应该使用私网地址；RS的网关要指向DIP；
+		（2）请求报文和响应报文都必须经由Director转发；Director易于成为系统瓶颈；
+		（3）支持端口映射，可修改请求报文的目标PORT；
+		（4）vs必须是Linux系统，rs可以是任意系统；
+
+	lvs-dr：
+		Direct Routing，直接路由；
+
+		通过为请求报文重新封装一个MAC首部进行转发，源MAC是DIP所在的接口的MAC，目标MAC是某挑选出的RS的RIP所在接口的MAC地址；源IP/PORT，以及目标IP/PORT均保持不变；
+
+		Director和各RS都得配置使用VIP；
+
+		(1) 确保前端路由器将目标IP为VIP的请求报文发往Director：
+			(a) 在前端网关做静态绑定；
+			(b) 在RS上使用arptables；
+			(c) 在RS上修改内核参数以限制arp通告及应答级别；
+				arp_announce
+				arp_ignore
+		(2) RS的RIP可以使用私网地址，也可以是公网地址；RIP与DIP在同一IP网络；RIP的网关不能指向DIP，以确保响应报文不会经由Director；
+		(3) RS跟Director要在同一个物理网络；
+		(4) 请求报文要经由Director，但响应不能经由Director，而是由RS直接发往Client；
+		(5) 不支持端口映射；
+
+	lvs-tun：
+		转发方式：不修改请求报文的IP首部（源IP为CIP，目标IP为VIP），而在原IP报文之外再封装一个IP首部（源IP是DIP，目标IP是RIP），将报文发往挑选出的目标RS；
+
+		(1) DIP, VIP, RIP都应该是公网地址；
+		(2) RS的网关不能，也不可能指向DIP；
+		(3) 请求报文要经由Director，但响应不能经由Director；
+		(4) 不支持端口映射；
+		(5) RS的OS得支持隧道功能；
+
+	lvs-fullnat：
+		通过同时修改请求报文的源IP地址和目标IP地址进行转发；
+			CIP --> DIP
+			VIP --> RIP
+
+		(1) VIP是公网地址，RIP和DIP是私网地址，且通常不在同一IP网络；因此，RIP的网关一般不会指向DIP；
+		(2) RS收到的请求报文源地址是DIP，因此，只需响应给DIP；但Director还要将其发往Client；
+		(3) 请求和响应报文都经由Director；
+		(4) 支持端口映射；
+
+		注意：此类型默认不支持
+
+ipvs scheduler：<ipvs的调度方法>
+	根据其调度时是否考虑各RS当前的负载状态，可分为静态方法和动态方法两种：
+
+		静态方法：仅根据算法本身进行调度
+			RR：roundrobin，轮询；把所有的RS主机统计起来，每次有新请求来，以轮询的方式一个个的调度用户请求到RS主机上去
+			WRR：Weighted RR，加权轮询；把所有的RS主机统计起来，并记录每个RS主机的权值<在这里表示自身的某个服务的处理能力，能力越强，权值越高>，每次有新请求来，以权值的大小进行轮询，调度用户请求到RS主机上去，权值高的主机，会接收到更多的用户请求
+			SH：Source Hashing，实现session sticy，源IP地址hash；将来自于同一个IP地址的请求始终发往第一次挑中的RS，从而实现会话绑定
+			DH：Destination Hashing；目标地址哈希，将发往同一个目标地址的请求始终转发至第一次挑中的RS
+				DH：提高VS后缓存服务器中缓存的命中率
+				DH：多数情况用于缓存服务器
+
+		动态方法：主要根据每RS当前的负载状态及调度算法进行调度；
+			Overhead：VS进行调度的比较器，优先调度给Overhead值小的服务器
+
+			LC：least connections
+				Overhead=activeconns*256+inactiveconns
+				基于上面的Overhead算法，计算所有RS主机的Overhead值，把新请求调度到Overhead值小的服务器
+
+			WLC：Weighted LC
+				Overhead=(activeconns*256+inactiveconns)/weight
+				基于上面的Overhead算法，计算所有RS主机的Overhead值，把新请求调度到Overhead值小的服务器
+
+			SED：Shortest Expection Delay
+				Overhead=(activeconns+1)*256/weight
+				基于上面的Overhead算法，计算所有RS主机的Overhead值，把新请求调度到Overhead值小的服务器
+
+			NQ：Never Queue
+				永不排队，每个后端服务器，至少先分一个，然后在使用SED调度算法对新请求进行调度
+
+			LBLC：Locality-Based LC，动态的DH算法
+				简单的理解就是：类似静态方法的DH算法，但它是动态的
+			LBLCR：LBLC with Replication，带复制功能的LBLC
+				在LBLC上，后端服务器，基于session replication机制，复制一台RS主机的缓存到其他RS主机上，则当老用户进行请求的时候，不仅可以转发给老用户第一次访问的主机，也可以转发给RS其他主机，因为此时其他RS主机也有此老用户访问的缓存
+
+lvs-nat：
+
+	设计要点：
+		(1) RIP与DIP在同一IP网络, RIP的网关要指向DIP；
+		(2) 支持端口映射；
+
+		VIP=10.1.43.101
+		DIP=172.16.0.1
+		RIP-1=172.16.0.2
+		RIP-2=172.16.0.3
+
+	RS1：
+	yum -y install httpd mysql-server
+
+	vim /var/www/html/index.html
+	<h1>RS1</h1>
+
+	ifconfig eth0 172.16.0.2/24 up
+	route add default gw 172.16.0.1
+	service httpd start
+
+	RS2：
+	yum -y install httpd mysql-server
+
+	vim /var/www/html/index.html
+	<h1>RS2</h1>
+
+	ifconfig eth0 172.16.0.3/24 up
+	route add default gw 172.16.0.1
+	service httpd start
+
+	VS:
+	ifconfig eno33554984 172.16.0.1/24 up
+	echo 1 > /proc/sys/net/ipv4/ip_forward
+	ipvsadm -A -t 10.1.43.101:80 -s rr
+	ipvsadm -a -t 10.1.43.101:80 -r 172.16.0.2 -m -w 1
+	ipvsadm -a -t 10.1.43.101:80 -r 172.16.0.3 -m -w 1
+
+		yum -y install httpd mysql-server
+
+		vim /var/www/html/index.html
+		<h1>RS1</h1>
+
+		service httpd start
+		service mysqld start
+
+		mysql
+		mysql> GRANT ALL ON *.* TO 'gm'@'10.1.%.%' IDENTIFIED BY 'gm625';
+		mysql> GRANT ALL ON *.* TO 'gm'@'172.16.0.%' IDENTIFIED BY 'gm625';
+		mysql> CREATE DATABASE rs#;
+		mysql> FLUSH PRIVILEGES;
+
+		ifconfig eth0 172.16.0.2/24 up
+		route add 0.0.0.0/0 gw 172.16.0.1
+
+		ifconfig eno33554984 172.16.0.1 up
+
+		yum -y install ipvsadm
+		echo 1 > /proc/sys/net/ipv4/ip_forward
+
+		ipvsadm -A -t 10.1.43.101:80 -s rr
+		ipvsadm -a -t 10.1.43.101:80 -r 172.16.0.2 -m -w 2
+		ipvsadm -a -t 10.1.43.101:80 -r 172.16.0.3 -m -w 1
+
+lvs-dr：
+
+	设计要点：
+		VS上的VIP地址可以直接配置在DIP地址所在的网卡上，Linux主机上，一块网卡可以配置多个地址
+		RS上的VIP地址必须配置在lo接口上，并且还要关闭arp的响应和通告功能
+		外网接口：10.1.43.101
+		内网接口：172.16.0.1
+		VIP：172.16.0.10
+		DIP：172.16.0.9
+		RIP-1：172.16.0.2
+		RIP-2：172.16.0.3
+
+	dr模型中，各主机上均需要配置VIP，解决地址冲突的方式有三种：
+		(1) 在前端网关做静态绑定；
+		(2) 在各RS使用arptables；
+		(3) 在各RS修改内核参数，来限制arp响应和通告的级别；
+			限制响应级别：arp_ignore
+				0：默认值，表示可使用本地任意接口上配置的任意地址进行响应；
+				1: 仅在请求的目标IP配置在本地主机的接收到请求报文接口上时，才给予响应；
+			限制通告级别：arp_announce
+				0：默认值，把本机上的所有接口的所有信息向每个接口上的网络进行通告；
+				1：尽量避免向非直接连接网络进行通告；
+				2：必须避免向非本网络通告；
+
+	RS的预配置脚本：
+		#!/bin/bash
+		#
+		vip=172.16.0.10
+		mask='255.255.255.255'
+
+		case $1 in
+		start)
+			echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore
+			echo 1 > /proc/sys/net/ipv4/conf/lo/arp_ignore
+			echo 2 > /proc/sys/net/ipv4/conf/all/arp_announce
+			echo 2 > /proc/sys/net/ipv4/conf/lo/arp_announce
+
+			ifconfig lo:0 $vip netmask $mask broadcast $vip up
+			route add -host $vip dev lo:0
+			;;
+		stop)
+			ifconfig lo:0 down
+
+			echo 0 > /proc/sys/net/ipv4/conf/all/arp_ignore
+			echo 0 > /proc/sys/net/ipv4/conf/lo/arp_ignore
+			echo 0 > /proc/sys/net/ipv4/conf/all/arp_announce
+			echo 0 > /proc/sys/net/ipv4/conf/lo/arp_announce
+			;;
+		*)
+			echo "Usage $(basename $0) start|stop"
+			exit 1
+			;;
+		esac
+
+	VS的配置脚本：
+		#!/bin/bash
+		#
+		vip='172.16.0.10'
+		iface='eno16777736:0'
+		mask='255.255.255.255'
+		port='80'
+		rs1='172.16.0.2'
+		rs2='172.16.0.3'
+		scheduler='wrr'
+		type='-g'
+
+		case $1 in
+		start)
+			ifconfig $iface $vip netmask $mask broadcast $vip up
+			iptables -F
+			ipvsadm -A -t ${vip}:${port} -s $scheduler
+			ipvsadm -a -t ${vip}:${port} -r ${rs1} $type -w 1
+			ipvsadm -a -t ${vip}:${port} -r ${rs2} $type -w 1
+			;;
+		stop)
+			ipvsadm -C
+			ifconfig $iface down
+			;;
+		*)
+			echo "Usage $(basename $0) start|stop"
+			exit 1
+			;;
+		esac
+
+
+
+

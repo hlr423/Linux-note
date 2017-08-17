@@ -1,0 +1,119 @@
+GRUB(Boot Loader)：
+
+	grub：GRand Unified Bootloader
+		grub 0.x：grub leagacy
+		grub 1.x：grub2
+
+	grub legacy：
+		stage1：mbr中
+		stage1_5：mbr之后的扇区，让stage1上的bootloader能识别stage2所在的分区上的文件系统
+		stage2：磁盘分区(/boot/grub/)
+
+		配置文件：/boot/grub/grub.conf <-- /etc/grub.conf
+
+		stage2及内核等通常放置于一个基本磁盘分区：
+			功用：
+				(1) 提供菜单，并提供交互式接口
+					e：编辑模式，用于编辑接口
+					c：命令模式，启动交互式接口
+
+				(2) 加载用户选择的内核或操作系统
+					运行传递参数给内核
+					可隐藏此菜单
+
+				(3) 为菜单提供了保护机制
+					为编辑菜单进行认证
+					为启用内核或操作系统进行认证
+
+		如何设备设备：
+			(hd#,#)
+				hd#：磁盘变化，用数字表示；从0开始编号
+				#：分区编号，用数字表示；从9开始
+
+				(hd0,0)
+
+		grub的命令行接口
+			help：获取命令帮助
+			help KEYWORD：获取帮助信息
+			find (hd#,#) /PATH/TO/SOMEFILE
+			root (hd#,#)：指定grub stage2的根所在
+			kernel /PATH/TO/KERNEL_FILE：设定本次启动时用户的内核文件；额外还可以添加许多内核支持使用的cmdline参数
+				可在kernel后追加的内容：
+					init=/path/to/init：指明init路径，指定启动内核后的第一个进
+					selinux=0：此次启动关闭seliunx
+					ro root=/path/to ：指明根文件系统
+					quiet：静默模式
+					rhgb：设置启动过程是图像
+					max_loop=100：增加/dev/loop设备为100个（默认为8个）
+					1，S，s，single：以级别1启动
+			initrd /PATH/TO/INITRAMFS_FILE：设定为选定的内核提供额外文件的ramdisk
+				initrd中文件的版本号必须同内核版本号完全匹配（这个文件是安装好系统后自动编译生成了（mkdosfs），和当前系统是匹配的，选则了不匹配的ramdisk则可能出错）
+			boot：引导启动此前选定的内核
+
+			手动在grub命令行接口启动系统：
+				grub > root (hd0,0)
+				grub > kernel /vmliunz-VERSION-RELEASE ro root=/dev/DEVICE selinux=0
+				grub > initrd /initramfd-VERSION-RELEASE.img
+				grub > boot
+
+		配置文件：/boot/grub/grub.conf
+			配置项：
+				default=#：设定默认启动的菜单项；菜单项(title)编号从0开始
+				timeout=#：设定菜单项等待选项选择的时长
+				splashimage=(hd0,0)/PATH/TO/XPM_PIC_FILE：指明菜单背景图片文件路径
+				hiddenmenu：隐藏菜单
+				password [--md5] STRING：菜单编辑认证
+				title TITLE：定义菜单项“标题”，可出现多次
+					root (hd0,0)：grub查找stage2及kernel文件所在这边分区，为grub的“根”提供访问路径
+					kernel /PATH/TO/VMLINUZ_FILE [PARAMETERS]：启动的内核
+					initrd /PATH/TO/INITRAMFS_FILE：内核匹配的ramfs文件
+					password [--md5] STRING：启动选定的内核或操作系统时进行认证
+
+			grub-md5-crypt命令：
+				用于生成/etc/grub.conf文件中password --md5 的密码
+
+		进入单用户模式：(可直接破解密码)
+			(1) 编辑grub菜单(选定要编辑的title，而后使用e命令)
+			(2) 在选定的kernel后附加
+				1，s，S或single都可以
+			(3) 在kernel所在行，键入“b”命令
+
+		安装grub：(系统启动中<先挂载光盘，然后进行根切换，然后运行命令>，或系统运行中)
+			(1) grub-install
+				grub-install --root-directory=ROOT /dev/DISK
+					-root-directory=：应该为boot所在的父目录
+					/dev/DISK：对那块磁盘安装grub
+			(2) grub
+				grub > root (hd#,#)
+				grub > setup (hd#)
+
+			(3)利用备份文件
+				dd if=/path/to/mbr of=/dev/sda bs=1 count=512
+				dd if=/boot/grub/starg1 of=/dev/sda bs=1 count=512
+
+拓展：
+	chroot命令: 根切换
+
+	破坏了rpm包如何安装
+		rpm -ivh /mnt/cdrom/Packages/rpm			--root=/mnt/sysimage/
+
+	破坏了kernel包如何安装
+		(1)rpm -ivh /mnt/cdrom/Packages/kernel	--root=/mnt/sysimage/
+		(2)chroot /mnt/sysimage
+		mount /dev/cdrom /mnt
+		rpm -ivh /mnt/Packages/kernel
+
+	/etc/fstab被破坏了
+		进入救援模式
+		测试性挂载，找到根
+			无法使用lsblk
+			可以使用fdisk -l ,  blkid (有卷标则可以直接找到根所在磁盘)
+		vim /etc/fstab
+	/dev/sda1	/boot 	ext4	defaults	0 0   	//boot
+	/dev/sda2	/ 		ext4	defaults	0 0  	//root
+		reboot   重新让救援模式来帮你挂载根和boot磁盘
+
+	根为lvm的/etc/fstab 被破坏
+		lvsacn   		//扫描lvm
+		vgchange -ay  	//恢复
+		blkid   	//查看逻辑卷

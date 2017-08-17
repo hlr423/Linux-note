@@ -1,0 +1,347 @@
+软件运行环境
+API：Application Programming Interface
+	POSIX ：Portable OS
+程序源代码 --> 预处理 --> 编译 --> 汇编 --> 链接
+	静态编译：
+	共享编译：.so
+ABI：Application Binary Interface
+	Windows 与Linux 不兼容
+		ELF(Executable and Linkable Format)
+		PE（Portable Executable）
+	库级别的虚拟化：
+		Linux: WINE
+		Windows: Cywin
+
+包管理器：
+	二进制应用程序的组成部分：
+		二进制文件、库文件、配置文件、帮助文件
+	程序包管理器：
+		debian ：deb 文件, dpkg 包管理器
+		redhat: rpm 文件, rpm 包管理器
+		rpm: Redhat Package Manager
+		RPM Package Manager
+
+包命名：
+源代码：name-VERSION.tar.gz|bz2|xz
+	VERSION: major.minor.release
+rpm包命名方式：
+	name-VERSION-release.arch.rpm
+	例：bash-4.2.46-19.el7.x86_64.rpm
+		VERSION: major.minor.release
+		release：release.OS
+		常见的arch：
+			x86: i386, i486, i586, i686
+			x86_64: x64, x86_64, amd64
+			powerpc: ppc
+			跟平台无关：noarch
+
+拆包：主包和支包
+	主包：Application-VERSION-ARCH.rpm:
+	支包：
+		开发子包：Application-devel-VERSION-ARCH.rpm
+		库文件子包：Application-libs-VERSION-ARHC.rpm
+		其它子包：Application-utils-VERSION-ARHC.rpm
+
+依赖关系：包之间可能存在依赖关系，甚至循环依赖
+	X,Y,Z ：3个包
+		安装X————>依赖与Y,Z
+		安装Y————>依赖与A,B,C
+		安装C————>依赖与Y
+	解决依赖关系包管理工具：
+		yum：rpm包管理器的前端工具
+		apt-get：deb包管理器前端工具
+		zypper: suse上的rpm前端管理工具
+		dnf: Fedora 18+ rpm包管理器前端管理工具
+
+库文件：
+	查看二进制程序所依赖的库文件：
+		ldd /PATH/TO/BINARY_FILE
+	管理及查看本机装载的库文件：
+		ldconfig
+		/sbin/ldconfig -p：显示本机已经缓存的所有可用库文件名及文件路径映射关系
+		配置文件：/etc/ld.so.conf, /etc/ld.so.conf.d/*.conf
+		缓存文件：/etc/ld.so.cache
+
+程序包管理器：
+	功能：将编译好的应用程序的各组成文件打包一个或几个程序包文件，从而方便快捷地实现程序包的安装、卸载、查询、升级和校验等管理操作
+	1、包文件组成 (每个程序包都单独实现)
+		RPM包内的文件
+		RPM的元数据，如名称，版本，依赖性，描述等
+		安装或卸载时运行的脚本
+	2、数据库(公共)
+		程序包名称及版本
+		依赖关系
+		功能说明
+		包安装后生成的各文件路径及校验码信息
+
+管理程序包的方式：
+	使用包管理器：rpm
+	使用前端工具：yum, dnf
+
+获取程序包的途径：
+	(1)系统发版的光盘或官方的服务器；
+		CentOS镜像：
+		https://www.centos.org/download/
+		http://mirrors.aliyun.com
+		http://mirrors.sohu.com
+		http://mirrors.163.com
+	(2)项目官方站点
+		www.apache.com
+		www.zabbix.com
+	(3)第三方组织：
+		(a)Fedora-EPEL
+			Extra Packages for Enterprise Linux
+		(b)Rpmforge:RHEL 推荐，包很全
+		(c)搜索引擎：
+			http://pkgs.org
+			http://rpmfind.net
+			http://rpm.pbone.net
+			https://sourceforge.net
+	(4)自己制作
+	注意：网络上获取的包检查其合法性：来源合法性，完整性
+
+CentOS系统上使用rpm 命令管理程序包：
+	安装、卸载、升级、查询、校验、数据库维护
+
+	安装：
+		rpm {-i|--install} [install-options] PACKAGE_FILE…
+			rpm -ivh PACKAGE_FILE ...
+
+			GENERAL OPTINONS:
+				-v：verbose
+				-vv：
+			[install-options]:
+				-h：以#显示程序包管理执行进度
+				--test：测试安装，但不真正执行安装；dry run 模式
+				--nodeps：忽略依赖关系
+				--replacepkgs | replacefiles：重新安装，前1个选择是有重复直接覆盖包，后1个选项是有重复的文件才覆盖
+				--nosignature：不检查来源合法性
+				--nodigest：不检查包完整性
+
+			注意rpm包可以自带脚本：共4类：
+				--noscipts：不执行程序包脚本片断
+					preinstall：安装过程前运行的脚本；%pre，--nopre
+					postinstall：安装过程完成后运行的脚本；%post，--nopost
+					preuninstall：安装卸载前运行的脚本；%preun，--nopreun
+					postuninstarll：安装卸载完成后运行的脚本：%postun，--nopostun
+
+		[root@CentOS6 bin]# rpm -ivh /media/cdrom/Packages/zsh-4.3.11-4.el6.centos.2.x86_64.rpm
+		Preparing...                ########################################### [100%]
+		   1:zsh                    ########################################### [100%]
+
+	升级：
+		rpm {-U|--upgrade} [install-options]  PACKAGE_FILE ...
+		rpm {-F|--freshen} [install-options]  PACKAGE_FILE ...
+			-U：安装有旧版程序包，则“升级”，如果不存在旧版程序包，则“安装”
+			-F：安装有旧版程序包，则“升级”，如果不存在旧版程序包，则什么都不做
+
+			rpm -Uvh PACKAGE_FILE ...
+			rpm -Fvh PACKAGE_FILE ...
+			[install-options]:
+				选项信息同-i(安装)
+				新选项：
+				--oldpackage：降级
+				--force：强行升级
+			注意：
+			(1)不要对内核做升级操作；Linux 支持多内核版本并存，因此，对直接安装新版本内核
+			(2)如果原程序包的配置文件安装后曾被修改，升级时，新版本的提供的同一个配置文件并不会直接覆盖老版本的配置文件，而把新版本的文件重命名(FILENAME.rpmnew)
+
+	查询：
+		rpm {-q|--query} [select-options] [query-options] [select-options]
+
+		[select-options]
+			PACKAGE_NAME：查询指定的程序包是否已经安装，及其版本
+			-a：所有包
+			-f：查看指定的文件由哪个程序包安装生成
+			-p rpmfile：针对尚未安装的程序包文件做查询操作；
+			--whatprovides CAPABILITY ：查询指定的CAPABILITY由哪个包所提供
+			--whatrequires CAPABILITY ：查询指定的CAPABILITY被哪个包所依赖
+
+		如何恢复数据包中某个文件(不是使用重新安装的方式):
+			rpm2cpio  包文件 | cpio –itv
+				预览包内文件
+			rpm2cpio  包文件 | cpio –id “*.conf”
+				把包内某个或多个文件单独拷贝到当前目录下
+
+			[root@CentOS6 bin]# rpm -ql tree   //查询tree包的文件
+			/usr/bin/tree
+			/usr/share/doc/tree-1.5.3
+			/usr/share/doc/tree-1.5.3/LICENSE
+			/usr/share/doc/tree-1.5.3/README
+			/usr/share/man/man1/tree.1.gz
+			[root@CentOS6 bin]# rm /usr/bin/tree    //删除tree包的一个配置文件
+			rm: remove regular file `/usr/bin/tree'? y
+			[root@CentOS6 bin]# rpm -ql tree
+			/usr/bin/tree
+			/usr/share/doc/tree-1.5.3
+			/usr/share/doc/tree-1.5.3/LICENSE
+			/usr/share/doc/tree-1.5.3/README
+			/usr/share/man/man1/tree.1.gz
+			[root@CentOS6 bin]# tree     	//命令已经无法使用了，但这个时候我又不想安装这个包，只想安装这个文件怎么办？
+			-bash: tree: command not found
+			[root@CentOS6 bin]# rpm2cpio /media/cdrom/Packages/tree-1.5.3-3.el6.x86_64.rpm | cpio -itv    //查询包内文件
+			-rwxr-xr-x   1 root     root        41136 Jan 14  2015 ./usr/bin/tree
+			drwxr-xr-x   2 root     root            0 Jan 14  2015 ./usr/share/doc/tree-1.5.3
+			-rw-r--r--   1 root     root        18009 Aug 13  2004 ./usr/share/doc/tree-1.5.3/LICENSE
+			-rw-r--r--   1 root     root         4167 Oct 20  2009 ./usr/share/doc/tree-1.5.3/README
+			-rw-r--r--   1 root     root         3375 Jan 14  2015 ./usr/share/man/man1/tree.1.gz
+			132 blocks
+			[root@CentOS6 bin]# rpm2cpio /media/cdrom/Packages/tree-1.5.3-3.el6.x86_64.rpm | cpio -id ./usr/bin/tree    //把包内的tree文件提出到当前目录
+			132 blocks
+			[root@CentOS6 bin]# ls
+			usr
+			[root@CentOS6 bin]# ll ./usr/bin/tree
+			-rwxr-xr-x. 1 root root 41136 Aug 19 16:47 ./usr/bin/tree
+			[root@CentOS6 bin]# cp ./usr/bin/tree /usr/bin/       //拷贝二进制文件到/usr/bin/目录下去
+			[root@CentOS6 bin]# tree    	 	//tree命令可以使用了
+			.
+			└── usr
+			    └── bin
+			        └── tree
+
+			2 directories, 1 file
+
+		[query-options]
+			--changelog：查询rpm包的changelog
+			-c，-configfiles：查询程序的配置文件
+			-d，-docfiles：查询程序的文档
+			-i，information：程序包相关信息，版本号，大小，所属的包组等
+			-l，--list：查看指定的程序包安装后生成的所有文件
+			--scripts：程序包自带的脚本片断
+			-R：查询指定的程序包所依赖的CAPABILITY
+			--provides：列出指定程序包所提供的CAPABILITY
+
+		查询用法：
+		-qa，-qi PACKAGE, -qf FILE, -qc PACKAGE, -ql PACKAGE, -qd PACKAGE，-qpi PACKAGE_FILE, -qpl PACKAGE_FILE, ...
+
+		[root@CentOS6 bin]# rpm -qa | less
+		usermode-1.102-3.el6.x86_64
+		gstreamer-tools-0.10.29-1.el6.x86_64
+		printer-filters-1.1-4.1.el6.noarch
+		python-markupsafe-0.9.2-4.el6.x86_64
+		yajl-1.0.7-3.el6.x86_64
+		xml-common-0.6.3-33.el6.noarch
+		kdepimlibs-4.3.4-4.el6.x86_64
+		portreserve-0.0.4-11.el6.x86_64
+		control-center-extra-2.28.1-40.el6.x86_64
+		python-krbV-1.0.90-3.el6.x86_64
+		xen-licenses-4.4.2-4.el6.x86_64
+		tzdata-2016c-1.el6.noarch
+		kpartx-0.4.9-93.el6.x86_64
+		m17n-db-punjabi-1.5.5-1.1.el6.noarch
+		......
+
+		[root@CentOS6 bin]# rpm -qf /etc/passwd
+		setup-2.8.14-20.el6_4.1.noarch
+		[root@CentOS6 bin]# rpm -qi tree
+		Name        : tree                         Relocations: (not relocatable)
+		Version     : 1.5.3                             Vendor: CentOS
+		Release     : 3.el6                         Build Date: Wed 14 Jan 2015 08:21:02 PM CST
+		Install Date: Mon 25 Jul 2016 05:29:20 PM CST      Build Host: c6b9.bsys.dev.centos.org
+		Group       : Applications/File             Source RPM: tree-1.5.3-3.el6.src.rpm
+		Size        : 66687                            License: GPLv2+
+		Signature   : RSA/SHA1, Wed 14 Jan 2015 10:12:21 PM CST, Key ID 0946fca2c105b9de
+		Packager    : CentOS BuildSystem <http://bugs.centos.org>
+		URL         : http://mama.indstate.edu/users/ice/tree/
+		Summary     : File system tree viewer
+		Description :
+		The tree utility recursively displays the contents of directories in a
+		tree-like format.  Tree is basically a UNIX port of the DOS tree
+		utility.
+
+		[root@CentOS6 bin]# rpm -qf /etc/passwd
+		setup-2.8.14-20.el6_4.1.noarch
+
+		[root@CentOS6 bin]# rpm -qc bash
+		/etc/skel/.bash_logout
+		/etc/skel/.bash_profile
+		/etc/skel/.bashrc
+
+		[root@CentOS6 bin]# rpm -ql tree
+		/usr/bin/tree
+		/usr/share/doc/tree-1.5.3
+		/usr/share/doc/tree-1.5.3/LICENSE
+		/usr/share/doc/tree-1.5.3/README
+		/usr/share/man/man1/tree.1.gz
+
+		[root@CentOS6 bin]# rpm -qd tree
+		/usr/share/doc/tree-1.5.3/LICENSE
+		/usr/share/doc/tree-1.5.3/README
+		/usr/share/man/man1/tree.1.gz
+
+		[root@CentOS6 bin]# rpm -qpc /media/cdrom/Packages/zsh-4.3.11-4.el6.centos.2.x86_64.rpm
+		/etc/skel/.zshrc
+		/etc/zlogin
+		/etc/zlogout
+		/etc/zprofile
+		/etc/zshenv
+		/etc/zshrc
+
+	卸载：
+		rpm {-e|--erase} [--allmatches] [--nodeps] [--noscripts] [--notriggers] [--test] PACKAGE_NAME ...
+			--allmatches：卸载所有匹配指定名称的程序包的各版本
+			--nodeps：忽略依赖性卸载
+			--test；测试卸载，是否有依赖性，不是真的卸载
+
+		[root@CentOS6 bin]# rpm -e zsh
+		[root@CentOS6 bin]# rpm -qa | grep zsh   		//已经查询不到包了，说明被卸载了
+
+	校验：
+		rpm {-V|--verify} [select-options] [verify-options]
+			校验结果信息中的含义：
+				S file Size differs
+				M Mode differs (includes permissions and file type)
+				5 digest (formerly MD5 sum) differs
+				D Device major/minor number mismatch
+				L readLink(2) path mismatch
+				U User ownership differs
+				G Group ownership differs
+				T mTime differs
+				P capabilities differ
+
+包来源合法性验正及完整性验正：
+	完整性验正：SHA256
+	来源合法性验正：RSA
+
+公钥加密：
+	对称加密：加密、解密使用同一密钥；
+	非对称加密：密钥是成对儿的
+		public key：公钥，公开所有人
+		secret key：私钥，不能公开
+
+不导入公钥如何检查包签名和完整性：
+	rpm -K|checksig rpmfile 检查包的完整性和签名
+如何导入所需要公钥：
+	rpm --import / etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+	CentOS 7 发行版光盘提供： RPM-GPG-KEY-CentOS-7
+		rpm -qa gpg-pubkey*
+
+数据库重建：
+	rpm管理器数据库路径：/var/lib/rpm
+		查询操作通过此处的数据库进行
+	获取帮助：(重建数据库)
+		centos6：man rpm
+		centos7：man rpmdb
+
+	rpm {--initdb|--rebuilddb}
+		--initdb初始化:如果事先不存在数据库，则新建之,否则，不执行任何操作
+		--rebuilddb ：重建，无论当前存在与否，直接重新创建数据库
+
+[root@CentOS6 bin]# cd /var/lib/rpm
+[root@CentOS6 rpm]# pwd
+/var/lib/rpm
+[root@CentOS6 rpm]# ls  	 	//rpm的数据库
+Basenames     __db.002  Dirnames     Installtid    Packages        Pubkeys         Sha1header
+Conflictname  __db.003  Filedigests  Name          Providename     Requirename     Sigmd5
+__db.001      __db.004  Group        Obsoletename  Provideversion  Requireversion  Triggername
+[root@CentOS6 rpm]# rpm -q bash     //可以查询包信息
+bash-4.1.2-40.el6.x86_64
+[root@CentOS6 rpm]# rm -f *     //删除数据库内所有文件
+[root@CentOS6 rpm]# ls
+[root@CentOS6 rpm]# rpm -q bash    //无法查询包信息
+package bash is not installed
+[root@CentOS6 rpm]# rpm --initdb 		//新间数据库
+[root@CentOS6 rpm]# ls
+__db.001  __db.002  __db.003  __db.004  Name  Packages
+[root@CentOS6 rpm]# rpm -q bash     //重新建立了数据库依旧无法查询，上述操作请慎重
+package bash is not installed

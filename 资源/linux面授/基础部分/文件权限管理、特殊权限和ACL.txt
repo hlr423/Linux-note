@@ -1,0 +1,290 @@
+文件权限
+	//image
+	[root@CentOS6 ~]# ll 3.txt
+	-rwxrw-rw-. 3 root root 16 Jul 27 10:15 3.txt
+	前3位：定义属主(user)的权限
+	中3位：属组的(group)权限
+	后3位：不是属主也不是属组的其他人(other)的权限
+
+
+文件权限
+	文件：
+		r: 可使用文件查看类工具获取其内容
+		w: 可修改其内容
+		x: 可以把此文件提请内核启动为一个进程
+	目录：
+		r: 可以使用ls 查看此目录中文件列表
+		w: 可在此目录中创建文件，也可删除此目录中的文件
+		x: 可以使用ls -l 查看此目录中文件列表，可以cd进入此目录
+		X:只给目录x权限，不给文件x
+			常用于-R递归给目录及其子目录时防止给予文件执行权限
+
+
+权限管理命令
+	chmod	chown	chgrp
+chmod：改变文件的mode权限	change file mode bits
+    mode权限的4类用户：u(uesr)	g(group)	o(other)	a(all)(默认可不写)
+    chmod [OPTION]... MODE[,MODE]... FILE...
+    	MODE表示法：
+    		1.赋权表示法：直接操作一类用户的所有权限rwx:
+    			u=rw 	给user用户赋予读写权限
+    			o=rx 	给other用户赋予读执行权限
+    			g=		取消group组的用户所有权限
+    		2.授权表示法：直接操作一类用户的一种权限，但也可以操作多种权限
+    			u+x 	给user用户赋予执行权限
+    			g+rw 	给user用户赋予读写权限
+    			o-x		给other用户取消读执行权限
+
+			[root@CentOS6 testdir]# touch txt
+			[root@CentOS6 testdir]# ll txt
+			-rw-r--r--. 1 root root 0 Aug  3 09:24 txt
+			[root@CentOS6 testdir]# chmod g= txt
+			[root@CentOS6 testdir]# ll txt
+			-rw----r--. 1 root root 0 Aug  3 09:24 txt
+			[root@CentOS6 testdir]# chmod g=rw txt
+			[root@CentOS6 testdir]# ll txt
+			-rw-rw-r--. 1 root root 0 Aug  3 09:24 txt
+			[root@CentOS6 testdir]# chmod g-w txt
+			[root@CentOS6 testdir]# ll txt
+			-rw-r--r--. 1 root root 0 Aug  3 09:24 txt
+
+			区别：a+w , +w , a-w , -w 的区别
+
+			[root@CentOS6 testdir]# touch f1 f2
+			[root@CentOS6 testdir]# ll f1 f2
+			-rw-r--r--. 1 root root 0 Aug  3 09:29 f1
+			-rw-r--r--. 1 root root 0 Aug  3 09:29 f2
+			[root@CentOS6 testdir]# chmod a+w f1
+			[root@CentOS6 testdir]# chmod +w f2
+			[root@CentOS6 testdir]# ll f1 f2
+			-rw-rw-rw-. 1 root root 0 Aug  3 09:29 f1
+			-rw-r--r--. 1 root root 0 Aug  3 09:29 f2
+			[root@CentOS6 testdir]# chmod a+w f2 	给f2都赋予w权限以便观察
+			[root@CentOS6 testdir]# ll f1 f2
+			-rw-rw-rw-. 1 root root 0 Aug  3 09:29 f1
+			-rw-rw-rw-. 1 root root 0 Aug  3 09:29 f2
+			[root@CentOS6 testdir]# chmod a-w f1
+			[root@CentOS6 testdir]# chmod -w f2
+			chmod: f2: new permissions are r--rw-rw-, not r--r--r-- 	重要的提示信息
+			[root@CentOS6 testdir]# ll f1 f2
+			-r--r--r--. 1 root root 0 Aug  3 09:29 f1
+			-r--rw-rw-. 1 root root 0 Aug  3 09:29 f2
+
+			注意：对w权限而已，a+w给所有人赋予权限，+w只会给user用户赋予，当rx无此影响，a+ 等同与 +
+
+    chmod [OPTION]... OCTAL-MODE FILE...
+    	八进制表示法：
+		    --- 000 0
+			--x 001 1
+			-w- 010 2
+			-wx 011 3
+			r-- 100 4
+			r-x 101 5
+			rw- 110 6
+			rwx 111 7
+		例如：
+			rw-r-----：640
+			rwxr-xr-x: 755
+			注意：其中第一数字代表user的权限，第二个数字代表group组的权限，第三个数字代表other的权限
+		[root@CentOS6 testdir]# ll f1
+		-r--r--r--. 1 root root 0 Aug  3 09:29 f1
+		[root@CentOS6 testdir]# chmod 755 f1
+		[root@CentOS6 testdir]# ll f1
+		-rwxr-xr-x. 1 root root 0 Aug  3 09:29 f1
+
+    chmod [OPTION]... --reference=RFILE FILE...
+    	参考RFILE文件的权限，将FILE文件的权限修改为同RFILE文件
+
+		[root@CentOS6 testdir]# ll /var/mail/gao f1
+		-rwxr-xr-x. 1 root root    0 Aug  3 09:29 f1
+		-rw-rw----. 1 gao  mail 5304 Jul 29 17:58 /var/mail/gao
+		[root@CentOS6 testdir]# chmod --reference=/var/mail/gao f1
+		[root@CentOS6 testdir]# ll /var/mail/gao f1
+		-rw-rw----. 1 root root    0 Aug  3 09:29 f1
+		-rw-rw----. 1 gao  mail 5304 Jul 29 17:58 /var/mail/gao
+
+	-R，--recursive：递归的修改目录及其目录下文件的权限
+		-R一般和MODE表示法结合使用
+
+注意：用户只能修改属主为自己的那些文件的权限
+
+chown：改变文件的属主和属组		change file owner and group
+    chown [OPTION]... [OWNER][:[GROUP]] FILE...
+    chown [OPTION]... --reference=RFILE FILE...
+    	参考RFILE文件的属主属组，将FILE文件的属主属组修改为同RFILE文件
+
+		[root@CentOS6 testdir]# ll /var/mail/gao f1
+		-rw-rw----. 1 root root    0 Aug  3 09:29 f1
+		-rw-rw----. 1 gao  mail 5304 Jul 29 17:58 /var/mail/gao
+		[root@CentOS6 testdir]# chown --reference=/var/mail/gao f1
+		[root@CentOS6 testdir]# !ll
+		ll /var/mail/gao f1
+		-rw-rw----. 1 gao mail    0 Aug  3 09:29 f1
+		-rw-rw----. 1 gao mail 5304 Jul 29 17:58 /var/mail/gao
+
+    -R，--recursive：递归的修改目录及其目录下文件的属主属组
+
+	[root@CentOS6 testdir]# ll /testdir/gm -d
+	drwxr-xr-x. 4 root root 4096 Aug  3 10:19 /testdir/gm
+	[root@CentOS6 testdir]# ll /testdir/gm/* -d
+	drwxr-xr-x. 2 root root 4096 Aug  3 10:19 /testdir/gm/gm1
+	drwxr-xr-x. 3 root root 4096 Aug  3 10:18 /testdir/gm/hlr
+	[root@CentOS6 testdir]# chown -R gao:gentoo /testdir/gm
+	[root@CentOS6 testdir]# ll /testdir/gm -d
+	drwxr-xr-x. 4 gao gentoo 4096 Aug  3 10:19 /testdir/gm
+	[root@CentOS6 testdir]# ll /testdir/gm/* -d
+	drwxr-xr-x. 2 gao gentoo 4096 Aug  3 10:19 /testdir/gm/gm1
+	drwxr-xr-x. 3 gao gentoo 4096 Aug  3 10:18 /testdir/gm/hlr
+
+chgrp：change group ownership、
+    chgrp [OPTION]... GROUP FILE...
+    chgrp [OPTION]... --reference=RFILE FILE..
+
+新建文件和目录的默认权限
+	umask：文件权限的遮罩码，反掩码
+		用户新建文件或目录的默认权限有umask决定
+		用户新建文件的默认权限：
+			666-umask
+			注意：对文件而已，默认不能拥有执行权限，若计算出的默认权限有奇数则+1处理，偶数不处理
+			其原理如下
+									eg:umask=135
+									666-135=531，但其运算过程如下
+									666对应的二进制：110110110
+									135对应的二进制：001011101
+													————————————
+	下面的0对上面无作用，下面的1对上面的1有置0作用：110100010  ==>642
+		用户新建目录的默认权限：
+			777-umask
+		# umask   查看当前系统用户的umask
+		-p：显示结果为umask number 作用：umask -p >> .bashrc 在不打开文本的前提下修改用户的默认umask
+
+Linux文件系统上的特殊权限
+	SUID, SGID, Sticky
+	三种常用权限：r, w, x user, group, other
+	安全上下文
+	前提：进程有属主和属组；文件有属主和属组
+		(1)任何一个可执行程序文件能不能启动为进程：取决发起者对程序文件是否拥有执行权限
+		(2)启动为进程之后，其进程的属主为发起者；进程的属组为发起者所属的组
+		(3)进程访问文件时的权限，取决于进程的发起者
+			(a)进程的发起者，同文件的属主：则应用文件属主权限
+			(b)进程的发起者，属于文件属组；则应用文件属组权限
+			(c)应用文件“其它”权限
+
+SUID权限：
+	SUID只作用与可执行的二进制文件上
+	用户运行该程序时，自动继承该程序所属主的权限
+	SUID 设置在目录上无意义
+	权限设定：
+		chmod u+s FILE...
+		chmod u-s FILE...
+
+SGID权限：
+	作用在二进制的程序上：
+		用户运行该程序时，自动继承该程序所属组的权限
+	作用在目录上：
+		该目录内新建的文件或目录的所属组自动继承与该文件的所属组
+	通常用于创建一个协作目录，用于同组内的用户，可互相修改对方文件，协同工作
+	权限设定：
+		chmod g+s DIR...
+		chmod g-s DIR...
+	[root@CentOS6 testdir]# ll -d gm
+	drwxr-xr-x. 4 gao gentoo 4096 Aug  3 10:19 gm
+	[root@CentOS6 testdir]# chmod g+s gm
+	[root@CentOS6 testdir]# ll -d gm
+	drwxr-sr-x. 4 gao gentoo 4096 Aug  3 10:55 gm
+	[root@CentOS6 testdir]# cd gm
+	[root@CentOS6 gm]# mkdir fit
+	[root@CentOS6 gm]# touch r2t
+	[root@CentOS6 gm]# ll -d fit r2t
+	drwxr-sr-x. 2 root gentoo 4096 Aug  3 10:57 fit
+	-rw-r--r--. 1 root gentoo    0 Aug  3 10:57 r2t
+
+Sticky权限：
+	防止某些用户对该目录有权限，则胡乱删除该目录下的(属主是自己或属主不是自己)文件
+	在目录设置Sticky位，只有文件的所有者或root可以删除该文件，即除root用户外，其他用户只能删除属主是自己的文件
+	sticky  设置在文件上无意义
+	权限设定：
+		chmod o+t DIR...
+		chmod o-t DIR...
+
+特殊权限数字法
+	SUID SGID STICKY
+		000 0
+		001 1
+		010 2
+		011 3
+		100 4
+		101 5
+		110 6
+		111 7
+	例如：chmod 3777 /testdir/gm
+		对/testdir/gm目录给予777权限，并且对目录设置了SGID和Sticky权限
+
+权限位映射
+	SUID: user, 占据属主的执行权限位
+		s:  属主拥有x 权限
+		S ：属主没有x 权限
+	SGID: group, 占据属组的执行权限位
+		s: group 拥有x 权限
+		S ：group 没有x 权限
+	Sticky: other, 占据other 的执行权限位
+		t: other 拥有x 权限
+		T ：other 没有x
+
+设定文件特定属性
+ chattr +i  不能删除，改名，更改
+ chattr +a  只能增加
+
+ACL：访问控制列表 	Access Control List
+	除了文件的所有者，所属组和其它人，可以对更多的用户设置权限
+		比如设置某一用户能以rwx权限访问一指定文件，而其他用户按照u,g,o权限对文件进行访问
+	getfacl file |directory
+		查看文件或目录的访问控制列表
+	setfacl -m u:gao:rx file|directory
+		设置gao用户，对目录或文件，不以u,g,o所对应的权限访问文件，而是以rx权限访问文件
+	setfacl -M file.acl file|directory
+		以文本的形式，，对多个用户设置某一目录或文件的ACL
+	setfacl -m d:u:gao:rx directory
+		清除指定用户的ACL
+	setfacl -b file1
+		清除文件所有ACL权限
+	ACL 文件上的group 权限是mask值（自定义用户，自定义组，拥有组的最大权限）, 而非传统的组权限
+ 	mask只影响除所有者和other的之外的人和组的最大权限Mask需要与用户的权限进行逻辑与运算后，才能变成有限的权限(Effective Permission)
+	用户或组的设置必须存在于mask权限设定范围内才会生效。
+		setfacl -m mask::rx file
+
+	[root@CentOS6 testdir]# ll f1
+	-rw-rw----. 1 root root 19 Aug  3 14:38 f1
+	[root@CentOS6 testdir]# getfacl f1
+	# file: f1
+	# owner: root
+	# group: root
+	user::rw-
+	group::rw-
+	other::---
+
+	[root@CentOS6 testdir]# setfacl -m u:gao:rwx f1
+	[root@CentOS6 testdir]# getfacl f1
+	# file: f1
+	# owner: root
+	# group: root
+	user::rw-
+	user:gao:rwx
+	group::rw-
+	mask::rwx
+	other::---
+
+	[root@CentOS6 testdir]# cat f1
+	lkjsdfl
+	klsfj;lfjs
+	[root@CentOS6 testdir]# setfacl -b f1
+	[root@CentOS6 testdir]# getfacl f1
+	# file: f1
+	# owner: root
+	# group: root
+	user::rw-
+	group::rw-
+	other::---
+
+ACL生效顺序：所有者，自定义用户，自定义组，其他人
+	若用户输入3个自定义组，则该用户用户3个自定义组的组合权限

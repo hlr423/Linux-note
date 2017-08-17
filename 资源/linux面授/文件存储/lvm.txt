@@ -1,0 +1,272 @@
+逻辑卷管理器（LVM）
+	允许对卷进行方便操作的抽象层，包括重新设定文件系统的大小
+	允许在多个物理设备间重新组织文件系统
+		将设备指定为物理卷
+		用一个或者多个物理卷来创建一个卷组
+		物理卷是用固定大小的物理区域（Physical Extent，PE ）来定义的
+		在物理卷上创建的逻辑卷是由物理区域（PE ）组成
+		可以在逻辑卷上创建文件系统
+
+LVM: Logical Volume Manager，Version：2
+	dm: device mapper：将一个或多个底层块设备组织成一个逻辑设备的模块
+	设备名：/dev/dm-#
+	软链接：
+		/dev/mapper/VG_NAME-LV_NAME
+			/dev/mapper/vol0-root
+		/dev/VG_NAME/LV_NAME
+			/dev/vol0/root
+
+LVM可以弹性的更改LVM的容量
+通过交换PE来进行资料的转换，将原来LV内的PE转移到其他的设备中以降低LV的容量，或将其他设备中的PE加到LV中以 加大容量
+
+pv管理工具：
+	pvs：简要pv信息显示
+	pvdisplay：显示pv的详细信息
+
+	pvcreate /dev/DEVICE：创建pv或增加pv磁盘
+	pvmove /dev/DEVICE：把某块磁盘中使用的PE数据块，搬到其他磁盘中去
+		从vg中移除某块磁盘设备
+	pvremove /dev/DEVICE...：将磁盘pv属性移除，不具有pv属性
+
+vg管理工具：
+	vgs：简要vg信息显示
+	vgdisplay：显示vg的详细信息
+
+	vgcreate [-s #[kKmMgG]] VolumeGroupName /dev/DEVICE....：创建vg
+		-s：指定LVM中块(PE)的大小
+	vgextend VGName /dev/DEVICE....：扩展vg
+	vgreduce VGName /dev/DEVICE....：从vg中移除某块磁盘设备
+		注意：vgreduce移除vg需要先pvmove
+	vgremove VGName：将磁盘vg属性移除，不具有vg属性
+
+lv管理工具：
+	lvs：简要lv信息显示
+	lvdisplay：显示lv的详细信息
+
+	lvcreate -L #[mMgGtT] -n LVName VGName ：创建lv
+		-L：指定lv空间的大小
+		-n：指定lv的名字，在磁盘上表示为/dev/VGName/LVName
+	lvextend -L [+]#[mMgGtT] /dev/DEVICE....：扩展vg
+		+表示在当前系统的基础上增加#的空间
+		不写+表示把当前系统扩展成#的空间
+
+		lvextend -r -l +100%FREE /dev/myvg/mylv
+			把vg中的空间全部扩展成lv中
+			-r ：扩展lv的同时扩展文件系统空间
+
+	lvreduce -L [-]#[mMgGtT] /dev/VGName/LVName：缩减lv磁盘空间
+		-表示在当前系统的基础上减少#的空间
+		不写-表示把当前系统缩减成#的空间
+		注意：要缩减lv的磁盘空间，要先缩减文件系统的空间
+	lvremove LVName：将磁盘vg属性移除，不具有vg属性
+
+重设文件系统大小
+	resize2fs device
+		当前lv有多大，扩展到多大
+	resize2fs device #[mMgGtT]
+		当前文件系统改变成#的空间大小
+
+扩展逻辑卷：
+	# lvextend -L [+]#[mMgGtT] /dev/VGName/LVName
+	# resizefs /dev/VGName/LVName
+		扩展逻辑卷需要先扩展lv的空间，在扩展文件系统大小，可以在线扩展
+
+	百分百使用vg空间
+		# lvextend -r -l +100%FREE /dev/VGName/LVName
+
+缩减逻辑卷：
+	# umount /dev/VGName/LVName
+	# e2fsck -f /dev/VGName/LVName
+	# resizefs /dev/VGName/LVName #[mMgGtT]
+	# lvreduce -L [-]#[mMgGtT] /dev/VGName/LVName
+	# mount /dev/VGName/LVName
+		注意：缩减有可能导致文件数据丢失，且原文件已经占用20G空间，则缩减不能低于20G
+
+文件系统阶段：
+	要想真正使用lvm，必须对新建立的lv进行格式化挂载
+		# mke2fs -t ext4 /dev/VAName/LVName
+		# mount /dev/VAName/LVName /DIR
+
+逻辑卷管理器快照
+	快照是特殊的逻辑卷，它是在生成快照时存在的逻辑卷的准确拷贝
+	对于需要备份或者复制的现有数据集临时拷贝以及其它操作来说，快照是最合适的选择
+	快照只有在它们和原来的逻辑卷不同时才会消耗空间
+		在生成快照时会分配给它一定的空间，但只有在原来的逻辑卷或者快照有所改变才会使用这些空间
+		当原来的逻辑卷中有所改变时，会将旧的数据复制到快照中
+		快照中只含有原来的逻辑卷中更改的数据或者自生成快照后的快照中更改的数据
+		建立快照的卷大小只需要原始逻辑卷的15% ～20%就够了,也可以使用lvextend放大快照
+
+为现有逻辑卷创建快照
+	注意：快照卷和原卷是在同一目录下
+	# lvcreate -L #[mMgGtT] -s -n snap-data -p r /dev/VGName/snap-data
+		-L：大小
+		-n：快照卷
+		-s：原卷
+		-p：快照卷数据（-r 只读）
+
+挂载快照
+	# mkdir -p /mnt/snap
+	# mount -o ro /dev/VGName/snap-data /mnt/snap
+
+删除快照
+	# umount /mnt/databackup
+	# lvremove /dev/VGName/snap-data
+		移除快照要使用设备名
+
+作业：1、创建一个至少有两个PV组成的大小为20G的名为testvg的VG ；要求PE大小为16MB,而后在卷组中创建大小为5G的逻
+辑卷testlv；挂载至/users目录
+[root@CentOS6 ~]# lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sr0     11:0    1  3.7G  0 rom  /media/CentOS_6.8_Final
+sda      8:0    0  100G  0 disk
+├─sda1   8:1    0  300M  0 part /boot
+├─sda2   8:2    0 97.8G  0 part /
+└─sda3   8:3    0    2G  0 part [SWAP]
+sdb      8:16   0   10G  0 disk
+sdc      8:32   0   10G  0 disk
+sdd      8:48   0   10G  0 disk
+[root@CentOS6 ~]# pvs
+[root@CentOS6 ~]# pvcreate /dev/sd{b,c}
+  Physical volume "/dev/sdb" successfully created
+  Physical volume "/dev/sdc" successfully created
+[root@CentOS6 ~]# pvs
+  PV         VG   Fmt  Attr PSize  PFree
+  /dev/sdb        lvm2 ---- 10.00g 10.00g
+  /dev/sdc        lvm2 ---- 10.00g 10.00g
+[root@CentOS6 ~]# vgcreate -s 16MB testvg /dev/sd{b,c}
+  Volume group "testvg" successfully created
+[root@CentOS6 ~]# vgs
+  VG     #PV #LV #SN Attr   VSize  VFree
+  testvg   2   0   0 wz--n- 19.97g 19.97g
+[root@CentOS6 ~]# vgdisplay
+  --- Volume group ---
+  VG Name               testvg
+......
+  VG Size               19.97 GiB
+  PE Size               16.00 MiB
+......
+  Free  PE / Size       1278 / 19.97 GiB
+  VG UUID               pqeXTx-cqR6-MVCv-JhFK-V14f-U2kn-3i3y7y
+[root@CentOS6 ~]# pvs
+  PV         VG     Fmt  Attr PSize PFree
+  /dev/sdb   testvg lvm2 a--u 9.98g 9.98g
+  /dev/sdc   testvg lvm2 a--u 9.98g 9.98g
+[root@CentOS6 ~]# lvcreate -L 5G -n testlv testvg
+  Logical volume "testlv" created.
+[root@CentOS6 ~]# lvs
+  LV     VG     Attr       LSize Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  testlv testvg -wi-a----- 5.00g
+[root@CentOS6 ~]# mkfs.ext4 /dev/testvg/testlv
+....
+[root@CentOS6 ~]# mkdir /users
+[root@CentOS6 ~]# mount /dev/testvg/testlv /users
+[root@CentOS6 ~]# cd /users
+[root@CentOS6 users]# ls
+lost+found
+[root@CentOS6 users]# cp /etc/fstab /etc/issue /etc/rc.d -r ./
+[root@CentOS6 users]# ls
+fstab  issue  lost+found  rc.d
+
+2、新建用户archlinux ，要求其家目录为/users/archlinux，而后su 切换至archlinux 用户，复制/etc/pam.d 目录至自己的家目录
+[root@CentOS6 users]# useradd -d /users/archlinux archlinux
+[root@CentOS6 users]# su - archlinux
+[archlinux@CentOS6 ~]$ pwd
+/users/archlinux
+[archlinux@CentOS6 ~]$ cp /etc/pam.d -r ./
+[archlinux@CentOS6 ~]$ ls
+pam.d
+[archlinux@CentOS6 ~]$ ls ../
+archlinux  fstab  issue  lost+found  rc.d
+
+3、扩展testlv至7G
+[root@CentOS6 users]# lvextend -L 7G /dev/testvg/testlv
+  Size of logical volume testvg/testlv changed from 5.00 GiB (320 extents) to 7.00 GiB (448 extents).
+  Logical volume testlv successfully resized.
+[root@CentOS6 users]# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda2              97G  3.1G   89G   4% /
+tmpfs                 491M  224K  491M   1% /dev/shm
+/dev/sda1             283M   34M  234M  13% /boot
+/dev/sr0              3.7G  3.7G     0 100% /media/CentOS_6.8_Final
+/dev/mapper/testvg-testlv
+                      4.8G   11M  4.6G   1% /users
+[root@CentOS6 users]# resize2fs /dev/testvg/testlv
+resize2fs 1.41.12 (17-May-2010)
+Filesystem at /dev/testvg/testlv is mounted on /users; on-line resizing required
+old desc_blocks = 1, new_desc_blocks = 1
+Performing an on-line resize of /dev/testvg/testlv to 1835008 (4k) blocks.
+The filesystem on /dev/testvg/testlv is now 1835008 blocks long.
+[root@CentOS6 users]# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda2              97G  3.1G   89G   4% /
+tmpfs                 491M  224K  491M   1% /dev/shm
+/dev/sda1             283M   34M  234M  13% /boot
+/dev/sr0              3.7G  3.7G     0 100% /media/CentOS_6.8_Final
+/dev/mapper/testvg-testlv
+                      6.8G   12M  6.5G   1% /users
+
+4、收缩testlv至3G
+[root@CentOS6 ~]# umount /users
+[root@CentOS6 ~]# e2fsck -f /dev/testvg/testlv
+e2fsck 1.41.12 (17-May-2010)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/testvg/testlv: 533/458752 files (0.0% non-contiguous), 64627/1835008 blocks
+[root@CentOS6 ~]# resize2fs /dev/testvg/testlv 3G
+resize2fs 1.41.12 (17-May-2010)
+Resizing the filesystem on /dev/testvg/testlv to 786432 (4k) blocks.
+The filesystem on /dev/testvg/testlv is now 786432 blocks long.
+[root@CentOS6 ~]# lvreduce -L -4G /dev/testvg/testlv
+  WARNING: Reducing active logical volume to 3.00 GiB.
+  THIS MAY DESTROY YOUR DATA (filesystem etc.)
+Do you really want to reduce testvg/testlv? [y/n]: y
+  Size of logical volume testvg/testlv changed from 7.00 GiB (448 extents) to 3.00 GiB (192 extents).
+  Logical volume testlv successfully resized.
+[root@CentOS6 ~]# mount /dev/testvg/testlv /users
+[root@CentOS6 ~]# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda2              97G  3.1G   89G   4% /
+tmpfs                 491M  224K  491M   1% /dev/shm
+/dev/sda1             283M   34M  234M  13% /boot
+/dev/sr0              3.7G  3.7G     0 100% /media/CentOS_6.8_Final
+/dev/mapper/testvg-testlv
+                      2.9G  8.3M  2.7G   1% /users
+
+5 、对testlv 创建快照，并尝试基于快照备份数据，验正快照的功能
+[root@CentOS6 ~]# cd /users
+[root@CentOS6 users]# lvcreate -L 500M -s -n snap_lv -p r /dev/testvg/testlv
+  Rounding up size to full physical extent 512.00 MiB
+  Logical volume "snap_lv" created.
+[root@CentOS6 users]# lvs
+  LV      VG     Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  snap_lv testvg sri-a-s--- 512.00m      testlv 0.00
+  testlv  testvg owi-aos---   3.00g
+[root@CentOS6 users]# mount /dev/testvg/snap_lv /mnt
+mount: block device /dev/mapper/testvg-snap_lv is write-protected, mounting read-only
+[root@CentOS6 users]# pwd
+/users
+[root@CentOS6 users]# ls
+archlinux  fstab  issue  lost+found  rc.d
+[root@CentOS6 users]# ls /mnt
+archlinux  fstab  issue  lost+found  rc.d
+[root@CentOS6 users]# echo xxx > /users/issue
+[root@CentOS6 users]# cat /users/issue
+xxx
+[root@CentOS6 users]# cat /mnt/issue
+CentOS release 6.8 (Final)
+Kernel \r on an \m
+
+[root@CentOS6 users]# rm /users/fstab
+rm: remove regular file `/users/fstab'? y
+[root@CentOS6 users]# ls
+archlinux  issue  lost+found  rc.d
+[root@CentOS6 users]# ls /mnt/
+archlinux  fstab  issue  lost+found  rc.d
+
+
+
+
+

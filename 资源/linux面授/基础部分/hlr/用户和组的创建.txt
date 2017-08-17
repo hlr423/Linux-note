@@ -1,0 +1,363 @@
+用户组权限
+	资源分派：3A认证
+		Authentication ：认证
+		Authorization ：授权
+		Accouting|Audition ：审计
+	用户user
+		linux用户：Username都对应这一个UID
+		管理员：root, 0
+		普通用户：1-65535
+			系统用户：1-499（centos6）, 1-999（centos7
+				对守护进程获取资源进行权限分配
+			登录用户:500+（centos6）, 1000+（centos7）
+				交互式登录
+	组group
+		Linux 组：Groupname/GID
+		管理员组：root, 0
+		普通组：
+			系统组：1-499（centos6）, 1-999（centos7
+			普通组：500+ （centos6）, 1000+（centos7）
+	安全上下文 security context
+		Linux 安全上下文
+		进程 (process)：运行中的程序
+		命令启动的进程是以发起者的身份运行，而不是命令自身运行的
+			root: /bin/cat
+			mage: /bin/cat
+		进程所能够访问资源的权限取决于进程的运行者的身份
+
+	Linux 组的类别：
+		用户的主要组(主组)： ：
+			用户必须属于一个且只有一个主组
+			组名同用户名，且仅包含一个用户：私有组
+		用户的附加组(辅助组)： ：
+			一个用户可以属于零个或多个辅助组
+	用户和组的配置文件
+		Linux 用户和组的主要配置文件：
+			/etc/passwd：用户及其属性信息( 名称、UID 、主组ID 等）
+			/etc/shadow：用户密码及其相关属性
+			/etc/group： 组及其属性信息
+			/etc/gshadow：组密码及其相关属性
+
+	/etc/passwd；用户的信息库
+		account:password:UID:GID:GECOS:directory:shell
+		account:用户名
+		password:加密的密码，也可使用占位符"x"
+		UID:用户的UID
+		GID:用户的GID
+		GECOS:注释信息
+		directory:用户的家目录
+		shell：用户的默认登陆shell
+	chsh：修改用户默认shell的工具
+		# chsh -s /bin/csh gao
+
+	getent <passwd|group|shadow|gshadow> root :查看用户的/etc/passwd|group|shadow|gshadow中信息
+
+	Linux系统中看的是id而不是用户名;若不同用户id相同，则系统他们视为同一个用户
+
+	密码加密
+		加密机制：
+			加密：明文-->  密文
+			解密：密文-->  明文
+		单向加密：哈希算法，原文不同，密文必不同，只能加密不能解密
+			定长输出：不论输入密码是多少位都是定长输出
+			雪崩效应：初始条件的微小改变，引起结果的巨大改变
+			md5: message digest, 128bits
+			sha1: secure hash algorithm, 160bits
+			sha224: 224bits
+			sha256: 256bits
+			sha384: 384bits
+			sha512: 512bits
+		手动修改当前加密的算法
+			authconfig --passlgo=sha256 --update 更改加密用的算法
+		密码的复杂性策略
+			使用数字、大写字母、小写字母及特殊字符4种符号至少3种
+			足够长
+			使用随机密码
+			定期更换；不要使用最近曾经使用过的密码
+
+	/etc/shadow：用户秘密
+		root:$6$3TTqKfDF1Tf2yVa2$CkFzR24CoQ8rewpScarLtnFa/m3vJHVhS09NmZUk3Y4KM5/dCyCxK.7EpZN7okmkvLElFnk99cinRaS.tbf1N/:17001:0:99999:7:::
+		用户名：加密的密码：最近一次修改时间：最短使用时间：最长使用时间：警告时间：过期时间：账号过期时间：保留字段
+		1：加密的密码中用3个$把密码分成了3段
+			a：加密时使用的算法
+				md5		1
+				sha1 	2
+				sha224 	3
+				sha256 	4
+				sha384 	5
+				sha512	6
+			b：随机数（密码不是直接加密，而是密码加上随机数后加密，以此来确保不同用户使用了相同密码后，加密出来的密码也不相同）
+			c：加密后的密码
+			注意：加密密码处，有一个！或者有2个！！则该用户禁止登陆
+		2：最短使用时间是指修改以此密码后，下一次修改密码必须经过的时间
+		3：最近一次修改时间是从1970年1月1号，开始计算到修改密码时所经过的天数
+		4：进入警告时间段后，进入系统可以不修改密码，但是进入过期时间段后，必须修改密码才能进入系统
+
+	/etc/group：组的信息库
+		group_name:passwd:GID:user_list
+		组名：组的密码：GID：该组的成员，或以此组为附加组的用户列表
+			root:x:0:
+
+	/etc/gshadow
+		root:::
+	  组名：组的密码：组管理员列表：该组的成员：或以此组为附加组的用户列表
+		为了安全起见，一般组不设置密码，则其他用户就不能随意切换自己的主组
+
+	# groups USERNAME  查看用户基本组和附加组信息
+
+	# gpasswd groupname  给组设置口令
+
+文件操作用户信息文件
+	vipw = vi /etc/passwd
+	vigr = vi /etc/group
+
+
+1.创建用户gentoo，附加组为bin和root，默认shell为/bin/csh ，注释信息为"Gentoo Distribution"
+	# useradd -G bin,root -s /bin/csh -c "Gentoo Distribution" gentoo
+2.创建下面的用户，组和组成员关系
+	名字为admins的组
+	用户natasha，使用admins作为附属组
+	用户harry，也使用admins作为附属组
+	用户sarah，不可交互登录系统，且不是admins的成员，
+	natasha，harry，sarah密码都是centos
+	# groupadd admins
+	# useradd -G admins natasha,harry
+	# useradd -G admins harry
+	# useradd -s /sbin/nologin sarah
+	# echo "centos" | passwd --stdin natasha &> /dev/null
+	# echo "centos" | passwd --stdin harry &> /dev/null
+	# echo "centos" | passwd --stdin sarah &> /dev/null
+
+openssl rand -base64 NUM  //随机生成NUM位长的密码
+
+
+newusers passwd.txt //事先准备一个文件，批量创建用户
+	# vi passwd.txt
+		user1:x:2000:2000::/home/user1:/bin/shell
+		user2:x:2001:2001::/home/user2:/bin/shell
+		user3:x:2002:2002::/home/user3:/bin/shell
+		user4:x:2003:2003::/home/user4:/bin/shell
+
+chpasswd gm.txt //事先准备一个文件。批量该密码
+	#vi gm.txt
+		user1:user1
+		user2:contos
+		user3:windows
+		user4:gaomeng
+
+cat gm.txt | chpasswd
+	但是上述操作不会创建用户家目录
+	// cp -r /etc/skel/.[^.]* /home/user#/  没有下一条命令简介
+cp -r /etc/skel/. /home/user#   //可以拷贝隐藏文件和非隐藏文件
+	修改属主属组
+
+	把上述3个命令写成一个脚本
+
+
+/etc/login.defs
+	authconfig --passlgo=sha256 --update 更改加密用的算法
+	修改的就是login.defs的配置文件
+
+用户的创建
+	useradd usermod userdel
+
+useradd：create a new user or update default new user information		创建用户
+	useradd [options]... LOGIN
+		-u,--uid：指定新用户的UID
+		-o,配合-u使用，不检测用户UID的唯一性(可创建2个相同UID的帐号）
+		-g,--gid：指定新建用户的GID
+		-G,--group：指定新建用户的附加组，若指定多个组可用，分割
+		-d,--home：指定用户的家目录
+			但是其指定目录的父目录必须存在，否则无法创建其家目录
+			每个用户家目录都有其配置文件，所有新建用户的家目录中的文件均来自/etc/skel/文件中
+			若其指定的家目录已经存在，则不会复制/etc/skel/文件中的内容
+		-s,--shell；指定用户的默认shell
+			当前系统所有可用shell保存在/etc/shells文件中
+		-c,指定用户信息的注释信息
+		-r,--system：指定其创建的用户为系统用户，系统用户不会为其创建家目录
+		-N,不为用户创建同名的组作为用户基本组，而是使用users作为基本组
+
+		[root@CentOS6 ~]# id gao
+		uid=500(gao) gid=500(gao) groups=500(gao),0(root)
+		[root@CentOS6 ~]# useradd -ou 500 gaomeng1
+		[root@CentOS6 ~]# id gaomeng1
+		uid=500(gao) gid=5004(gaomeng1) groups=500(gao)
+		[root@CentOS6 ~]# useradd -g gao -G gaomeng1 gaomeng2
+		[root@CentOS6 ~]# id gaomeng2
+		uid=4015(gaomeng2) gid=500(gao) groups=500(gao),5004(gaomeng1)
+		[root@CentOS6 ~]# useradd -d /testdir/gaomeng3 -s /bin/csh -c "This is haha" gaomeng3
+		[root@CentOS6 ~]# getent passwd gaomeng3
+		gaomeng3:x:4016:4016:This is haha:/testdir/gaomeng3:/bin/csh
+		[root@CentOS6 ~]# useradd -r gaomeng4
+		[root@CentOS6 ~]# getent passwd gaomeng4
+		gaomeng4:x:496:492::/home/gaomeng4:/bin/bash
+		[root@CentOS6 ~]# ls -d /home/gao*
+		/home/gao  /home/gao1  /home/gao4  /home/gaomeng1  /home/gaomeng2
+		[root@CentOS6 ~]# useradd -N gaomeng5
+		[root@CentOS6 ~]# getent passwd gaomeng5
+		gaomeng5:x:4017:100::/home/gaomeng5:/bin/bash
+		[root@CentOS6 ~]# groups gaomeng5
+		gaomeng5 : users
+
+	useradd -D
+		显示创建用户的默认信息
+		useradd -D [options]
+			修改创建用户的默认信息，其本质是修改的/etc/default/useradd文件的内容
+			[root@CentOS6 testdir]# useradd -D
+			GROUP=100
+			HOME=/home
+			INACTIVE=-1
+			EXPIRE=
+			SHELL=/bin/bash
+			SKEL=/etc/skel
+			CREATE_MAIL_SPOOL=yes
+			[root@CentOS6 testdir]# useradd -D -s /bin/csh
+			[root@CentOS6 testdir]# cat /etc/default/useradd
+			# useradd defaults file
+			GROUP=100
+			HOME=/home
+			INACTIVE=-1
+			EXPIRE=
+			SHELL=/bin/csh
+			SKEL=/etc/skel
+			CREATE_MAIL_SPOOL=yes
+
+usermod：modify a user account		修改用户属性
+	usermod [options]... LOGIN
+		-u，修改用户的ID，为用户指定行的UID
+		-g，修改用户的基本组
+		-G，修改用户的附加组，若指定多个组可用，分割
+		-a，与-G结合使用，追加用户的附加组，可以在修改附加组的时候，不覆盖当前用户附加组
+		-d，修改用户的家目录，但不会负责当前目录文件在指定目录中
+		-m，与-d结合使用，在修改用户家目录时候，会转移家目录下的文件，-md其实完成的工作是移动和重命名
+		-c，修改用户的注释信息
+		-s，修改用户的默认shell
+		-l，修改当前用户的用户名
+
+		-L：--lock：锁定用户密码，被锁定用户，cat /etc/shadow查看密码时，其密码前面有一个!
+		-U：--unlock：解锁用户密码
+		-c：YYYY-mm-dd：指定用户帐号过期时间
+		-f day：指定用户非活动时间
+
+		[root@CentOS6 testdir]# usermod -g gentoo -aG gaomeng3,gaomeng4 gaomeng1
+		[root@CentOS6 testdir]# id gaomeng1
+		uid=500(gao) gid=4006(gentoo) groups=500(gao),4016(gaomeng3),492(gaomeng4)
+		[root@CentOS6 testdir]# usermod -u 3000 -md /testdir/gaomeng2 -s /bin/csh gaomeng2
+		[root@CentOS6 testdir]# id gaomeng2
+		uid=3000(gaomeng2) gid=500(gao) groups=500(gao),5004(gaomeng1)
+		[root@CentOS6 testdir]# getent passwd gaomeng2
+		gaomeng2:x:3000:500::/testdir/gaomeng2:/bin/csh
+		[root@CentOS6 testdir]# ls -a /testdir/gaomeng2
+		.  ..  .bash_logout  .bash_profile  .bashrc  .gnome2  .mozilla
+		[root@CentOS6 testdir]# usermod -c "big smile" -l gm3 gaomeng3
+		[root@CentOS6 testdir]# getent passwd gm3
+		gm3:x:4016:4016:big smile:/testdir/gaomeng3:/bin/csh
+		[root@CentOS6 testdir]# usermod -L gao
+		[root@CentOS6 testdir]# getent shadow gao
+		gao:!$6$13tm7S5i$22vbEKEMLPu6zr.Egl8yH/eA78lCk.tnxAw5AQZ2dEVZAXRiukgLXGw62euhDQM5zVDLgZWXw8nYiOkWixVAT1:17011:0:99999:7:3::
+		[root@CentOS6 testdir]# usermod -U gao
+		[root@CentOS6 testdir]# getent shadow gao
+		gao:$6$13tm7S5i$22vbEKEMLPu6zr.Egl8yH/eA78lCk.tnxAw5AQZ2dEVZAXRiukgLXGw62euhDQM5zVDLgZWXw8nYiOkWixVAT1:17011:0:99999:7:3::
+
+userdel：delete a user account and related files		删除用户
+	userdel [options] LOGIN
+		-r：删除用户时一并删除其家目录
+
+[root@CentOS6 testdir]# userdel -r gaomeng2
+[root@CentOS6 testdir]# id gaomeng2
+id: gaomeng2: No such user
+[root@CentOS6 testdir]# ls -d /home/gaomeng*
+/home/gaomeng1  /home/gaomeng5
+
+id：显示用户的真实有效的UID和GID
+	id [OPTION]... [USERNAME]
+		-u：仅显示用户的UID
+		-g：仅显示用户的GID
+		-G：仅显示用户的附加组ID
+		-n：与-u-g-G结合使用，不显示用户的ID信息，而显示ID所对于的用户名或组名
+
+		[root@CentOS6 ~]# id -u gao
+		500
+		[root@CentOS6 ~]# id -g gao
+		500
+		[root@CentOS6 ~]# id -G gao
+		500 0
+		[root@CentOS6 ~]# id -nu gao
+		gao
+		[root@CentOS6 ~]# id -ng gao
+		gao
+		[root@CentOS6 ~]# id -nG gao
+		gao root
+
+su：切换用户或以其他用户身份执行命令
+	su [OPTION]... [-] [USER [ARG]...]
+		非登录式切换，即不会读取目标用户的配置文件，不改变当前工作目录
+			su username
+		登录式切换，会读取目标用户的配置文件，模拟重新登录，切换至家目录，完全切换
+			su - username
+			su -l username
+		-c 'COMMAND' ：不切换用户的前提下，以su命令后面的用户的身份执行命令
+
+passwd：修改用户的密码，仅root用户有权限运行此命令
+	id [OPTION]... [USERNAME]
+		-l,-u：锁定和解锁用户，用passwd给用户家的锁，其密码前面有2个!!
+		-d：清除用户密码串，并且强制用户下次登录时修改密码
+		-e：强制用户下次登录修改密码
+		-n：指定最短使用期限
+		-x：指定最多使用期限
+		-w：指定警告期限
+		-i：指定非活动期限（密码过期后必须修改密码才能登录的时间）
+		-uf:可以强制新创建的无密码的用户中的锁强制消除，即该用户可以直接登录
+		--stdin：从标准接收用户的密码
+			#echo "centos" | passwd --stdin username
+
+组的创建
+	groupadd	groupmod	groupdel
+
+groupadd：添加组
+	-g：指定新建组的GID
+	-r：指定新建组为系统组
+
+	[root@CentOS6 ~]# groupadd -g 3500 test
+	[root@CentOS6 ~]# getent group test
+	test:x:3500:
+	[root@CentOS6 ~]# groupadd -r test1
+	[root@CentOS6 ~]# getent group test1
+	test1:x:491:
+
+groupmod：修改组属性
+	-g：修改组的GID
+	-n：修改组的名字
+
+	[root@CentOS6 ~]# groupmod -g 3600 -n txt test
+	[root@CentOS6 ~]# getent group txt
+	txt:x:3600:
+
+groupdel：删除组
+
+	[root@CentOS6 ~]# groups txt
+	[root@CentOS6 ~]# groupmems -l -g txt
+	groupmems: group 'txt' does not exist in /etc/group
+
+gpasswd：修改组密码
+	gpasswd [OPTION] GROUP
+	gpasswd GROUP ：给GROUP组设置密码，不能像passwd可以从标准输入捕捉数据，避免交互
+	-A user1,user2,...：设置GROUP组的管理者
+	-a user ：把user添加进入GROUP组
+	-d user：把user从组GROUP中移除
+
+newgrp 命令：
+	临时切换基本组；
+	如果用户本不属于此组，则需要组密码
+
+groupmems：更改和查看组成员
+	groupmems [options] [action]
+		-a, --add username 指定用户加入组
+		-d, --delete username 从组中删除用户
+		-p, --purge 从组中清除所有成员
+		-l, --list 显示组成员列表
+		-g, --group groupname 更改为指定组，与-p-l选择组合使用完成特定组的操作(只有root)
+
+groupmems -l -g GROUPNAME   查看组所属的用户列表
+groups  [OPTION].[USERNAME]...  查看用户所属组列表
+

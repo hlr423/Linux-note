@@ -1,0 +1,436 @@
+Linux磁盘及文件系统管理
+	何为I/O：Disk,Ehtercard<主要为硬盘和网关>
+
+	Disk接口类型：
+	IDE：并口，133MB/s
+	SCSI：并口，640MB/s
+	SATA：串口，6Gbps
+	SAS：串口，6Gbps
+	USB：串口，480MB/s
+
+	并口：同一线缆可以接多块设备：
+		IDE：
+			两个，主从
+		SCSI：
+			宽带：16-1个
+			窄带：8-1个
+
+	串口：同一线缆只可以接一个设备：
+
+	硬盘：机械硬盘，固态硬盘
+		机械硬盘：
+			head：磁头
+			track：磁道
+			cylinder：柱面
+			secotr：扇区，512bytes
+			平均寻道时间：5400rpm(每分钟5400转)，7200，10000，15000rpm
+
+Linux的哲学思想：一切皆文件
+	设备类型:
+		块设备：block，随机访问，存取单位“块”，磁盘
+		字符设备：char，线性访问，存取单位“字符”，键盘
+
+		设备文件：FHS
+			/dev：设备文件，关联至设备的驱动程序，设备的访问入口
+		设备号码：
+			主设备号：major number，标识设备类型
+			次设备号：minor number，标识同一类型下的不同设备
+
+	mknod命令：创建设备文件
+		mknod [OPTION]... NAME TYPE [MAJOR MINOR]
+			-m MODE：创建后的设备文件的访问权限
+			eg：# mknod /dev/test b 100 1
+
+	设备文件名：命名规则由ICANN指定
+
+	磁盘：
+		IDE: /dev/hd[a-z]
+			eg：/dev/hda ，/dev/hdb
+		SCSI, SATA, SAS, USB: /dev/sd[a-z]  //用户26个后使用aa,ab,ac,.....az
+			eg：/dev/sda ，/dev/sdb, ...
+			同一设备上的不同分区：1,2, ...
+				eg：/dev/sda1 ，/dev/sda5
+
+		磁盘分区：
+			两种分区方式：MBR ，GPT
+			MBR: Master Boot Record ，1982年， 使用32位表示扇区数，分区不超过2T
+				如何分区：按柱面
+					0 磁道0扇区：512bytes
+						446bytes: boot loader
+						64bytes ：分区表
+						16bytes:  标识一个分区
+						2bytes: 55AA
+					4个主分区；3 主分区+1 扩展(N个逻辑分区)
+
+			GPT:GUID patition table支持128个分区，使用64位，支持8Z（512Byte/block）64Z（4096Byte/block）
+			使用128位UUID表示磁盘和分区GPT分区表自动备份在头和尾两份，并有CRC校验位
+			UEFI ( 统一扩展固件接口)硬件支持GPT
+
+分区创建工具：parted，sfdisk和fdisk
+
+	fdisk命令：
+		1、查看磁盘的分区信息：
+			fdisk -l [device...] ：列出全部[指定]磁盘设备上的分区情况
+
+		2、管理分区
+			fdisk device
+				fdisk命令提供了一个交互式接口来管理分区，它有许多子命令，分别用于不同的管理功能，索引的操作均在内存中完成，没有直接同步到磁盘，指定使用w命令保存至磁盘上
+			常用命令：
+				n：创建一个新的分区
+				d：删除一个分区
+				t：修改一个分区的分区类型
+				l：查看或列出所有分类对应的id表
+				w：保存退出
+				q：不保存退出
+				p：显示当前分区
+				m：查看帮助信息
+
+			注意：在已经分区并且已经挂载其中某个分区的磁盘设备上创建的新分区，内核可能在创建完成后无法直接识别，需要使用命令通知内核重新读此分区
+				查看：cat /proc/partations
+				通知内核强制重读磁盘分区表：
+					CentOS5，7：partprobe [device]
+					CentOS6，7：partx，kpartx
+						新增分区：# partx -a [device]
+						删除分区：# partx -d -n M[-N] /dev/DEVICE  (M，N为分区的数字编号)
+
+创建文件系统：
+	文件系统是操作系统用于明确存储设备或分区上的文件的方法和数据结构；即在存储设备上组织文件的方法。操作系统中负责管理和存储文件信息的软件结构称为文件管理系统，简称文件系统。
+	从系统角度来看，文件系统是对文件存储设备的空间进行组织和分配，负责文件存储并对存入的文件进行保护和检索的系统。具体地说，它负责为用户建立文件，存入、读出、修改、转储文件，控制文件的存取，安全控制，日志，压缩，加密等
+	格式化：低级格式化（分区之前进行，划分磁道），高级格式化（分区之后进行，创建文件系统）
+
+	VFS:Virtual File System
+		Linux 文件系统: ext2, ext3, ext4, xfs （SGI）, btrfs（Oracle）, reiserfs, jfs（AIX ）, swap
+		swap：交换分区
+		光盘：iso9660
+		Windows：fat32, ntfs
+		Unix: FFS （fast ）, UFS （unix ）, JFS2
+		网络文件系统：NFS, CIFS
+		集群文件系统：GFS2, OCFS2 （oracle）
+		内核级分布式文件系统：ceph
+		伪文件系统：proc, ysfs, tmpfs, hugepagefs
+		用户空间的分布式文件系统：moosefs, mogilefs, glusterfs
+		RAW ：未经处理或者未经格式化产生的文件系统
+
+		根据其是否支持"journal" 功能：
+			何为日志文件系统：加入了对文件系统更改的日志记录，减少文件被破坏的机率，访问磁盘时系统死机不会丢失文件
+			日志型文件系统: ext3, ext4, xfs, ...
+			非日志型文件系统: ext2, vfat
+
+		查前支持的文件系统：# cat /proc/filesystems
+
+	磁盘和文件系统管理：
+		文件系统管理工具：
+			创建文件系统的工具：mkfs, mke2fs
+			检测及修复文件系统的工具：fsck, e2fsck
+			查看其属性的工具：dumpe2fs, tune2fs
+			调整文件系统特性：tune2fs
+
+		内核级文件系统的组成部分：
+			文件系统驱动：由内核提供
+			文件系统管理工具：由用户空间的应用程序提供
+
+		ext系列文件系统的管理工具：
+			mkfs：
+				常见的2中表现方式：
+					(1)mkfs.FS_TYPE /dev/DEVICE
+						FS_TYPE：
+							ext2 ，ext3 ，ext4 ，xfs ，btrfs ，vfat
+					(2)mkfs -t FS_TYPE /dev/DEVICE
+				选项：
+					-b：指定块大小
+					-L 'LABEL'：设定卷标
+
+			ext系列文件系统专用管理工具：mke2fs
+				mke2fs [OPTIONS] device
+					-t {ext2|ext3|ext4}：指明要创建的文件系统类型
+						mkfs.ext4 = mkfs -t ext4 = mke2fs -t ext4
+					-b {1024|2048|4096}：指明文件系统的块大小（默认的最小存储单元）
+					-L LABEL：指明卷标
+					-j：创建有日志功能的文件系统（ext3）
+						mke2fs -j = mkfs.ext3 = mkfs -t ext3 = mke2fs -t ext3
+					-i #：为数据空间中每多少个字节创建一个inode ；此大小不应该小于block的大小
+					-N #：为数据空间创建个多少个inode
+					-I  一个inode记录大小128---4096
+					-m #：默认5%, 为管理人员预留空间占总空间的百分比
+					-O FEATURE[,...] ：启用指定特性
+					 	-O ^FEATURE：关闭某指定特性
+
+			e2label命令：卷标的查看和设定
+				查看：# e2label device
+				设定：# e2label device LABEL
+
+			blkid ：块设备属性信息查看
+				blkid [OPTION]... [DEVICE]
+					-U UUID：根据指定的UUID来查找对应的设备
+					-L LABEL：根据指定的LABEL来查找对应的设备
+
+			tune2fs命令：查看或修改ext系列文件系统的某些属性
+				注意：块大小创建后不可修改
+				tune2fs [OPTIONS] device
+					-l：查看指定文件系统超级块信息；super block
+				修改超级块的内容：
+					-L 'LABEL'：修改卷标
+					-m #：修预留给管理员的空间百分比
+					-j：将ext2无损升级为ext3
+					-O：文件系统属性启用或禁用, –O ^has_journal
+					-o：调整文件系统的默认挂载选项,–o ^acl
+					-U UUID：修改UUID号
+
+			dumpe2fs命令：显示ext系列文件系统的属性信息
+				dumpe2fs [-h] device：查看[超级块信息]所有分组块信息
+
+			用于实现文件系统检测的工具：
+				因进程意外中止或系统崩溃等原因导致当前操作非正常终止时，可能会造成文件损坏(挂载为文件系统标记为“dirty”)；此时，应该检测并修复文件系统；建议离线进行
+				ext系列文件系统的专用工具：
+					e2fsck：- check a Linux ext2/ext3/ext4 file system
+						e2fsck [OPTIONS] device
+							-y：对所有问题自动回答为yes（不建议使用，比如有文件传输了99%,手动传1%就可以了）
+							-f：即使文件处于clean状态，也要强制进行检测
+
+				fsck：- check and repair a Linux file system
+					fsck [OPTIONS] device
+					-t fstype：指明文件系统
+					-a：无须交互自动修复所有错误
+					-r：交互式修复
+
+		文件系统的使用：
+			首先要“挂载”：mount命令和umount命令
+			根文件系统之外的其他文件系统要想能够被访问，都必须通过“关联”至根文件系统上的某个目录来实现，此管理操作即为“挂载”，此目录为“挂载点”
+				挂载点：MOUNT_POINT，用于作为另一个文件系统的访问入口
+					(1)事先存在
+					(2)应该使用未被其他进程使用的目录，否则该目录下的数据会被覆盖掉
+
+			mount命令:
+				挂载方法：# mount DEVICE MOUNT_POINT
+				mount [-fnrsvw] [-t vfstype] [-o options] device dir
+					mount：通过查看/etc/mtab 文件显示当前已挂载的所有设备
+
+					-t vsftype：指定要挂载的设备上的文件系统类型
+					-r：readonly，只读挂载
+					-w：read and write，读写挂载
+					-n：默认情况下，挂载或卸载的操作会同步更新到/etc/mtab文件中，-n用于禁用此特性
+					-a：自动挂载所有支持自动挂载的设备(定义在了/etc/fstab文件中，且挂载选项中有auto功能)
+					-L 'LABEL'：以卷标指定挂载设备
+					-U 'UUID'：以UUID指定要挂载的设备
+					-B, --bind：挂载一个目录到另一个目录上
+
+					-o options：挂载选项，多个选项使用逗号分隔
+						async/sync：异步模式/同步模式, 内存更改时，同时写磁盘
+						atime/noatime：目录或文件被访问时是否更新时间戳
+						diratime/nodiratime：目录被访问时是否更新时间戳
+						auto/noauto：是否支持自动挂载, 是否支持-a选项
+						exec/noexec：是否允许运行此设备上的程序
+						dev/nodev：是否支持在此文件系统上使用设备文件
+						suid/nosuid：是否支持suid和sgid权限
+						remount：重新挂载
+						ro：只读
+						rw：读写
+						user/nouser：是否允许普通用户挂载此设备，默认管理员才能挂载
+						acl：启用此文件系统上的acl 功能
+
+					Defaults：相当于rw, suid, dev, exec, auto, nouser, async
+
+					mount挂载，后面的选项会覆盖前面的选项，比如-o指定了acl，noacl，acl会被后面的覆盖
+
+			查看系统已挂载的设备：
+				# mount
+				# cat /etc/mtab
+				# cat /proc/mounts
+
+			挂载光盘：（光盘为只读）
+				# mount -r /dev/cdrom MOUNT_POINT
+					光盘设备文件：/dev/cdrom ，/dev/ded
+
+			挂载U盘：事先识别的U盘的设备文件
+
+			挂载本地的回环设备（或.iso的文件）：
+				# mount -o loop /path/to/some_loop_file(.iso文件)  MOUNT_POINT
+
+			umount命令：
+				卸载时：可使用设备，也可以使用挂载点
+				umount DEVICE|DIR
+				注意：正在被访问的挂载点无法被卸载：
+					查看被那个或那些进程所占用：
+						# lsof MOUNT_POINT
+						# fuser -v MOUNT_POINT
+						终止所有正在访问某挂载点的进程：
+							# fuser -km MOUNT_POINT
+
+	swap文件系统：
+		liunx上的交换分区必须使用独立的文件系统，且文件系统的System ID必须为82
+
+		查看为当前系统提供swap分区的磁盘
+			cat /proc/swaps
+
+		创建swap设备：mkswap命令
+			mkswap [OPTIONGS] device
+				-L LABEL：指明卷标
+				-f：强制
+
+		交互分区的的启用和禁用：
+			启用：swapon
+				swapon [OPTION] [DEVICE]
+					-a：启用所有定义在/etc/fstab中的所有swap设备
+					-p PRIORITY：指定优先级
+					-s：查看当前生效的swap分区是那些磁盘提供
+
+			禁用：swapoff
+				swapoff DEVICE
+
+		swap的优先级：
+			用户可以给某个swap 指定一个0 到32767 的优先级
+			如果用户没有指定，那么核心会自动给swap 指定一个优先级，这个优先级从-1 开始，每加入一个新的没有用户指定优先级的swap ，会给这个优先级减一
+			先添加的swap的缺省优先级比较高，除非用户自己指定一个优先级，而用户指定的优先级( 是正数) 永远高于核心缺省指定的优先级(是负数)
+			优化性能：分布存放，高性能磁盘存放
+
+	文件挂载配置文件；
+		除根文件系统之外的其他文件系统能够开机时自动挂载：需配置/etc/fstab文件
+		每行定义了一个要挂载的文件系统及相关属性
+		/etc/fstab文件中共6个字段：
+			(1)要挂载的设备或伪文件系统
+				设备名
+				LABEL
+				UUID
+				伪文件系统：如sysfs ，proc ，tmpfs等
+
+			(2)挂载点
+				swap类型的设备的挂载点为swap
+
+			(3)文件系统类型
+
+			(4)挂载选项
+				defaults:使用默认挂载选项
+				如果要同时指明多个挂载选项，彼此间用逗号隔开
+					defaults,acl,noatime,noexec
+
+			(5)转储频率
+				0：从不备份
+				1：每天备份
+				2：每隔一天备份
+
+			(6)自检次序
+				0：从不自检
+				1：首先自检，通常只能是根文件系统可用1
+				2：次级自检
+
+如何用文件做swap分区，或做ext文件系统
+
+
+如何把一个目录制作陈成.iso的文件
+
+
+		自动挂载ext系列文件：
+
+		自动挂载swap分区：
+
+		自动挂载用文件制作的文件系统：
+
+		自动挂载目录：
+
+		自动挂载.iso文件：
+
+常见工具
+
+	内存空间使用状态：
+		free [OPTION]
+			-m:  以MB 为单位
+			-g:  以GB 为单位
+
+	文件系统空间占用等信息的查看工具：
+		df [OPTION]... [FILE]...
+			-H  以1000 为单位
+			-T  文件系统类型
+			-h: human-readable
+			-i ：inodes instead of blocks
+			-P:  以Posix 兼容的格式输出
+
+	查看某目录总体空间占用状态：
+		du [OPTION]... DIR
+			-h: human-readable
+			-s: summary
+
+dd 命令：
+	dd - convert and copy a fil
+
+	dd OPTION
+		用法：
+		dd if=/PATH/FROM/SRC of=/PATH/TO/DEST [options]
+		[options]：
+		bs=#：block size,  复制单元大小
+		count=#：复制多少个bs
+		of=file：输出数据路径
+		if=file：输入数据路径
+		bs=size 指定块大小（既是ibs，也是obs)
+		ibs=size：一次读size个byte
+		obs=size：一次写size个byte
+		cbs=size：一次转化size个byte
+		skip=blocks：从开头忽略blocks个ibs大小的块
+		seek=blocks：从开头忽略blocks个obs大小的块
+		count=n：拷贝n次
+
+		conv=conversion[,conversion...]：用指定的参数转换文件。
+
+			转换参数:
+			ascii：转换EBCDIC为ASCII
+			ebcdic：转换ASCII为EBCDIC
+			block：转换为长度为cbs的记录，不足部分用空格填充。
+			unblock：替代cbs长度的每一行尾的空格为新行
+			lcase：把大写字符转换为小写字符
+			ucase：把小写字符转换为大写字符
+			swab：交换输入的每对字节
+			noerror：出错时不停止
+			notrunc：不截短输出文件。
+			sync：把每个输入块填充到ibs个字节，不足部分用空(NUL)
+
+常见用法;
+
+有二进制文件fileA，size>2K。现在想从第64个字节位置开始读取，需要读取的大小是128Byts。又有fileB,想把上面读取到的128Bytes 写到第32 个字节开始的位置，替换128Bytes ，请问如何实现？
+	#dd if=fileA of=fileB bs=1 count=128 skip=63 seek=31 conv=notrunc
+
+
+备份：
+	备份MBR：
+		dd if=/dev/sda of=/tmp/mbr.bak bs=512 count=1
+	将本地的/dev/sdx整盘备份到/dev/sdy
+		dd if=/dev/sdx of=/dev/sdy
+	将/dev/sdx全盘数据备份到指定路径的image文件
+		dd if=/dev/sdx of=/path/to/image
+	备份/dev/sdx全盘数据，并利用gzip工具进行压缩，保存到指定路径
+		dd if=/dev/sdx | gzip >/path/to/image.gz
+
+破坏MBR中的bootloader：
+	dd if=/dev/zero of=/dev/sda bs=64 count=1 seek=446
+
+恢复：
+	将备份文件恢复到指定盘
+		dd if=/path/to/image of=/dev/sdx
+	将压缩的备份文件恢复到指定盘
+		gzip -dc /path/to/image.gz | dd of=/dev/sdx
+
+拷贝内存资料到硬盘:
+将内存里的数据拷贝到root目录下的mem.bin文件
+	dd if=/dev/mem of=/root/mem.bin bs=1024
+从光盘拷贝iso镜像：
+拷贝光盘数据到root文件夹下，并保存为cd.iso文件
+	dd if=/dev/cdrom of=/root/cd.iso
+销毁磁盘数据:
+利用随机的数据填充硬盘，在某些必要的场合可以用来销毁数据。执行此操作以后，/dev/sda1 将无法挂载，创建和拷贝操作无法执行。
+	dd if=/dev/urandom of=/dev/sda1
+
+得到最恰当的磁盘block size
+	dd if=/dev/zero bs=1024 count=1000000 of=/root/1Gb.file
+	dd if=/dev/zero bs=2048 count=500000 of=/root/1Gb.file
+	dd if=/dev/zero bs=4096 count=250000 of=/root/1Gb.file
+	dd if=/dev/zero bs=8192 count=125000 of=/root/1Gb.file
+	通过比较dd指令输出中所显示的命令执行时间，即可确定系统最佳的block size
+
+测试硬盘读写速度
+	dd if=/root/1Gb.file bs=64k | dd of=/dev/null
+	dd if=/dev/zero of=/root/1Gb.file bs=1024 count=1000000
+	通过上两个命令输出的执行时间，可以计算出测试硬盘的读／写速度
+
+修复硬盘
+	dd if=/dev/sda of=/dev/sda
+	当硬盘较长时间（比如1，2年）放置不使用后，磁盘上会产生消磁点。当磁头读到这些区域时会遇到困难，并可能导致I/O错误。当这种情况影响到硬盘的第一个扇区时，可能导致硬盘报废。上边的命令有可能使这些数据起死回生。且这个过程是安全，高效的
+
+

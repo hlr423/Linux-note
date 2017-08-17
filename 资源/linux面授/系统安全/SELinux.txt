@@ -1,0 +1,159 @@
+SELinux:
+
+	SELinux: Secure Enhanced linux，工作与Linux内核中
+
+	DAC：Discretionary Access Control 自由访问控制
+	MAC：Mandatory Access Control  强制访问控制
+		DAC环境下进程是无束缚的
+		MAC环境下策略的规则决定控制的严格程度
+		MAC环境下进程可以被限制的
+		策略被用来定义被限制的进程能够使用那些资源（文件和端口）
+		默认情况下，没有被明确允许的行为将被拒绝
+
+	SELinux有四种工作级别：
+		strict：每个进程都受到selinux的控制
+		targeted：仅有限个进程受到selinux控制
+			只监控容易被入侵的进程
+		minimum：centos7，修改过的targeted，只对选择的网络服务
+		mls：提供MLS（多级安全）机制的安全性
+			minimum和mls稳定性不足，未加以应用
+
+	sandbox：
+		传统Linux，一切皆文件，由用户，组，权限控制访问
+		在SELinux 中，一切皆对象（object），由存放在inode的扩展属性域的安全元素所控制其访问
+		所有文件和端口资源和进程都具备安全标签：安全上下文（security context）
+
+		格式：
+			subject operation object
+				subject：进程
+				object：进程，文件，
+					文件：open，read，write，close，chown，chmod
+
+				subject：domain
+				object：type
+
+		SELinux为每个文件提供了安全标签，也为进程提供了安全标签
+			user:role:type
+				user：SELinux的user
+				role：SELinux的角色
+				type：SELinux的的类型
+
+		实际上下文：存放在文件系统中，
+			ls –Z；ps –Z
+		期望(默认)上下文：存放在二进制的SELinux策略库（映射目录和期望安全上下文）中
+			semanage fcontext –l
+
+		SELinux规则库：
+			规则：那种域能访问那种或那些种类型的文件
+
+	配置SELinux：
+		SELinux是否启用
+		给文件重新打标
+		给端口设置安全标签
+		设定某些操作的布尔型特性
+		SELinux的日志管理
+
+
+		SELinux的状态：
+			enforcing：强制，每个受限的进程都必然受限
+			permissive：启用，每个受限的进程违规操作不会被禁止，但会被记录于审计日志
+			disabled：关闭
+
+			相关命令：
+				sestatus
+					查看selinux的状态
+
+				getenforce：获取当前selinux状态
+				setenforce 0|1
+					0：设置为permissive
+					1：设置为enforcing
+
+					此设定：重启系统后无效
+
+				配置文件：
+					/etc/selinux/config，/etc/sysconfig/selinux
+						SELinux={disabled|permissive|enforcing}
+					/boot/grub/grub.conf
+						在kernel行追加内核参数：使用selinux=0禁用SELinux
+
+		给配置文件重新打标：
+			chcon
+	    		chcon [OPTION]... CONTEXT FILE...
+	    		chcon [OPTION]... [-u USER] [-r ROLE] [-l RANGE] [-t TYPE] FILE...
+	    		chcon [OPTION]... --reference=RFILE FILE...
+
+	    		-R：递归打标
+
+	    还原文件的默认标签：
+	    	restorecon [-R] /path/to/somewhere
+
+		默认安全上下文查询与修改
+			需要用到的包：semanage来自policycoreutils-python包
+
+			查看默认的安全上下文
+				semanage fcontext –l
+
+			添加安全上下文
+				semanage fcontext -a –t httpd_sys_content_t '/testdir(/.*)?'
+				restorecon –Rv /testdir
+
+			删除安全上下文
+				semanage fcontext -d –t httpd_sys_content_t '/testdir(/.*)?'
+
+			查看端口标签
+				semanage port –l
+
+			添加端口
+				semanage port -a -t port_label -p tcp|udp PORT
+				semanage port -a -t http_port_t -p tcp 9527
+
+			删除端口
+				semanage port -d -t port_label -p tcp|udp PORT
+				semanage port -d -t http_port_t -p tcp 9527
+
+			修改现有端口为新标签
+				semanage port -m -t port_label -p tcp|udp PORT
+				semanage port -m -t http_port_t -p tcp 9527
+
+
+	    布尔型规则：
+	    	getsebool
+	    	setsebool
+
+			查看bool值命令：
+				getsebool [-a] [boolean]
+				semanage boolean –l
+				semanage boolean -l –C
+
+			设置bool 值命令：
+				setsebool [-P] boolean value （on,off）
+				setsebool [-P] Boolean=value （0 ，1）
+
+		SELinux日志管理：
+			安装包：yum install setroublesshoot* （重启生效）
+
+			将错误的信息写入/var/log/message
+			grep setroubleshoot /var/log/messages
+
+			sealert -l UUID
+			查看安全事件日志说明
+
+			sealert -a /var/log/audit/audit.log
+			扫描并分析日志
+
+
+		SELinux帮助：
+
+			yum -y install selinux-policy-devel （centos7）
+			yum -y install selinux-policy-doc  （centos6）
+			mandb | makewhatis
+			man -k _selinux
+
+练习：
+1、启用SELinux策略并安装httpd服务，改变网站的默认主目录为/website,添加SELinux文件标签规则，使网站可访问
+
+2、修改上述网站的http端口为9527，增加SELinux端口标签，使网站可访问
+
+3、启用相关的SELinux布尔值，使上述网站的用户student的家目录可通过http访问
+
+

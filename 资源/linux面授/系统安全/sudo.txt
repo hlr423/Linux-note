@@ -1,0 +1,121 @@
+更改身份
+su切换身份:su –l username –c ‘command'
+sudo命令：
+	1、sudo能够授权指定用户在指定主机上运行某些命令。如果未授权用户尝试使用sudo ，会提示联系管理员
+	2、sudo可以提供日志，记录每个用户使用sudo 操作
+	3、sudo为系统管理员提供配置文件，允许系统管理员集中地管理用户的使用权限和使用的主机
+	4、sudo 使用时间戳文件来完成类似“检票”的 系统，默认存活期为5 分钟的 “入场券”
+	5、通过visudo命令编辑配置文件，具有语法检查功能
+
+	配置文件：/etc/sudoers, /etc/sudoers.d/
+	时间戳文件：/var/db/sudo
+	日志文件：/var/log/secure
+	配置文件支持使用通配符glob：
+		?: 任意单一字符
+		*：匹配任意长度字符
+		[wxc]：匹配其中一个字符
+		[!wxc]：除了这三个字符的其它字符
+		\x：转义
+		[[alpha]]：字母
+			示例：/bin/ls [[alpha]]*
+
+	配置文件规则有两类 ；
+		1、别名定义：不是必须的
+		2、授权规则：必须的
+
+	sudo –i –u wang  切换身份
+	sudo [-u user] COMMAND
+		-V：显示版本信息等配置信息
+		-u user：默认为root
+		-l,ll：列出用户在主机上可用的和被禁止的命令
+		-v：再延长密码有效期限5分钟, 更新时间戳
+		-k：清除时间戳，下次需要重新输密码
+		-K：与-k类似，还要删除时间戳文件
+		-b：在后台执行指令
+		-p：改变询问密码的提示符号
+			如 -p ”password on %h for user %p"
+
+	授权规则格式：
+		用户	登入主机=(代表用户)		命令
+	示例：
+		root ALL=(ALL) ALL
+		/etc/sudoers中 关于root权限的行，是一个后门，就是root用户不是管理员了，但可以使用sudo命令来获取所有用户的权限
+
+		A用户加入到wheel组中,B用户运行以A身份运行命令<sudo>
+			则B用户要运行拥有wheel组的权限，需要2次sudo
+				sudo -u A sudo cat /etc/shadow
+
+	格式说明：
+		user：运行命令者的身份
+		host：通过哪些主机
+		(runas)：以哪个用户的身份
+		command：运行那些命令
+
+	Users和runas：
+		username
+		#uid
+		%group_name
+		%#gid
+		user_alias|runas_alias
+
+
+	host：
+		ip 或hostname
+		network(/netmask)
+		host_alias
+
+	command：
+		command name
+		directory
+		sudoedit
+			授权用户可以直接编辑/etc/sudoers文件
+			用法：sudo /etc/dudoers
+		Cmnd_Alias
+
+	别名有四种类型：User_Alias，Runas_Alias，Host_Alias，Cmnd_Alias
+
+	别名格式：[A-Z]([A-Z][0-9]_)*
+	别名定义：
+		Alias_Type NAME1 = item1, item2, item3 : NAME2 = item4, item5
+
+	示例1：
+		Student ALL=(ALL) ALL
+		%wheel ALL=(ALL) ALL
+
+	示例2：
+		student ALL=(root) /sbin/pidof,/sbin/ifconfig
+		%wheel ALL=(ALL) NOPASSWD: ALL
+
+	示例3：
+		User_Alias NETADMIN= netuser1,netuser2
+		Cmnd_Alias NETCMD = /usr/sbin/ip
+		NETADMIN ALL=(root) NETCMD
+
+	示例4：
+		User_Alias SYSADER=wang,mage,%admins
+		User_Alias DISKADER=tom
+		Host_Alias SERS=www.magedu.com,172.16.0.0/24
+		Runas_Alias OP=root
+		Cmnd_Alias SYDCMD=/bin/chown,/bin/chmod
+		Cmnd_Alias DSKCMD=/sbin/parted,/sbin/fdisk
+		SYSADER SERS=  SYDCMD,DSKCMD
+		DISKADER ALL=(OP) DSKCMD
+
+	示例5：
+		User_Alias ADMINUSER = adminuser1,adminuser2
+		Cmnd_Alias ADMINCMD = /usr/sbin/useradd,
+		/usr/sbin/usermod, /usr/bin/passwd [a-zA-Z]*,
+		!/usr/bin/passwd root
+		ADMINUSER ALL=(root) NOPASSWD:ADMINCMD， ，
+		PASSWD:/usr/sbin/userdel
+
+	示例6：
+		Defaults:wang runas_default=tom
+		wang ALL=(tom,jerry) ALL
+			使用sudo命令时，不写-u USER，默认是wang
+
+	示例7：
+		wang 192.168.175.136,192.168.175.138=(root) /usr/sbin/,!/usr/sbin/useradd
+
+	示例8：
+		wang ALL=(ALL) /bin/cat /var/log/message*

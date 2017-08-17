@@ -1,0 +1,53 @@
+GPG：
+
+	使用gpg实现对称加密
+
+	对称加密file 文件
+		gpg -c file
+		ls file.gpg
+
+	在另一台主机上解密file
+		gpg -o file -d file.gpg
+
+	使用gpg工具实现公钥加密
+
+		在hostB主机上用公钥加密，在hostA主机上解密
+
+			在hostA主机上生成公钥/私钥对
+				gpg --gen-key
+
+			在hostA主机上查看公钥
+				gpg --list-keys
+
+			在hostA主机上导出公钥到wang.pubkey
+				gpg -a --export -o wang.pubkey
+
+			从hostA主机上复制公钥文件到需加密的B主机上
+				scp wang.pubkey hostB
+
+			在需加密数据的hostB主机上生成公钥/私钥对
+				gpg --list-keys
+				gpg --gen-key
+
+			在hostB主机上导入公钥
+				gpg --import wang.pubkey
+				gpg --list-keys
+
+			用从hostA主机导入的公钥，加密hostB主机的文件file, 生成file.gpg
+				gpg -e -r wangxiaochun file
+				file file.gpg
+
+			复制加密文件到hostA 主机
+				scp fstab.gpg hostA:
+
+			在hostA 主机解密文件
+				gpg -d file.gpg
+				gpg -o file -d file.gpg
+
+			删除公钥和私钥
+				gpg --delete-keys wangxiaochun
+				gpg --delete-secret-keys wangxiaochun
+
+
+
+

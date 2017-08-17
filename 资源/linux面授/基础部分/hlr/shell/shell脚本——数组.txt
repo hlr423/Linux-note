@@ -1,0 +1,272 @@
+数组定义：
+	变量：存储单个元素的内存空间
+	数组：存储多个元素的连续的内存空间，相当于多个变量的集合
+
+数组名和索引
+	索引：编号从0开始，属于数值索引
+	注意：索引可支持使用自定义的格式，而不仅仅是数值格式，自定义格式的数组即为关联数组，bash4.0版本之后开始支持。
+	bash的数组支持稀疏格式（索引不连续）
+
+声明数组：
+	declare -a ARRAY_NAME
+	declare -A ARRAY_NAME:关联数组   //所谓的索引号可以不是数字，而是字母或其他
+
+数组元素的赋值：
+	(1)一次只赋值一个元素；
+		ARRAY_NAME[INDEX]=VALUE
+		weekdays[0]="Sunday"
+		weekdays[4]="Thursday"
+	(2)一次赋值全部元素：
+		ARRAY_NAME=("VAL1" "VAL2" "VAL3" ...)
+	(3)只赋值特定元素：
+		ARRAY_NAME=([0]="VAL1" [3]="VAL2" ...)
+	(4)交互式数组值对赋值
+		read -a ARRAY
+
+数组的长度(数组中元素的个数)：
+	${#ARRAY_NAME[*]}
+	${#ARRAY_NAME[@]}
+	注意：若数组不为稀疏格式，则属组元素个数等于最后一个数组的索引号+1
+	注意：若数组为稀疏格式，则属组元素个数不等于最后一个数组的索引号+1
+
+引用数组中的元素：
+	${ARRAY_NAME[INDEX]}
+		注意：省略[INDEX]表示引用下标为0的元素
+	所有元素：
+		${ARRAY[@]}
+		${ARRAY[*]}
+数组切片：
+	${ARRAY[@]:offset:number}
+		offset:  要跳过的元素个数
+		number:  要取出的元素个数
+	取偏移量之后的所有元素：
+		${ARRAY[@]:offset}
+
+向数组中追加元素：
+	ARRAY[${#ARRAY[*]}]
+		${#ARRAY[*]}为当前数组的元素个数
+
+删除数组中的某元素：导致稀疏格式
+	unset ARRAY[INDEX]
+
+关联数组：
+	必须先定义后使用
+	declare -A ARRAY_NAME
+	ARRAY_NAME=([idx_name1]='val1' [idx_name2]='val2‘...)
+
+
+
+作业：生成10个随机数，采用冒泡算法进行升序或降序排序
+#!/bin/bash
+#description Bubble sort
+#version 0.1
+#author gaomeng
+#date 20160823
+#
+declare -a string
+for i in {0..9};do
+	string[$i]=$[$RANDOM%100+1]
+done
+echo ${string[*]}
+for i in {0..8};do
+	for (( j=i+1 ; j<=9 ; j++ )) ;do
+		if [ ${string[$i]} -lt ${string[$j]} ];then
+			t=${string[$i]}
+			string[$i]=${string[$j]}
+			string[$j]=$t
+		fi
+	done
+done
+echo ${string[*]}
+
+[root@CentOS6 bin]# string1.sh
+37 83 64 42 74 59 38 19 83 25
+83 83 74 64 59 42 38 37 25 19
+[root@CentOS6 bin]# string1.sh
+52 6 63 71 67 88 88 12 76 80
+88 88 80 76 71 67 63 52 12 6
+[root@CentOS6 bin]# string1.sh
+92 20 92 94 11 97 46 100 2 44
+100 97 94 92 92 46 44 20 11 2
+[root@CentOS6 bin]# string1.sh
+64 33 19 44 16 83 5 100 13 40
+100 83 64 44 40 33 19 16 13 5
+
+练习：斐波那契数列又称黄金分割数列，因数学家列昂纳多・斐波那契以兔子繁殖为例子而引入，故又称为“兔子数列”，指的是这样一个数列：0、1、1、2、3、5、8、13、21、34、……，斐波纳契数列以如下被以递归的方法定义：F（0）=0，F（1）=1，F（n）=F(n-1)+F(n-2)（n≥2），用数组方式实现
+0  1  2  3  4  5  6  7   8   9
+0、1、1、2、3、5、8、13、21、34
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160820
+#
+declare -a string
+string[0]=0
+string[1]=1
+read -p "Please input month number: " num
+until echo $num | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input month number: " num
+done
+if [ $num -eq 0 ];then
+	echo "sum is ${sting[0]}"
+elif [ $num -eq 1 ];then
+	echo "sum is ${sting[1]}"
+else
+	i=2
+	while [ $i -le $num ];do
+		let string[$i]=${string[$i-1]}+${string[$i-2]}
+		let i++
+	done
+	echo "sum is ${string[$num]}"
+fi
+
+[root@CentOS6 bin]# string5.sh
+Please input month number: 8
+sum is 21
+[root@CentOS6 bin]# string5.sh
+Please input month number: 9
+sum is 34
+[root@CentOS6 bin]# string5.sh
+Please input month number: 24
+sum is 46368
+
+
+bash的字符串处理工具：
+	字符串切片：
+		${#var}：返回字符串变量var的长度
+		${var:offset}：返回字符串变量var中从第offset个字符后（不包括第offset个字符）的字符开始，到最后的部分，offset 的取值在0到${#var}-1之间(bash4.2后，充许为负值)
+		${var:offset:number}：返回字符串变量var中从第offset个字符后（不包括第offset个字符）的字符开始 ，长度为number的部分
+		${var: -lengh}：取字符串的最右侧几个字符：
+			注意：冒号后必须有一空白字符
+
+	基于模式取子串：
+		${var#*word} ：其中word 可以是指定的任意字符功能：自左而右，查找var变量所存储的字符串中，第一次出现的word，删除字符串开头至第一次出现word字符之间的所有字符
+		${var##*word} ：同上，不同的是，删除的是字符串开头至最后一次由word指定的字符之间的所有内容
+			file="/var/log/messages"
+			${file##*/} ==> messages   //取基名
+
+		${var%word*}：其中word可以是指定的任意字符；功能：自右而左，查找var变量所存储的字符串中，第一次出现的word，删除字符串最后一个字符向左至第一次出现word字符之间的所有字符；
+			file="/var/log/messages"
+			${file%/*} ==> /var/log   	//取路径名
+		${var%%word*} ：同上，只不过删除字符串最右侧的字符向左至最后一次出现word字符之间的所有字符；
+
+		示例：url=http://www.magedu.com:80
+		${url##*:} ==> 80
+		${url%%:*} ==> http
+
+	查找替换：
+		${var/pattern/substi}：查找var所表示的字符串中，第一次被pattern所匹配到的字符串，以substi替换之
+		${var//pattern/substi}：查找var所表示的字符串中，所有能被pattern所匹配到的字符串，以substi替换之
+		${var/#pattern/substi}：查找var所表示的字符串中，行首被pattern所匹配到的字符串，以substi替换之
+		${var/%pattern/substi}：查找var所表示的字符串中，行尾被pattern所匹配到的字符串，以substi替换之
+
+	查找并删除：
+		${var/pattern}：查找var所表示的字符串中，删除第一次被pattern所匹配到的字符串
+		${var//pattern}：删除所有pattern所匹配到的字符串，其余字符串相对位置不变
+		${var/#pattern}：删除行首pattern所匹配到的字符串，其余字符串相对位置不变
+		${var/%pattern}：删除行尾pattern所匹配到的字符串，其余字符串相对位置不变
+
+	字符大小写转换：
+		${var^^}：把var中的所有小写字母转换为大写
+		${var,,}：把var中的所有大写字母转换为小写
+
+变量赋值：
+	${var:-value} ：如果var为空或未设置，那么返回value；否则，则返回var的值
+	${var:+value} ：如果var不空，则返回value
+	${var:=value} ：如果var为空或未设置，那么返回value，并将value赋值给var；否则，则返回var的值
+	${var:?error_info} ：如果var为空或未设置，那么返回error_info；否则，则返回var的值
+
+为脚本程序使用变量配置文件, 实现变量引用和赋值
+	(1)定义name文本文件，每行定义“name=value”
+	(2)若要引用name文件中定义的变量名及其值，则在脚本中source name
+
+Shell变量一般是无类型的，但是bash Shell 提供了declare和typeset 两个命令用于指定变量的类型，两个命令是完全等价的
+	declare [ 选项]  变量名
+		-r：将变量设置为只读属性
+		-i：将变量定义为整型数
+		-a：将变量定义为数组
+		-f：显示此脚本前定义过的所有函数名及其内容
+		-F：仅显示此脚本前定义过的所有函数名
+		-x：将变量声明为环境变量
+		-l：将变量值转为小写字母
+		-u：将变量值转为大写字母
+
+如果第一个变量的值是第二个变量的名字，从第一个变量引用第二个变量的值就称为间接变量引用
+	gm=gaomeng
+	gaomeng=haha
+	gm的值是gaomeng，而gaomeng又是变量名，
+	gaomeng的值为haha，间接变量引用是指通过gm获得变量值haha
+
+	bash Shell提供了两种格式实现间接变量引用
+	eval string=\$$gm
+	string=${!gm}
+
+	示例：
+	[root@CentOS6 ~]# gm=gaomeng
+	[root@CentOS6 ~]# gaomeng=hehe
+	[root@CentOS6 ~]# string1=${!gm}
+	[root@CentOS6 ~]# echo $string1
+	hehe
+	[root@CentOS6 ~]# eval string2=\$$gm
+	[root@CentOS6 ~]# echo $string2
+	hehe
+
+	eval命令将会首先扫描命令行进行所有的置换，然后再执行该命令。该命令适用于那些一次扫描无法实现其功能的变量。该命令对变量进行两次扫描
+
+mktemp命令：创建的临时文件可避免冲突
+	mktemp [OPTION]... [TEMPLATE]
+		TEMPLATE: filename.XXX
+		X至少要出现三个
+
+		OPTION：
+		-d：创建临时目录
+		--tmpdir=/DIR：指明临时文件所存放的目录位置
+
+[root@CentOS6 testdir]# ls
+[root@CentOS6 testdir]# mktemp file.XXX
+file.I3A
+[root@CentOS6 testdir]# mktemp file.XXX
+file.AKG
+[root@CentOS6 testdir]# mktemp file.XXX
+file.XuG
+[root@CentOS6 testdir]# ll
+total 0
+-rw-------. 1 root root 0 Aug 21 09:30 file.AKG
+-rw-------. 1 root root 0 Aug 21 09:29 file.I3A
+-rw-------. 1 root root 0 Aug 21 09:30 file.XuG
+
+
+install命令：
+	install [OPTION]... [-T] SOURCE DEST  单文件
+	install [OPTION]... SOURCE... DIRECTORY
+	install [OPTION]... -t DIRECTORY SOURCE...
+	install [OPTION]... -d DIRECTORY... 创建空目录
+
+	选项：
+	-m MODE ，默认755
+	-o OWNER
+	-g GROUP
+
+	install命令的特殊用法:
+		假设有这样一个实验环境，你使用了chmod命令，修改了chmod配置文件的权限为000，则chmod命令无法使用，即使重启系统依旧无法使用，怎么办？
+		[root@CentOS6 ~]# which chmod
+		/bin/chmod
+		[root@CentOS6 ~]# ll /bin/chmod
+		-rwxr-xr-x. 1 root root 52472 May 11 16:59 /bin/chmod
+		[root@CentOS6 ~]# chmod 000 /bin/chmod
+		[root@CentOS6 ~]# ll /bin/chmod
+		----------. 1 root root 52472 May 11 16:59 /bin/chmod
+		[root@CentOS6 ~]# chmod 777 /bin/chmod 			//chmod命令已经无法使用
+		-bash: /bin/chmod: Permission denied
+		[root@CentOS6 ~]# touch a
+		[root@CentOS6 ~]# ll a
+		-rw-r--r--. 1 root root 0 Aug 21 09:25 a
+		[root@CentOS6 ~]# chmod 755 a 			//chmod命令已经无法使用
+		-bash: /bin/chmod: Permission denied
+		[root@CentOS6 ~]# install /bin/chmod ./ 		//复制二进制文件到当前目录
+		[root@CentOS6 ~]# ll chmod    		//当前目录下的chmod命令成了755的权限
+		-rwxr-xr-x. 1 root root 52472 Aug 21 09:25 chmod
+		[root@CentOS6 ~]# /root/chmod 755 /bin/chmod   		//用当前目录下的chmod命令修改原命令二进制文件的权限
+		[root@CentOS6 ~]# ll /bin/chmod
+		-rwxr-xr-x. 1 root root 52472 May 11 16:59 /bin/chmod

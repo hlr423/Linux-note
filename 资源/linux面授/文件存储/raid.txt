@@ -1,0 +1,166 @@
+配置配额系统：
+	控制单个用户，或组在某磁盘上所能占的最大空间大小
+	配额是基于磁盘分区的，不基于文件
+
+如何控制配额：
+	1、设置分区挂载选项
+		修改/etc/fstab中挂载选项，在default后加：usrquota 、grpquota
+			usrquota:控制单个用户的空间
+			grpquota:控制组的空间
+
+	2、初始化数据库
+		quotacheck -cug /home
+			-c：创建
+			-u：控制用户
+			-g：控制组
+
+	3、开启或取消配额
+		quotaon、quotaoff
+
+	4、编辑配额
+		edquota
+			在shell中直接编辑
+				soft：警告线
+				hard：强制的红线，不能超过此大小
+
+			选项：
+			-p USER1 USER2 	：参考usre1设置user2的配额
+				eg：edquota -p user1 user2
+
+		setquota usename 4096 5120 40 50 /DIR
+			设置某目录下的username用户的block和inode的soft和hard线
+
+	5、报告配额状态
+		用户调查：quota
+		配额概述：repquota
+		其它工具：warnquota
+
+RAID：Redundant Array of Inexpensive(Independent) Disks
+
+	作用：
+		提供IO能力
+			磁盘并行读写
+		提高耐用性
+			磁盘冗余来实验
+
+	级别：多块磁盘组织在一起的工作方式不同；无等级之分
+
+	RAID实现的方式：（RAID存储中的块是chunk）
+		外接式RAID：通过扩展卡提供适配能力
+		内接式RAID：主板集成RAID控制器
+		Software RAID：通过软件实现
+
+	级别：level
+		RAID-0：0 ，条带卷 ，strip
+			读写性能提升
+			可用空间：N*min(S1,S2,...)
+			无容错能力
+			最少磁盘数：2 ，2+
+
+		RAID-1：1 ，镜像卷 ，mirror
+			读性能提升，写性能下降
+			可用空间：1*min(S1,S2,...)
+			有容错能力
+			最少磁盘数：2 ，2+
+
+		RAID-2 ... RAID3 ：基本淘汰
+
+		RAID-4：
+			把最后一块盘作校验盘，用与异或校验
+				如：1101
+					0110
+				异或1011
+				上面3个数，两两异或都可以得到另一个
+
+			损坏一块磁盘可以通过异或校验获得
+			可用空间：(N-1)*min(S1,S2,...)
+			最少磁盘数：3 ，3+
+
+		RAID-5：代奇偶校验位的条带机
+			读写性能提升
+			在RAID4的基础上，把校验块数据不全放在一块磁盘上
+			可用空间：(N-1)*min(S1,S2,...)
+			有容错能力：1块磁盘
+			最少磁盘数：3 ，3+
+
+		RAID-6：
+			读写性能提升
+			在RAID5的基础上，校验块数据不全放在一块磁盘上，且同一段数据有2个校验块
+			可用空间：(N-2)*min(S1,S2,...)
+			有容错能力：2块磁盘
+			最少磁盘数：4 ，4+
+
+		RAID7：
+			可以理解为一个独立存储计算机，自身带有操作系统和管理工具，可以独立运行，理论上性能最高的RAID
+
+		JBOD ：Just a Bunch Of Disks
+			功能：将多块磁盘的空间合并一个大的连续空间使用可用空间：sum(S1,S2,...)
+
+		混合类型：
+			RAID-10：（先底层1，上层0）
+				读写性能提升
+				可用空间：N*min(S1,S2,...)/2
+				有容错能力：每组镜像最多可以坏1块
+				最少磁盘数：4 ，4+
+
+			RAID-01：（先底层0，上层1）
+				因先复制后切块，不同0中可能切块标准不同
+				RAID-01在损坏一块盘后，下一块磁盘的损坏导致数据不可修复的概率远大于RAID-10
+				实际生产中使用的很少
+				例如：
+					有6块磁盘分别做RAID-10,RAID-01
+					图片
+					RAID-10：在损坏一块盘后，下一块磁盘的损坏导致数据不可修复的概率
+						1/5
+					RAID-01：在损坏一块盘后，下一块磁盘的损坏导致数据不可修复的概率
+						3/5
+
+			RAID-50：（先底层5，上层0）
+
+	常用级别：RAID-0, RAID-1, RAID-5, RAID-10,RAID-50, JBOD
+
+	RAID的软件实现方式：
+		结合内核中的md（multi device）模块
+		RAID设备可命名为/dev/md0 、/dev/md1 、/dev/md2 、/dev/md3等等
+
+		mdadm：模式化的工具
+			命令的语法格式：mdadm [mode] <raiddevice> [options] <component-devices>
+			支持的RAID 级别：LINEAR, RAID0, RAID1, RAID4,RAID5, RAID6, RAID10
+
+				模式：
+					创建：-C
+					装配：-A
+					监控：-F
+					管理：-f, -r, -a
+
+				<raiddevice>：/dev/md#
+				<component-devices>：任意块设备
+				注意：若使用磁盘分区做RAID，磁盘分区类型必须先修改为fd类型，若把整块磁盘拿来做RAID的无须此操作
+
+				-C：创建模式
+					-n #：使用#个块设备来创建此RAID
+					-l #：指明要创建的RAID的级别
+					-a {yes|no}：自动创建目标RAID 设备的设备文件
+					-c CHUNK_SIZE：指明块大小
+					-x #：指明空闲盘的个数
+
+				-D：显示raid的详细信息；
+					mdadm -D /dev/md#
+
+				管理模式：
+					-f：标记指定磁盘为损坏
+					-a：添加磁盘
+					-r：移除磁盘
+
+				观察md的状态：
+					cat /proc/mdstat
+
+				停止md设备：
+					mdadm -S /dev/md#
+
+	补充：
+		生成配置文件：mdadm –D –s >> /etc/mdadm.conf
+		停止服务：mdadm –S /dev/md0
+		激活：mdadm –A –s /dev/md0  激活
+		删除raid信息：mdadm --zero-superblock /dev/sdb1
+

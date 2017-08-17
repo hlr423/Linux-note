@@ -1,0 +1,232 @@
+WIFI:MageEdu(2)
+passwd:linuxedu@foxmail.com
+计算机系统由硬件（Hardware）系统和软件（software）系统两大部门组成
+计算机构成
+	CPU
+		运算器ALU
+		控制器CU
+	存储器ROM/RAM
+	输入设备
+	输出设备
+
+至强CPU XeonE7-4809
+运维系统中应避免 single failture 单点失败
+
+服务器Server 是计算机的一种，是网络中为客户端计算机提供各种服务的高性能的计算机
+服务器按应用功能可分为：Web 服务器、数据库服务器、邮件服务器、文件服务器、中间件应用服务器、日志服务器、监控服务器，程序版本控制服务器、虚拟机服务器、打印服务器、域控制服务器、多媒体服务器、通讯服务器、ERP 服务器等
+服务器按外形分类：塔式服务器、机架式服务器、刀片式服务器
+机架式Rack 服务器
+	机架服务器的宽度为19英寸，高度以U为单位
+	1U=1.75英寸=44.45毫米，通常有1U，2U，3U，4U，5U，7U几种标准的服务器。机柜的尺寸也是采用通用的工业标准
+
+服务器硬件 ———— CPU
+	CPU是Central Processing Unit的缩写，即中央处理器。由控制器和运算器构成，是整个计算机系统中最重要的部分
+	服务器CPU公司
+		Intel公司
+			Xeon 至强
+			Itanium 安腾
+		AMD公司
+			Althlon MP
+		IBM
+			PowerPC
+
+	主频：主频是CPU 的时钟频率(CPU Clock Speed) 即系统总线的工作频率。一般说来，主频越高，CPU 的速度越快。由于内部结构不同，并非所有的时钟频率相同的CPU 的性能都一样。
+  外频：外频即系统总线的工作频率
+  倍频：倍频则是指CPU 外频与主频相差的倍数
+  三者关系是：主频= 外频x 倍频。
+	高速缓存（cache）：可以高速交换的存储器，由静态RAM组成，结构较复杂，在CPU管芯面积不能太大的情况下，高速缓存的容量不可能做得太大。CPU缓存分为一级，二级，三级缓
+存，即L1 ，L2 ，L3
+  内存总线速度(Memory-Bus Speed):  指CPU 与二级(L2) 高速缓存和内存之间的通信速度。
+  地址总线宽度: 决定了CPU
+
+	CPU 类型
+		x86
+	 	X64 （CISC） ）
+	 	ARM （Acorn RISC Machine） ）
+	 	m68000, m68k （moto） ）
+	 	Power （IBM） ）
+	 	Powerpc （apple） ）
+	 	Ultrasparc  （Sun） ）
+	 	Alpha （HP） ）
+	  安腾（compaq
+
+服务器分类
+	按照CPU 体系架构来区分，服务器主要分为两类：
+ 	非x86 服务器：使用RISC（精简指令集）或EPIC（并行指令代码）处理器，价格昂贵，体系封闭，但是稳定性好，性能强，主要用在金融、电信等大型企业的核心系统。
+ 	x86 服务器：又称CISC（复杂指令集）架构服务器，即通常所讲的PC服务器，目前主要为intel的的XeonE3，E5，E7系列，价格相对便宜、兼容性好、稳定性较差、安全性不算太高。
+
+服务器内存技术
+	在线备用内存技术（有ECC校验技术）
+	内存镜像
+
+2^10=1024B=1K
+2^20=1024K=1M
+2^30=1024M=1G
+2^40=1024G=1T
+2^50=1024T=1P
+2^60=1024P=1E
+2^70=1024E=1Z
+2^80=1024Z=1Y
+2^90=1024Y=1B
+
+b bit 位
+B Byte 字节		1Byte=8bit
+
+目前主流的硬盘接口为SATA和SAS接口，因此，硬盘按接口类型可分为 SATA 硬盘和 SAS 硬盘
+在计算机系统当中，硬盘的读写速率已经成为影响系统性能进一步提高的瓶颈
+服务器硬件—热插拔技术又称为热交换技术（Hot Swap）
+存储基础知识--存储网络
+	存储网络：
+	DAS----直接连接存储(Direct Attached Storage
+	NAS-----网络连接存储(Network Attached Storage)
+	SAN-----存储区域网络(Storage Area Networks)
+
+OS: Operating System
+	服务器OS ：RHEL, CentOS,Windows Server,AIX
+	桌面OS ：windows 10,windows 7,Mac OS ，fedora
+	移动设备OS ：Andriod,IOS,YunOS
+
+ABI : Application Binary Interface
+	描述了应用程序与OS 之间的底层接口
+API ：Application Programming Interface
+	定义了源代码和库之间的接口
+POSIX: Portable Operating System Interface
+	IEEE 在操作系统上定义的一系列API 标准
+	POSIX 兼容的程序可在其它POSIX
+
+SYSTEMCALL 系统调用
+libary function call 函数库调用
+Windows: EXE,dll(dynamic link library) ，lib
+Linux: 	 ELF,so(shared object),.a
+
+
+0层	内核空间<操作系统空间>
+1层	2层	没用
+3层	用户空间 <执行或使用某些系统内容与0层进行交互
+
+服务器三大操作系统
+	Windows：
+	Linux ：GNU/Linux
+	Unix：
+		System: （Bell Lab）
+			AIX  （IBM）
+			Solaris (SUN)
+			HP-UX (HP)
+		BSD: （BSRG ）Berkeley System Distribution
+			NetBSD
+			OpenBSD
+			FreeBSD
+
+1969 	internet	开始发展
+     	Unix 	开始发展
+
+GNU is not Unix
+	gcc vi 其他一些GUN的工具
+
+宏内核	linux使用宏内核
+微内核
+
+1984 年：Richard Stallman 发起GNU 项目和自由软件基金会
+	创建开源的UNIX 实用工具版本
+	创建通用公共许可证（GPL） ）
+	开源软件许可实施原则
+
+1991 年：Linus Torvalds 发布Linux
+	创建开放源码，类Unix 的内核，在GPL 下发布
+	下载：www.kernel.org
+
+Linux 操作系统：
+	Linux 内核+ GNU 工具= 完整的类UNIX 操作系统
+	如：CentOS,Ubuntu,Android
+
+	slackware:SUSE Linux Enterprise Server (SLES)
+		opensuse 桌面
+	debian: ubuntu ，mint
+	redhat：rhel: redhat enterprise linux
+		每18个月发行一个新版本
+		CentOS ：兼容rhel 的格式
+		中标 麒麟：中标 软件
+		fedora ：每6 个月发行一个新版本
+	ArchLinux ：轻 量简洁
+	Gentoo： ： 极致性能， 不提供传统意义的安装程序
+	LFS: Linux From scratch  自制Linux
+	Android: kernel+busybox （工具集）+java
+
+开源：
+	软件和源代码提供给所有人
+	自由分发软件和源代码
+	够修改和创建衍生作品
+	作者的代码完善
+
+软件分类：商业，共享，自由
+
+开源协议
+  	世界上的开源许可证，大概有上百种
+ 	GPLv2, GPLv3, LGPL(lesser) ：copyleft，WordPress
+ 	Apache: apache
+ 	BSD: bsd
+ 	Mozilla
+ 	Apache
+ 	MIT
+
+Linux 哲学思想
+  一切都是一个文件（包括硬件）
+  小型，单一用途的程序
+  链接程序，共同完成复杂的任务
+  避免令人困惑的用户界面
+  配置数据存储在文本中
+
+虚拟机：用软件模拟硬件
+	寄居架构：硬件上跑系统再跑虚拟机再跑系统
+	裸金属架构：硬件上跑虚拟机再跑操作系统
+
+Linux目录
+	/根目录
+	home root usr tmp boot(kernel) etc(edit the config) dev（device）</dev/sr0（光盘）> var lib
+		满足FHS标准
+
+若硬盘为ISE，则在Linux系统中显示为：	/dev/hda.b.c.d 		最多4块
+若硬盘为SATA SCSI SAS，则在Linux系统中显示为：	/dev/sda,sdb.....sdz,sdaa,sdab
+	lsblk	查看系统分区
+
+文件系统类型
+	ntfs fat ext2,3,4 xfs brtfs
+	光盘文件类型：	iso9660
+
+	MBR分区：MASTER BOOT RECORD
+		主分区 1disk <=4
+		扩展分区 1disk <=1 + 主分区 <=4
+			不能直接放数据，不能直接格式化，用于划分逻辑分区
+		逻辑分区 标号从第5开始  /dev/sda5,6.....
+
+	GPT分区
+
+		cat /proc/meminfo	查看系统的内存
+
+源代码
+	编译成二进制
+		windows .exe
+		linux 有有后缀的文件也有没后缀的文件
+Linux文件系统
+FHS:
+	Filesystem	Hierarchy Standard
+	/
+	/boot 	启动，内核
+	/usr	系统软件资源存放位置
+	/tmp	临时文件存放位置
+	/etc	配置文件存放位置
+	/dev	devices 放硬件设备 /dev/sda
+			/dev/sda1	mount	/boot 	ext4
+			/dev/sda2	mount	/		ext4
+			/dev/sda3	swap			swap
+			/dev/sda4	扩展分区
+			/dev/sda5	mount	/testdir	ext4
+	/home	放置除root用户外的用户
+	/root	root用户的家目录
+	/var	放置经常变化的内容，比如说日志文件
+	/lib	基本共享库文件
+
+workspace 工作区 图像界面右下角的黑框
+
+internet
+ethernet 以太网

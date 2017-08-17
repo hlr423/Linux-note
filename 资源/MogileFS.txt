@@ -1,0 +1,180 @@
+分布式存储：
+
+	数据类型：
+		结构化数据：SQL, TPS, MySQL（主从复制、分库分表）；
+		半结构化数据：json, xml (Document Store, mongodb、Elasticsearch)
+		非结构化数据：k-v
+
+		CAP：一致性、可用性、分区容错性；
+
+		通用分布式存储：分布式存储，mogilefs, fastdfs, ...
+		专用分布式存储：分布式文件系统, moosefs, ...
+
+	MogileFS：
+
+		LiveJournal旗下的Danga Interactive；Perl；
+
+		应用层：运行于用户空间；
+		无单点：
+			MogStored：存储多个数据副本；
+			Tracker：多节点；
+			Database：MySQL, ...
+		自动文件复制：
+		传输中立，无特殊协议——HTTP或NFS；
+		简单的名称空间：
+			domain, class, fid(key);
+		不用共享任何数据：
+			元数据：db
+			数据：MogStored, 副本；
+		不需要RAID；
+
+		MogileFS的角色：
+			Tracker：
+			MogStored：存储数据副本；WEBDAV；
+			DB：存储元数据；
+
+		服务进程有两个：
+			mogilfsd
+			mogstored
+
+		perl模块的安装方式：
+			online：
+				CPAN> install module_name::name
+			offline：
+				$ perl Makefile.PL
+				$ make
+				$ sudo make install
+			rpm包：
+
+		MogileFS安装：
+				tracker：
+					$ yum install MogileFS-Server-VERSION.rpm MogileFS-Server-mogilefsd-VERSION.rpm
+				mogstored：
+					$ yum install perl-IO-AIO
+					$ yum install MogileFS-Server-VERSION.rpm MogileFS-Server-mogstored-VERSION.rpm
+
+回顾：
+	GFS、HDFS、TFS、...
+	Ceph、Lustre, GlusterFS ...
+	MogileFS、FastDFS、MooseFS...
+
+	MogileFS：
+		tracker、db、mogstored;
+
+		tracker: mogilefsd, mogstored;
+
+		mogadm, mogfileinfo, mogupload, mogfetch, moglistkeys, moglistfids, ...
+
+MogileFS（02）
+
+	nginx_mogilefs_moule:
+		$ ./configure --prefix=/usr/local/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx/nginx.pid --lock-path=/var/lock/nginx.lock --user=nginx --group=nginx --with-http_ssl_module --with-http_stub_status_module --with-pcre --add-module=../nginx_mogilefs_module-1.0.4
+		$ make
+		$ sudo make install
+
+	配置示例：
+		location /images/ {
+			mogilefs_tracker 10.1.43.101:7001;
+			mogilefs_domain imgs;
+
+			mogilefs_pass {
+				proxy_pass $mogilefs_path;
+				proxy_hide_header Content-type;
+				proxy_buffering off;
+			}
+		}
+
+	upstream示例：
+		upstream mogtrackers {
+			server 172.18.100.71:7001;
+			server 172.18.100.72:7001;
+		}
+
+		location /upload/ {
+			mogilefs_tracker 10.1.43.101:7001;
+			mogilefs_domain imgs;
+			mogilefs_mothods PUT DELECT;
+
+			mogilefs_pass {
+				proxy_pass $mogilefs_path;
+				proxy_hide_header Content-type;
+				proxy_buffering off;
+			}
+		}
+
+curl -X PUT -T /usr/share/backgrounds/scenery/downing3_1280x1024.jps http://10.1.43.101/upload/1.jpg
+
+FastDFS：
+
+	开源的轻量级分布式文件系统； C++，
+
+	三个角色：
+		tracker、storage server、client
+
+		tracker server：跟踪服务器，调度；在内存中记录所有存储组和存储服务器的状态信息；
+		storage server：存储服务器，文件（data）和文件属性（metadata）；
+		client：客户端，业务请求发起方，通过专用接口基于TCP协议与tracker以及storage server进行交互；
+
+		fid：
+			group_name/M##/&&/&&/file_name
+				group_name：存储组的组名；上传完成后，需要客户端自行保存；
+				M##：服务器配置的虚拟路径，与磁盘选项store_path#对应；
+				两级以两位16进制数字命名的目录：
+				文件名：与原文件名并不相同；由storage server根据特定信息生成，文件名包含：源存储服务器的IP地址、文件创建时间戳、文件大小、随机数和文件扩展名等；
+
+			 group1/M00/00/00/rBJkRFdf1MqABjV6AAACUynw6YM8820786
+
+		配置nginx为storage server提供http访问接口：
+			1、下载fastdfs-nginx-module；
+				# git clone https://github.com/happyfish100/fastdfs-nginx-module.git
+
+			2、下载nginx源码，并编译支持使用fastdfs-nginx-module；
+				# yum -y install pcre-devel openssl-devel
+				# cd nginx-1.8.0
+				# useradd -r nginx
+				# ./configure --prefix=/usr/local/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx/nginx.pid --lock-path=/var/lock/nginx.lock --user=nginx --group=nginx --with-http_ssl_module --with-http_stub_status_module --with-pcre --add-module=../fastdfs-nginx-module/src
+				# make && make install
+
+			3、复制配置文件
+				# cp fastdfs-nginx-module/src/mod_fastdfs.conf  /etc/fdfs/
+				# cp fastdfs-5.0.8/conf/{httpd.conf,mime.types}  /etc/fdfs/
+
+					fastdfs-5.0.8为fastdfs源码目录；
+
+			4、配置/etc/fdfs/mod_fastdfs.conf配置文件，部分指令类似如下所示；
+
+				base_path=/data/fdfs/storage
+				tracker_server=172.18.100.67:22122
+				storage_server_port=23000
+				group_name=group1
+				url_have_group_name = true
+				store_path_count=1
+				store_path0=/data/fdfs/storage/0
+
+				group_count = 1
+				[group1]
+				group_name=group1
+				storage_server_port=23000
+				store_path_count=1
+				store_path0=/data/fdfs/storage/0
+
+			5、配置nginx，编辑nginx.conf，在server中添加类似如下内容：
+
+					location ~ /group[0-9]+/M00/ {
+						root /data/fdfs/storage/0/data/;
+						ngx_fastdfs_module;
+					}
+
+			6、为存储文件路径创建链接至M00，此示例中使用的storage_path0为/data/fdfs/storage/0；
+				# ln -sv /data/fdfs/storage/0/data  /data/fdfs/storage/0/data/M00
+
+			7、启动nginx服务即可；
+
+			注意：上传文件时，需要为文件带上后缀名；
+
+			8、上传文件，测试：
+				# fdfs_upload_file /etc/fdfs/client.conf /usr/share/wallpapers/Autumn/contents/images/1920x1200.jpg
+				group1/M00/00/00/rBJkRFdf5fKAarT5AA6CvtVUH6Q415.jpg
+
+				在浏览器中访问类似如下路径即可，后面的URL为fid：
+					http://STORAGE_HOST:PORT/group1/M00/00/00/rBJkRFdf5fKAarT5AA6CvtVUH6Q415.jpg

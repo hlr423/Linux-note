@@ -1,0 +1,198 @@
+
+查看当前用户的命令
+	#whoami	查看当前登陆的账户
+	#who 	查看所有登陆用户
+	#tty		查看当前所在终端号码
+	#who am i 	查看当前登陆用户，终端号码，系统时间，登陆IP
+
+init 3 关闭图形界面
+init 5 切换到图形界面
+
+alt+F2  输入free the fish 在桌面上放小鱼
+
+df 查看磁盘，分区
+Tab键补全命令
+文件夹<显示>
+	绿色的是可以执行
+	红色的是压缩文件
+
+CentOS6.8安装VMware tool过程：
+	df	查看光盘挂载的路径
+	cd /media/VMware\ Tools/	进入光盘
+	cp VMwareTools-10.0.6-3595377.tar.gz /testdir/	复制光盘中的压缩包到系统目录
+	cd /testdir	进入系统目录
+	tar -xf VMwareTools-10.0.6-3595377.tar.gz	解压文件
+	cd vmware-tools-distrib/	进入解压后生成的目录
+	/testdir/vmware-tools-distrib/vmware-install.real.pl d 	以绝对路径的形式执行该脚本
+	该脚本.pl是由perl语言所编写
+
+gedit /etc/gdm/custom.conf //打开文件，设置自动登录
+	[daemon] 下新加2行
+	AutomaticLoginEnable=True
+	AutomaticLogin=root
+
+gedit /etc/sysconfig/network  //修改主机名
+	HOSTNAME=CentOSX
+
+ctrl+alt+enter vm进入全屏
+ctrl+alt+enter vm退出全屏
+
+X-Shell 如何退出链接的Linux系统
+	exit	logout	 ctrl+d
+
+ctrl+c 中断此次操作
+ctrl+l 清屏
+
+管理员账号不是通过名字决定的，而是通过UID决定的
+	比如：root可以不是管理员账号，普通用户也可以变成管理员账号
+	#id -u username	查看账号UID
+
+root用户：
+	一个特殊的管理帐户
+	也被称为超级用户
+	root已接近完整的系统控制
+	对系统损害几乎有无限的能力
+	除非必要,不要登录为root
+
+普通（非特权）用户:
+	权限有限
+	造成损害的能力比较有限
+
+用户与主机交互，必然用到的设备
+	物理终端：直接接入本机的显示器和键盘设备
+		/dev/console
+	虚拟终端：附加在物理终端之上的以软件方式虚拟实现的终端，设备文件路径：/dev/tty#
+		terminal 又叫 physical console
+		ctrl+alt+F1，切换到tty1		在init 5模式下为图形终端
+			chvt (change virtual terminal) # 切换到某终端只能在本机操作
+		ctrl+alt+F2-6，切换到字符界面	字符终端
+			shift+PgUp/PgDn 	向上/向下翻页 在字符终端中翻页
+	图形终端：属于虚拟终端，附加在物理终端之上的以软件方式虚拟实现的终端，但额外会提供桌面环境；
+	模拟终端：图形界面打开的命令行以及基于ssh协议或telnet协议等远程打开的界面,设备文件：/dev/pts/# [0, ∞)
+
+查看当前终端的命令
+	#w		详细查看所有终端信息
+	#tty		查看当前终端的设备路径
+
+GUI：Graphic User Interface 图形界面接口
+CLI：Command Line Interface 命令行界面接口
+
+shell:是Linux系统的用户界面，提供了用户与内核进行交互操作
+	shell也被称为LINUX的命令解释器（command interpreter）
+	shell是一种高级程序设计语言的一种接口。它接收用户输入的命令并把它送入内核去执行。
+#echo $SHELL  查看当前SHELL
+#cat /etc/shells  查看系统支持的shell
+	/bin/sh --> /bin/bash
+	/bin/bash
+	/sbin/nologin
+	/bin/dash
+	/bin/tcsh
+	/bin/csh
+	系统账号使用的shell类型都是nologin类型
+	GNU Bourne-Again Shell(bash)是GNU计划中重要的工具软件之一，目前也是Linux标准的shell ，与sh兼容
+
+PS1变量：定义了命令行提示符
+	#echo $PS1	格式：[\u@\h \W]\$
+	#表示管理员账号
+	$表示普通用户账号
+
+命令类型
+	type:查看命令是内部命令还是外部命令
+		# type COMMAND
+	内置命令 kernel
+		由shell自带的，而且通过某命令形式提供,enable命令可以启用或禁用内部命令
+		enable [option] [COMMAND]
+			-n 	禁用内部命令,不加-n直接跟命令就启用命令
+	外部命令 由gun安装的 表现为file
+		在当前系统的某文件系统路径下有对应的可执行程序文件；
+		which，whereis可查看外部命令位置
+	命令执行顺序：
+		先查看是否为内置命令
+		再到hash缓存中去查找
+		最后到$PATH环境变量中去查找
+
+hash命令：显示缓存中的命令
+	#hash –r 清除全部缓存
+	#hash -d COMMOND 清除指定命令
+
+COMMAND [OPTIONS...] [ARGUMENTS...]
+	选项：用于启用或关闭命令的某个或某些功能；
+	短选项：-c, 例如：-l, -h
+	长选项：--word，例如：--all, --human-readable
+	参数：命令的作用对象，比如文件名，用户名等
+	
+	注意：
+	1、多选项，以及多参数和命令之间使用空白字符分隔
+	2、取消和结束命令执行：Ctrl+c，Ctrl+d
+	3、多个命令可以用;符号分开
+	4、一个命令可以用\分成多行
+
+Linux的两种时钟：
+	系统时钟：由Linux内核通过CPU的工作频率进行的；
+		date：显示系统时间
+			+%D
+			+%F
+			date [MMDDhhmm[[CC]YY]][.ss]	修改系统时间
+	硬件时钟：主板时间
+		hwclock，clock: 显示硬件时钟
+			-s,--hctosys 以硬件时钟为准，校正系统时钟
+			-w,--systohc 以系统时钟为准，校正硬件时钟
+
+cal	显示日历，默认显示当前月份日历
+	cal 2017 显示2017年日历
+		cal 09 1752 少了10多天
+
+nano 文本编辑器
+
+screen命令：必须使用同一用户登录到同一主机上才可以使用
+	打开新的screen:
+		# screen –S [SESSION]
+	加入会话：
+		# screen –x [SESSION]
+	退出并关闭screen:
+		# exit
+	剥离当前screen:
+		eg: screen yes   终端将会被这个程序占用
+		Ctrl+a,d（松开后按） 把控制台释放出来，并且这个程序依旧在运行，即使控制台断开了这个yes程序也能运行
+	恢复某screen
+		screen -r [SESSION]  又恢复了yes这个程序界面
+	显示所有已经打开的screen:
+		screen -ls
+
+echo命令
+	功能：显示字符  (末尾自带换行功能)
+	语法：echo [-neE][字符串]
+    说明：echo会将输入的字符串送往标准输出。输出的字符串间以空白字符隔开, 并在最后加上换行号
+    -n 不在字符的最后自动换行
+	-e 若字符串中出现以下字符，则特别加以处理，而不会将它当成一般文字输出：
+		\a 发出警告声；		echo -e "\a"
+		\b 退格键		echo -e "abdc\bxx"
+		\c 不产生进一步的输出（\c后面的字符或\x特殊符号都不认）；
+		\n 换行且光标移至行首；
+		\r 光标移至行首，但不换行（从第一个字母开始覆盖）； echo -e "abdc\rxx"
+		\t 插入tab；
+		\\ 插入\字符；
+		\0nnn 插入nnn（八进制）所代表的ASCII字符	echo -e "\0101"
+			echo -e "\033[43;31mred color\033[0m"  30-37 前景颜色	40-47 背景颜色
+				用echo命令打印特效的文字：
+					\e［nm n为数字代码，多个以“;”隔开 [33;36;5m red hat [0m
+					文字颜色码： 重置=0，黑色=30，红色=31，绿色=32，黄色=33，蓝色=34，洋红=35，青色=36，白色=37
+					背景颜色码： 重置=0，黑色=40，红色=41，绿色=42，黄色=43，蓝色=44，洋红=45，青色=46，白色=47
+					其他数字参数：0 关闭所有属性、1 设置高亮度（加粗）、4 下划线、5 闪烁、7 反显、8 消隐
+		\xHH插入HH（十六进制）所代表的ASCII字符
+	echo "$VAR_NAME": 变量会替换，双引号表弱引用	命令不认，变量认
+	echo '$VAR_NAME': 变量不会替换，强引用		什么都不认
+	echo `echo $UID`: 命令替换		命令变量什么都认
+		``等价于$( )
+
+touch 命令
+	创建一个大小为0的空文件
+	让普通用户无法登陆的小技巧
+		在/etc/目录下创建一个nologin文件后，普通用户则无法登陆系统
+
+free 命令
+	查看系统内存
+
+reset 命令
+	修复乱码
+

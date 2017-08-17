@@ -1,0 +1,453 @@
+Linux网络属性配置：
+	计算机网络：
+		TCP/IP：协议栈
+			ISO,OSI：协议栈学习
+
+		MAC：Media Access Control
+			48bits：
+				ICANN:
+					24bits，2^24给厂商
+					24bits，可以变化的
+
+			网桥：bridge：MAC地址表
+				静态指定：
+				动态学习：根据原地址学习
+
+		IP：Internet protocol 网络号+主机号
+			IPV4:32bits
+				每8位一组，采用点分十进制
+					0.0.0.0~255.255.255.255
+						eg：10.1.2.255
+
+				IP地址分类：
+					A类地址：
+						前8位为网络位，后24位为主机位
+						二进制中第一位必须为0，后31位从全0到全1
+							二进制：00000000.00000000.00000000.00000000~01111111.11111111.11111111.11111111
+							十进制：0.0.0.0~127.255.255.255
+						网络数量：2^8,126,127
+						每个网络中的主机数量：2^24-2
+						默认子网掩码：255.0.0.0
+						私网地址：10.0.0.0/8
+						环回地址：127.0.0.0/8
+
+					B类地址：
+						前16位为网络位，后16位为主机位
+						二进制中前2位必须为10，后30位从全0到全1
+							二进制：10000000.00000000.00000000.00000000~10111111.11111111.11111111.11111111
+							十进制：128.0.0.0~191.255.255.255
+						网络数量：2^14
+						每个网络中的主机数量：2^16-2
+						默认子网掩码：255.255.0.0
+						私网地址：172.16.0.0~172.31.0.0
+						保留地址：169.254.0.0/16
+
+					C类地址：
+						前24位为网络号，后8位为主机号
+						二进制中前3位必须为110，后29位从全0到全1
+							二进制：11000000.00000000.00000000.00000000~11011111.11111111.11111111.11111111
+							十进制：192.0.0.0~223.255.255.255
+						网络数量：2^21
+						每个网络中的主机数量：2^8-2
+						默认子网掩码：255.255.255.0
+						私网地址：192.168.0.0/16
+
+					D类地址：组播、多播
+						11100000~11101111：224~239
+
+					E类地址：科研
+						240~255
+
+			IPv6：128bits
+
+
+	路由器：router
+		路由表：
+			静态指定
+			动态学习：由路由算法动态学习，rip2,ospf,eigrp,
+
+		路由条目：
+			目标地址 下一跳(nextthop)
+				路由条目的类型：
+					到网络的路由条目
+					到主机的路由条目
+					默认的静态路由：0.0.0.0/0.0.0.0
+
+	OS：多用户，多任务
+		多任务：每个主机上有多个进程
+			chrome，QQ，QQ Music 与远方是如何通信
+
+		通信时，采用端口号作为进程标识：
+			16bits：
+				0~65535：1~65535
+					1-1023：固定分配，而且只有管理员有权限启用
+					1024-4W：半固定分配
+					4W+：临时分配
+
+		进程地址：
+			IP:PORT，也被称为socket(套接字)
+
+	将Linux主机接入到网络中：
+		IP/NETMASK：本地通信
+		路由(网关)：跨网络通信
+		DNS服务器地址：基于主机名的通信
+			主DNS服务器地址
+			备用DNS服务器地址
+			第2个备用DNS服务器地址
+
+		配置方式：
+			静态指定：
+				命令：
+					ifcfg家族：
+						ifconfig：配置IP，NETMASK
+						route：配置路由
+						netstat：状态及统计数据查看
+
+					iproute2家族：
+						ip OBJECT；
+							addr：地址和掩码信息
+							link：接口信息
+							route：路由信息
+						ss：状态及统计数据查看
+					CentOS7：nm家族(命令还有很多漏洞)
+						nmcli：命令行工具
+						nmtui：text window 工具
+
+					注意：
+						(1)DNS服务器指定：
+							配置文件：/etc/resolv.conf
+						(2)本地主机名配置：
+							hostname	//临时有效
+							配置文件：/etc/sysconfig/network
+							CentOS7:hostnamectl
+
+				修改配置文件：
+					RedHat系列及其相关发行版：
+						/etc/sysconfig/network-scripts/ifcfg-NETCARD_NAME
+
+			动态分配：依赖与本地网络中的DHCP服务器
+				DHCP：Dynamic Host Configure Procotol
+
+	网络接口的命名方式：
+		传统命令：
+			以太网：ethX，[0,oo)，例如eth0，eth1
+			ppp网络：pppX，[0,oo)，例如pppX0，pppX1
+
+		可预测命令方案(CentOS)
+			支持多种不同的命令机制：
+				Fireware，拓扑结构
+
+			(1)如果Fireware或BIOS为主板上集成的设备提供的索引信息可用，则根据此索引进行命名，如eno1，eno2，...
+			(2)如果Fireware或BIOS为PCI-E扩展槽所提供的索引信息可用，且可预测，则根据此索引进行命名，如ens1，ens2，...
+			(3)如果硬件接口的物理位置信息可用，则根据此信息命名，如enp2s0，...
+			(4)如果用户显示定义，也可根据MAC地址命名，如enx122161ab3e10，...
+			上述均不可用，则仍使用传统方式命名；
+
+			命名格式的组成：
+				en：ethernet
+				wl：wlan
+				ww：wwan
+
+				名称类型：
+					o<index>:集成设备的设备索引号
+					s<slot>：扩展槽的索引号
+					x<max>：基于MAC地址的命名
+					p<bus>s<slot>：基于总线及槽的拓扑结构进行命名
+
+	TCP/IP协议栈：物理层、互联网层、传输层、应用层
+		互联网层协议：IP
+		传输层协议：TCP，UDP
+		应用层协议：http，https，ftp，dns
+
+	链路层：以太网帧
+	互联网层：IP报文
+	传输层：数据包
+
+	以太网帧：MTU（1500字节）
+
+Linux网络属性配置（2）：
+	ifcfg家族：ifconfig，route，netstat
+
+		ifcofnig命令：接口及地址查看和管理
+			ifconfig [INTERFACE]
+				#ifconfig -a：显示所有接口，包括lnactive状态(不是up状态)的接口
+
+			ifconfig interface [aftype] options | address...
+				#ifconfig IFACE IP/MASK [up|down]
+				#ifconfig IFACE IP netmask NETMASC [up|down]
+
+				options:
+					[-]promisc
+
+				注意：立即送往内核中的TCP/IP协议栈，并生效
+
+			管理IPv6地址：
+				add addr/prefixlen
+				del addr/prefixlen
+
+		route命令：路由表查看及管理
+			路由条目类型：
+				网络路由：到网络的路由条目，目标地址为IP网络
+				主机路由：到主机的路由条目，目标地址为单个IP
+				默认路由：0.0.0.0/0.0.0.0，目标地址为任意主机
+
+			查看：
+				route -n
+
+			添加：
+				route add  [-net|-host]  target  [netmask  Nm] [gw Gw] [[dev] If]
+					eg；route add -net 192.168.0.0/24 gw 198.168.1.1 dev eth1
+						route add -net 0.0.0.0/0.0.0.0 gw 192.168.1.1
+						route add default gw 192.168.1.1
+
+			删除：
+				route del [-net|-host] target [gw Gw] [netmask Nm] [[dev] If]
+					eg: route del -net 192.168.0.0/24
+						route del -default
+
+		netstat命令：
+			Print network connections, routing tables, interface statistics, masquerade connections, and multicast memberships
+
+			显示路由：netstat -rn
+				-r：显示内核路由表
+				-n: 数字格式
+
+			显示网络链接：
+				netstat [--tcp|-t] [--udp|-u]
+					-t：TCP协议的相关链接，链接均有其状态；FSM（Finate State Machine）
+					-u：UDP相关的链接
+					-w：raw socket相关的链接
+					-l：处于监听状态的链接
+					-a：所有状态
+					-n：以数字格式显示IP和Port
+					-e：扩展格式
+					-p：显示相关的进程及PID
+
+				常见的组合：
+					-tan， -uan， -tnl， -unl， -tunlp
+
+				传输层协议：
+					tcp；面向链接的协议；通信开始之前，要建议一个虚连链接，通信完成后还有拆除此链接
+					udp：无链接的协议；直接发送数据报文
+
+			显示接口的统计数据
+				netstat  {--interfaces|-I|-i}  [iface]  [--all|-a]  [--extend|-e]  [--verbose|-v]  [--program|-p] [--numeric|-n]
+
+				所有接口：
+					netstat -i
+				指定接口：
+					netstat -I<IFACE>
+
+		ifup/ifdown命令：
+			注意：通过配置文件/etc/sysconfig/network-scripts/ifcfg-IFACE来识别接口并旺财配置
+
+	配置主机名：
+		hostname命令：
+			查看：hostname
+			配置：hostname HOSTNAME
+				当前系统有效，重启无效
+
+		hostnamectl命令：
+			hostnamectl status；显示当前主机名的信息
+			hostanemctl set-nostname：设定主机名，永久有效
+
+		配置文件：/etc/sysconfig/network
+			HOSTNAME=<HOSTNAME>
+				注意：此方法设置的不会立即生效，但下一次重启后永久有效
+
+	配置DNS服务器指向：
+		配置文件：/etc/resolv.conf
+			nameserver DNS_SERVER_IP
+
+			如何测试：
+				#dig -t A FQDN
+					FQDN-->IP
+
+				#dig -x IP
+					IP-->FQDN
+
+	iproute2家族：
+		ip命令：
+			show / manipulate routing, devices, policy routing and tunnels
+
+			ip [ OPTIONS ] OBJECT { COMMAND | help }
+				OBJECT = { link | addr | route  }
+					注意OBJECT可简写，格OBJECT的子命令也可简写
+
+				ip link：network device configuration
+
+					ip link set - change device attributes
+						dev NAME (default)：指明要管理的设备，dev关键字可省略
+						up 和 down：启动或关闭网络接口
+						multicast on 或 multicast off：启用或关闭多播功能
+						name NAME：重命名接口    		//必须先down掉接口，才能该名
+						ｍtu NUMBER：设置MTU的大小，默认为1500
+						netns PID：ns为namespace，用于将接口移动到指定的网络名称空间
+
+					ip link show - display device attributes
+
+					ip link help - 显示简要使用帮助
+
+				ip netns：ip - manage network namespaces
+
+					ip netns list：列出所有的netns
+					ip netns add NAME：创建指定的netns
+					ip netns del NAME：删除指定的netns
+					ip netns exec NAME COMMAND：在指定的netns中运行命令
+
+				ip address-protocol address management
+
+					ip address add - add new protocol address
+						ip addr add IFADDR dev IFACE
+							[label NAME]：为额外添加的地址指明接口别名
+								在ifconfig命令中，没有别名的ip地址默认不显示
+							[broadcast ADDRESS]：广播地址，不设置会根据IP和NETMASK自动计算得到
+							[scope SCOPE_VELUE]：
+								global：全局可用
+								link：接口可用
+								host：仅主机可用
+
+					ip address del - delete protocol address
+						ip addr delete IFADDR dev IFACE
+
+					ip address show - look at protocol addresses
+						[IFACE]：仅显示指定接口的地址
+
+					ip address flush - flush protocol address
+						ip addr fulsh dev IFACE
+
+				ip route - routing tabel management
+
+					ip route add - add new route
+					ip route change - change route
+					ip route replace - change or add new one
+						ip route add TYPE PREFIX via GW [dev IFACE] [src SOURCE_IP]
+
+						eg: #ip route add 192.158.0.0/24 via 10.0.0.1 dev eth1 src 10.0.20.100
+							#ip route add default via GW
+
+					ip route delete - delete route
+						ip route del TYPE PREFIX
+							eg: #ip route delete 192.168.1.0/24
+
+					ip route show - list routes
+						TYPE PREFIX
+
+					ip route flush - flush routing tables
+						TYPE PREFIX
+
+					ip route get - get a single route
+						ip route get TYPE PREFIX
+							eg: #ip route get 192.168.0.0/24
+
+		ss命令：
+			ss [options] [FILTER]
+				选项：
+					-t：TCP协议的相关链接
+					-u：UDP协议的相关链接
+					-w：raw socket相关的链接
+					-l：监听状态的链接
+					-a：所有的链接
+					-n：数字格式
+					-p：相关的进程及其PID
+					-e：扩展格式信息
+					-m：内存用量
+					-o：计时器信息
+
+				FILTER= [ state TCP-STATE ] [ EXPRESSION ]
+					TCP的常见状态：
+						TCP FSM:
+							LISTEN：监听
+							ESTABLISEHD：建立的链接
+							FIN_WAIT_1
+							FIN_WAIT_2
+							SYN_SENT
+							SYN_RECV
+							CLOSED：关闭的链接
+
+					EXPRESSION：
+						dport=
+						sport=
+							示例：'( dport = :22 or sport = :22 )'
+								#ss -tan '( dport = :22 or sport = :22 )'
+								#ss -tan state ESTABLISHED
+
+	配置文件：
+		IP/NETMASK/GW/DNS等属性的配置文件：/etc/sysconfig/network-scripts/ifcfg-IFACE
+			IFACE：接口名称
+		路由的相关配置文件(默认无此文件)：/etc/sysconfig/network-scripts/route-IFACE
+
+		配置文件/etc/sysconfig/network-scritps/ifcfg-IFACE通过大量参数来定义接口的属性；其可通过vim等配置文本编辑器直接修改，也可以使用专用的命令进行修改
+			CentOS6:system-config-network(setup)
+			CentOs7:nmtui
+
+			ifcfg-IFACE配置文件的参数：
+				DEVICE：此配置文件对应的设备的名称
+				ONBOOT：在系统引导过程中，是否激活此接口
+				UUID：此设备的唯一标识
+				IPV6INIT：是否初始化IPv6
+				BOOTPROTO：激活此接口时使用什么协议来配置接口属性，常用的有dhcp、bootp、static、none
+				TYPE：接口类型，常见的有Ethernet，Bridge
+				DNS1：第一DNS服务器指向
+				DNS2：备用DNS服务器指向
+				DOMAIN：DNS搜索域
+				IPADDR：IP地址
+				NETMASK：子网掩码；CentOS7支持使用PREFIX
+				GATEWAY：默认网关
+				USERCTL：是否允许普通用户控制此设备
+				PEERDNS：如果BBOTPROTO的值为“dhcp”，是否运行dhcp server分配的dns服务器指向覆盖本地手动指向的DNS服务器指向，默认为允许
+				HWADDR：设备MAC地址
+
+				NM_CONTROLLED：是否使用NetworkManager服务来控制接口
+
+			网络服务：
+				network,NetworkManager
+
+				管理网络服务：
+					CentOS6：service SERVICE {start|stop|restart|status}
+					CentOS7：systemctl {start|stop|restart|status} SERVICE[.service]
+
+				配置文件修改之后，如果要生效，需要重启网络服务
+					CentOS6：#service network restart
+					CentOS7：#systemtcl restart network.service
+
+		用的非默认网关路由：/etc/sysconfig/network-scripts/route-IFACE
+			支持两种配置方式，但不可混用
+				(1)每行一个路由条目：
+					TARGRT via GW
+
+				(2)每三行一个路由条目
+					ADDRESS#=TARGRT
+					NETMASK#=MASK
+					GATEWAY#=NEXTHOP
+						#：0，1，2，3
+
+	给接口配置多个地址：
+		ip addr 之外，ifconfig或配置文件都可以：
+
+		(1)ifconfig IFACE_LABEL IPADDR/NETMASK
+			IFCAE_LABEL：eth0，eth0:1，...
+
+		(2)为别名添加配置文件：
+			DEVICE=IFACE_LABEL
+			BOOTPROTO=static OR none
+				网卡别名不支持动态获取地址
+
+	nmcli命令
+		numcli [OPTIONS] OBJECT { COMMAND | help }
+
+			device - show and manage network interface
+				COMMAND={ status | show | connect | disconnect | delete | wifi | wimax }
+
+			connection - start,stop,and manage network connections
+				COMMAND={ show | up | down | add | edit | modify | delete | reload | load }
+
+				modify [ id | uuid | path ] <ID> [+|-]<setting>.<property> <value>
+
+				如何修改IP地址等属性：
+					#nmcli conn modify IFACE [+|-]setting.property value
+						ipv4.address
+						ipv4.gateway
+						ipv4.dns1
+						ipv4.method
+							 manual

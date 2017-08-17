@@ -1,0 +1,97 @@
+编译安装：
+mariadb:
+	# wget 10.1.0.1:/pub/Sources/7.x86_64/mariadb/mariadb-5.5.46-linux-x86_64.tar.gz
+
+	# tar -xf mariadb-5.5.46-linux-x86_64.tar.gz -C /usr/local/
+	# cd /usr/local
+	# ln -sv mariadb-5.5.46-linux-x86_64 mysql
+	# cd mysql
+
+	# groupadd -r mysql
+	# useradd -r -g mysql mysql
+	# id mysql
+
+	# chown mysql:root ./*
+	# mkdir /mydata/data -p
+	# chown mysql:mysql /mydata/data
+
+	# scripts/mysql_install_db --user=mysql --datadir=/mydata/data
+
+	# vim /etc/profile.d/mysql.sh
+		export PATH=/usr/local/mysql/bin:$PATH
+	# . /etc/profile.d/mysql.sh
+
+	# mv /etc/my.cnf{,.bak}
+	# cp support-files/my-small.cnf /etc/my.cnf
+	# vim /etc/my.cnf
+
+		datadir = /mydata/data
+		skip_name_resolve = ON
+		innodb_file_per_table = ON
+
+	# cp support-files/mysql.server /etc/rc.d/init.d/mysqld
+	# chmod +x /etc/rc.d/init.d/mysqld
+
+	# service mysqld start
+	# chkconfig --add mysqld
+
+httpd:
+	# wget 10.1.0.1:/pub/Sources/sources/httpd/httpd-2.4.10.tar.bz2
+	# yum groupinstall "Development Tools" "Server Platform Development" -y
+	# yum install pcre-devel openssl-devel libevent-devel  apr-devel apr-util-devel -y
+
+	# tar -xf httpd-2.4.10.tar.bz2
+	# cd httpd-2.4.10/
+
+	# ./configure --prefix=/usr/local/apache2 --sysconfdir=/etc/httpd --enable-so --enable-ssl --enable-cgi --enable-rewrite --enable-modules=most --enable-mpms-shared=all --with-mpm=prefork --with-pcre --with-zlib --with-apr=/usr --with-apr-util=/usr
+	# make -j 2
+	# make install
+
+	# vim /etc/profile.d/httpd.sh
+		export PATH=/usr/local/apache2/bin:$PATH
+	# . /etc/profile.d/mysql.sh
+
+	# vim /etc/httpd/httpd.conf
+		#<IfModule dir_module>   中修改成
+		DirectoryIndex index.html index.php
+
+		#<IfModule mime_module>  中追加
+		AddType application/x-httpd-php .php
+
+
+	# apachectl start
+
+				# cd /usr/local/apache2/bin/
+				# ./apachectl start
+
+安装php5：
+	# wget 10.1.0.1:/pub/Sources/sources/php/php-5.4.40.tar.bz2 &> /dev/null
+	# yum install gd-devel freetype-devel libmcrypt-devel libxml2-devel -y
+
+	# tar -xf php-5.4.40.tar.bz2
+	# cd php-5.4.40/
+
+	# ./configure --prefix=/usr/local/php --with-mysql=/usr/local/mysql  --with-openssl --with-mysqli=/usr/local/mysql/bin/mysql_config --enable-mbstring --enable-xml --enable-sockets --with-freetype-dir --with-gd --with-libxml-dir=/usr --with-zlib --with-jpeg-dir --with-png-dir --with-mcrypt --with-apxs2=/usr/local/apache2/bin/apxs --with-config-file-path=/etc/php.ini --with-config-file-scan-dir=/etc/php.d/
+	# make -j 2
+	# make install
+
+				# cd /usr/local/php
+	# cp php.ini-production /etc/php.ini
+	# mkdir /etc/php.d/
+	# apachectl restart
+
+
+安装wordpress
+# wget 10.1.0.1:/pub/Sources/sources/http/wordpress-4.3.1-zh_CN.zip
+# mv wordpress-4.3.1-zh_CN.zip /usr/local/apache2/htdocs
+# cd /usr/local/apache2/htdocs
+# unzip wordpress-4.3.1-zh_CN.zip
+
+# mysql
+MariaDB [(none)]> CREATE DATABESE wordpress;
+MariaDB [(none)]> GRANT ALL ON wordpress.* TO 'gm'@'localhost' IDENTIFIED BY 'gm625';
+MariaDB [(none)]> \q
+
+# chmdo 777 wordpress
+
+输入网址：10.1.43.101/wordpress   进行安装

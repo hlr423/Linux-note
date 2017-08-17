@@ -1,0 +1,167 @@
+分别三台centos 7主机分别部署 httpd, php-fpm, mariadb
+
+	第一台 10.1.43.101 -->httpd
+	第二台 10.1.43.102 -->php-fpm    分别在2台虚拟主机上部署wordpress和phpmyadmin
+	第三台 10.1.43.103 -->mariadb
+
+开始之前，首先把iptables和SElinux给关闭了，方便测试
+	#iptables -F
+
+	#setenforce 0
+
+那么我们先从第一台开始：
+
+	#安装htppd
+
+		yum -y instal httpd
+
+	#配置虚拟主机的文件：
+
+		[root@localhost ~]# vim /etc/httpd/conf.d/vhost.conf
+
+			<VirtualHost *:80>
+				ServerName www.magedu.com
+				DocumentRoot "/vhosts/www"
+				<Directory "/vhosts/www">
+					Options None
+					AllowOverride None
+					Require all granted
+				</Directory>
+				ProxyRequests Off
+				ProxyPassMatch ^/(.*\.php)$ fcgi://127.0.0.1:9000/vhosts/www/$1
+				ProxyPassMatch ^/(ping|status)/?$ fcgi://127.0.0.1:9000/$1
+				DirectoryIndex index.php
+			</VirtualHost>
+
+
+
+	#修改hosts文件
+		[root@localhost ~]# vim /etc/hosts
+		127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+		::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+		10.1.43.101 www.gm.com
+
+	#创建静态默认文件：
+
+		[root@localhost ~]# mkdir -pv /vhost/www
+
+		[root@localhost ~]# vim /vhost/www/index.html
+
+			<h1>10.1.43.101</h1>
+
+
+第三台主机创建mysql数据库
+
+	第三台物理机：唯一作用就是作为数据库
+
+	#那么首先安装数据库
+
+		yum -y install mariadb-server
+
+	#启动起来
+
+		systemctl start mariadb.service
+
+	#然后授权创建用户
+
+	先进mysql  然后如下
+
+		mysql> GRANT ALL ON wordpress.* TO 'hlr'@'10.1.%.%' IDENTIFIED BY 'gmkk';
+
+		mysql> FLUSH PRIVILEGES;
+
+		mysql> CREATE database wordpress；
+
+
+第二台主机：
+
+	#要安装php-fpm
+
+		yum -y install php-fpm
+
+	#修改配置文件
+
+		[root@localhost ~]# vim /etc/php-fpm.d/www.conf
+			listen = 10.1.43.102:9000        监听本机地址端口
+			listen.allowed_clients = 10.1.43.101        允许第一台主机连接
+			pm.status_path = /status
+			ping.path = /ping
+			ping.response = pong
+
+
+	#创建资源映射目录及文件
+
+		mkdir -pv /www/gm
+
+	#写入测试php的文件
+
+		[root@localhost ~]# vim /www/gm/index.php
+			<h1>第2台物理机a</h1>
+			<?php
+			        $conn = mysql_connect('10.1.43.103','testuser','testpass');
+			        if($conn)
+			                echo "OK";
+			        else
+			                echo "Failure";
+			        phpinfo();
+			?>
+
+
+	#然后安装加速器php-xcache
+		yum -y install php-xcache
+
+	#然后安装wordpress以及php-myadmin
+
+	#我们要把这2个程序分别部署在第2台主机上的2个分别的资源映射路径下
+
+	#我是直接在ftp服务器上下载的所以直接就解压了
+
+	#首先我们先搞定wordpress
+		[root@localhost ~]# unzip wordpress-4.3.1-zh_CN.zip
+
+	#并移动至第一个虚拟主机的资源映射路径下
+
+		[root@localhost ~]# mv wordpress /vhost/www
+
+	#cd进入该目录下并且修改配置文件
+
+	#注意这个配置文件里面添加的是第3台主机上的数据库信息我们当前还没有创建数据库可以先修改，之后在以这个配置创建数据库；
+
+	#修改配置文件名并修改之；
+		[root@localhost ~]# cd /vhost/www1/wordpress/
+		[root@localhost wordpress]# ln -s wp-config-sample.php wp-config.php
+		[root@localhost wordpress]# vim wp-config.php
+			// ** MySQL 设置 - 具体信息来自您正在使用的主机 ** //
+			/** WordPress数据库的名称 */
+			define('DB_NAME', 'wordpress');   修改数据库名字，使用我们在第三台主机中创建的数据库
+			/** MySQL数据库用户名 */
+			define('DB_USER', 'hlr');    修改用户名
+			/** MySQL数据库密码 */
+			define('DB_PASSWORD', 'gmkk');  	修改密码
+			/** MySQL主机 */
+			define('DB_HOST', '10.1.43.103'); 	这里的地址是指向第3台主机的数据库地址
+
+		那么wordpress基本上已经配置好了
+		下面把php-myadmin也一起安装了
+
+	#php-myadmin也是在ftp服务器上下载的所以直接解压了
+
+		[root@localhost ~]# unzip phpMyAdmin-4.4.14.1-all-languages.zip
+
+	#并且放在第2台主机上的第2个虚拟主机资源映射路径下；
+
+		[root@localhost ~]# mv phpMyAdmin-4.4.14.1-all-languages /data/vhost/www2/
+
+	#cd进该目录下并且修改文件名修改配置
+
+	[root@localhost ~]# cd /data/vhost/www2/            进入目录
+	[root@localhost www2]# ln -s phpMyAdmin-4.4.14.1-all-languages myadmin        创建一个链接
+	[root@localhost www2]# cd myadmin/        进入目标目录
+	[root@localhost myadmin]# ln -s config.sample.inc.php config.inc.php        创建配置文件连接
+	[root@localhost myadmin]# vim config.inc.php
+		$cfg['blowfish_secret'] = '4pfPnJU4R8pA'; /* YOU MUST FILL IN THIS FOR cookie AUTH! */    上面这2个单引号中间加上随机码 用openssl rand -base64 8 生成用于通信加密
+		$cfg['Servers'][$i]['host'] = '172.16.100.33';    这里这指向mysql数据库主机的地址
+
+	那么现在我们第2台主机的配置基本完成
+
+输入网址测试

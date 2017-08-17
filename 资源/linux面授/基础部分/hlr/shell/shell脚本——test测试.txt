@@ -1,0 +1,489 @@
+
+程序：指令+ 数据
+程序：算法+数据结构
+shell程序：提供了编程能力，解释执行
+
+shell脚本编程：
+	编程的语言分类：根据运行方式
+		编译运行：源代码——>编译器——>程序文件
+		解释运行：源代码——>运行时启动解释器，由解释器边解释边执行
+
+	根据其编程过程中功能的实现是否调用库还是调用外部的程序文件：
+		shell脚本编程：
+			利用系统上的命令及编程组件进行编程
+		完整编程：
+			利用库或编程组件进行的编程
+
+	编程模型：
+		过程式：以指令为中心，数据服务于指令
+		对象式：以数据为中心，指令服务于数据
+
+	shell程序：提供了编程能力，解释执行，依赖于外部程序文件运行
+
+ 	如何编程shell脚本：
+		格式要求：首行shebang机制
+		脚本第一行，顶格，给出shebang(解释器刻路径)，用于指明解释器执行当前脚本的解释器程序文件
+		常见的解释器
+			#!/bin/bash
+			#!/usr/bin/python
+			#!/usr/bin/perl
+	注意：脚本中除了shebang行，余下的所有以#开头的行都会被视作注释而忽略
+		脚本中的空白行会被忽略
+
+	shell脚本是什么？
+		命令的堆积，但许多命令不具有幂等性(幂等性：能多次执行不出现错误)，需要程序逻辑来判断运行条件是否满足，以避免其运行中发生错误
+
+	运行脚本：
+		给予执行权限，在命令行上指定脚本的绝对或相对路径
+			chmod +x /path/to/script_file
+			运行：
+				全路径运行：/path/to/script_file
+				相对路径运行：./script_file
+		直接运行解释器，将脚本作为解释器程序的参数运行
+			bash /pash/to/script_file
+
+	脚本调试
+		bash -n /path/to/some_script
+			检测脚本中的语法错误
+		bash -x /path/to/some_script
+			调试执行
+
+变量：
+	命名的内存空间
+	变量赋值：name=‘value’，
+	指定了变量名及其所对应的物理内存空间
+	变量类型：存储格式，表示数据范围，参与的运算
+
+		编程程序语言分类:
+			强类型：定义变量时必须指定类型、参与运算必须符合类型要求；调用未声明变量会产生错误
+				如 java,python
+			弱类型：无须指定类型，默认均为字符型；参与运算会自动进行隐式类型转换；变量无须事先定义可直接调用
+				如：bash  不支持浮点数
+
+	变量替换：把变量名出现的位置替换成其所指向的内存空间中数据
+	变量引用：${var_name},$var_name
+	变量命名法则：
+	1、不能使程序中的保留字：例如if, for;
+	2、只能使用数字、字母及下划线，且不能以数字开头
+	3、见名知义
+	4、统一命名规则：驼峰命名法
+
+bash变量类型：
+	本地变量：作用域仅为当前shell
+	环境变量：作用域为当前shell及其子进程
+	局部变量：作用域为某代码片段
+	位置参数变量：向执行脚本的sell进程传递的参数，$1, $2, ... 来表示
+	特殊变量：shell内置的特殊功能的变量，$?, $0, $*, $@, $#
+
+	本地变量：
+		变量赋值：name=‘value’， ，
+		可以使用引用value:
+			(1)  可以是直接字串; name=“root"
+			(2)  变量引用：name="$USER"
+			(3)  命令引用：name=` COMMAND `, name =$(COMMAND)
+		变量引用：${name}, $name
+			"" ：弱引用，其中的变量引用会被替换为变量值
+			'' ：强引用，其中的变量引用不会被替换为变量值，而保持原字符串
+		显示已定义的所有变量：set
+		删除变量：unset name
+
+	环境变量：
+		变量声明、赋值：
+			(1)export name=VALUE
+			(2)name=VALUE ；export name
+			(3)declare -x name=VALUE
+			(4)name=VALUE ：declare -x name
+		变量引用：$name, ${name}
+		显示所有环境变量：
+			export
+			env
+			declare -x
+			printenv
+		删除：unset name
+		bash 有许多内建的环境变量：PATH, SHELL, USRE,UID,HISTSIZE, HOME, PWD, OLDPWD, HISTFILE, PS1
+
+	只读变量：
+		只读变量：只能声时，但不能修改和删除，存活在当前shell中，随shell的中止而中止
+			readonly name
+			declare -r name
+
+	位置参数变量：
+		$1, $2, ... ：对应第1 、第2等参数
+			在脚本中使用：shift [n] 表示以此置换出多少个位置参数变量
+				比如：shift 1 ，表示把$!置换出去，则老的$2变成新的$1,老的$3变成新的$2,以此类推
+					shift 2 ，表示以此置换出去2个位置参数
+
+	特殊变量：
+		$0：命令本身
+		$*：传递给脚本的所有参数，全部参数合为一个字符串
+		$@：传递给脚本的所有参数，每个参数为独立字符串
+		$#：传递给脚本的参数的个数
+			$@ $*  只在被双引号包起来的时候才会有差异
+
+
+算术运算
+	bash中的算术运算:help let
+	+, -, *, /, % 取模（取余）, ** （乘方）
+		注意：右手乘法*需要转义使用
+	实现算术运算：
+	(1) let var=算术表达式
+	(2) var=$[算术表达式]
+	(3) var=$((算术表达式))
+	(4) var=$( expr arg1 arg2 arg3 ...)
+	(5) declare –i var =  数值
+	(6) echo ‘ 算术表达式’ | bc
+
+	bash有内建的随机数生成器：$RANDOM （1-32767）
+		echo $[$RANDOM%50] ：0-49之间随机数
+
+增强型赋值：
+	+=, -=, *=, /=, %=
+		例如:let count+=3
+		自加3后自赋值
+	自增：
+	let var+=1
+	let var++
+	自减：
+	let var-=1
+	let var--
+
+写一个脚本/root/bin/sumid.sh ，计算/etc/passwd文件中的第10个用户和第20用户的ID之和
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160810
+id_1=`sed -n '10p' /etc/passwd | cut -d: -f3`
+id_2=`sed -n '20p' /etc/passwd | cut -d: -f3`
+
+let sum_id=$id_1+$id_2
+echo "user10 sum user20 = $sum_id"
+
+[root@CentOS6 bin]# sumid.sh
+user10 sum user20 = 180
+
+写一个脚本/root/bin/sumspace.sh，传递两个文件路径作为参数给脚本，计算这两个文件中所有空白行之和
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160810
+
+spaceline1=`grep "^[[:space:]]*$" $1 | wc -l | cut -d' ' -f2`
+spaceline2=`grep "^[[:space:]]*$" $2 | wc -l | cut -d' ' -f2`
+
+let sumspaceline=$spaceline1+$spaceline2
+echo "space lines is : $sumspaceline"
+
+[root@CentOS6 bin]# sumspace.sh /etc/fstab /etc/rc.d/init.d/functions
+space lines is : 107
+
+写一个脚本/root/bin/sumfile.sh, 统计/etc, /var,/usr
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160810
+
+file_etc=`ls -l /etc | wc -l`
+file_var=`ls -l /var | wc -l`
+file_usr=`ls -l /usr | wc -l`
+
+file_sum=$[file_etc+file_var+file_usr]
+echo "etc var usr sum file is : $file_sum"
+
+[root@CentOS6 bin]# sumfile.sh
+etc var usr sum file is : 311
+
+逻辑运算
+	true, false
+	1, 0
+
+	与：&&
+		乘法运算，电路中的串联电路
+		1 与 1 = 1
+		1 与 0 = 0
+		0 与 1 = 0
+		0 与 0 = 0
+
+	或:||
+		除法运算，电路中的并联电路
+		1 或 1 = 1
+		1 或 0 = 1
+		0 或 1 = 1
+		0 或 0 = 0
+
+	非：！
+		求反
+		! 1 = 0
+		! 0 = 1
+
+	异或：^
+		异或的两个值, 相同为假，不同为真
+		1^1=0
+		1^0=1
+		0^1=0
+		0^0=0
+
+短路运算：
+	短路与：COMMAND1 && COMMAND2
+		第一个为0，结果必定为0；
+		第一个为1，第二个必须要参与运算；
+	短路或：COMMAND1 || COMMAND2
+		第一个为1，结果必定为1； ；
+		第一个为0，第二个必须要参与运算；
+
+
+退出状态码
+	进程使用退出状态来报告成功或失败
+	0 代表成功，1 －255 代表失败
+	$?：保存最近一次命令的返回码
+
+bash 自定义退出状态码
+	exit [n] ：自定义退出状态码；
+	注意：脚本中一旦遇到exit命令，脚本会立即终止；退出状态码取决于exit命令后面的数字
+	注意：如果未给脚本指定退出状态码，整个脚本的退出状态码取决于脚本中执行的最后一条命令的状态码
+
+条件测试
+	判断某需求是否满足，需要由测试机制来实现；
+	专用的测试表达式需要由测试命令辅助完成测试过程；
+	评估布尔声明，以便用在条件性执行中
+		若真，则返回0
+		若假，则返回1
+	如何编写测试表达式以实习所需的测试：
+		(1)执行命令。并利用命令状态返回值来判断：
+			0：成功
+			1~255：失败
+		(2)测试表达式：
+			test EXPRESSION
+			[ EXPRESSION ]
+			[[ EXPRESSION ]]
+			注意：EXPRESSION前后必须有空白字符
+			注意：当EXPRESSION中有>，<或者=~符号时，请使用[[ EXPRESSION ]]，否则会报错
+
+bash的测试类型
+	数值测试：(数值比较)
+		-gt：是否大于
+		-ge：是否大于等于
+		-eq：是否等于
+		-ne：是否不等于
+		-lt：是否小于
+		-le：是否小于等于
+
+	字符串测试：
+		==：是否等于；
+		>：左边字符的ascii码是否大于右边字符的ascii码
+		<：是否小于
+		!=：是否不等于
+		=~：左侧字符串是否能够被右侧的PATTERN所匹配
+			注意：此表达式一般用于[[ ]] 中；
+		-z "STRING" ：字符串是否为空，空为真，不空为假
+		-n "STRING" ：字符串是否不空，不空为真，空为假
+		注意：用于字符串比较时的用到的操作数都应该使用引号
+
+写一个脚本/root/bin/argsnum.sh ，接受一个文件路径作为参数；如果参数个数小于1 ，则提示用户“至少应该给一个参数”，并立即退出；如果参数个数不小于1 ，则显示第一个参数所指向的文件中的空白行数
+#!/bin/bash
+#description file space lines
+#version 0.1
+#author gm
+#date 20160810
+
+[ $# -lt 1 ] &&  echo "please give one argments or more "  || echo " `basename $1` space lines is :`grep -c '^[[:space:]]*$' $1 `"
+
+[root@CentOS6 bin]# argsnum.sh
+please give one argments or more
+[root@CentOS6 bin]# argsnum.sh /etc/fstab
+fstab space lines is :1
+
+写一个脚本/root/bin/hostping.sh ，接受一个主机的IPv4 地址做为参数，测试是否可连通。如果能ping 通，则提示用户“该IP 地址可访问” ；如果不可ping 通，则提示用户“该IP地址不可访问”
+#!/bin/bash
+#description ping ip address
+#version 0.1
+#author gm
+#date 20160810
+
+ping $1 -c1 -W1 &> /dev/null && echo "$1 is up" || echo "$1 is down"
+
+[root@CentOS6 bin]# hostping.sh 10.1.0.1
+10.1.0.1 is up
+
+文件测试
+	存在性测试
+		-a FILE：同-e
+		-e FILE：文件存在性测试，存在为真，否则为假
+
+	存在性及类别测试
+		-b FILE：是否存在且为块设备文件
+		-c FILE：是否存在且为字符设备文件
+		-d FILE：是否存在且为目录文件
+		-f FILE：是否存在且为普通文件
+		-h FILE 或 -L FILE：存在且为符号链接文件
+		-p FILE：是否存在且为命名管道文件
+		-S FILE：是否存在且为套接字文件
+
+	文件权限测试：
+		-r FILE：是否存在且当前用户可读
+		-w FILE：是否存在且当前用户可写
+		-x FILE：是否存在且当前用户可执行
+
+	文件特殊权限测试：
+		-g FILE：是否存在且拥有sgid权限
+		-u FILE：是否存在且拥有suid权限
+		-k FILE：是否存在且拥有sticky权限
+
+	文件大小测试：
+		-s FILE:  是否存在且非空
+
+	时间戳：
+		-N FILE：文件自动上一次被读取之后是否被修改过
+
+	从属关系测试：
+		-O FILE：当前用户是否为文件属主
+		-G FILE：当前用户是否为文件属组
+
+	双目测试：
+		FILE1 -ef FILE2: FILE1与FILE2是否指向同一个设备上的相同inode
+		FILE1 -nt FILE2: FILE1是否新于FILE2
+		FILE1 -ot FILE2: FILE1是否旧于FILE2
+
+	组合测试条件
+		第一种方式：
+		COMMAND1 && COMMAND2  并且
+		COMMAND1 || COMMAND2  或者
+		! COMMAND 非
+		如：[ -e FILE ] && [ -r FILE ]
+		第二种方式：
+		EXPRESSION1 -a EXPRESSION2  并且
+		EXPRESSION1 -o EXPRESSION2  或者
+		! EXPRESSION
+		如：[ -e FILE -a -r FILE ]
+
+练习
+1、chmod -rw /tmp/file1 ，编写脚本/root/bin/per.sh,判断当前用户对/tmp/fiile1件文件是否不可读且不可写
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160810
+[ ! -r /tmp/file1 -a ! -w /tmp/file1 ] && echo "`whoami` is rw /tmp/file1" || echo "`whoami` is not w or rw  /tmp/file1"
+
+
+2、编写脚本/root/bin/nologin.sh 和login.sh, 实现禁止和充许普通用户登录系统
+/root/bin/nologin.sh
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160810
+[ -e /etc/nologin ] || mkdir /etc/nologin &> /dev/null && echo "/etc/nologin is exist"
+
+[root@CentOS6 bin]# nologin.sh
+/etc/nologin is exist
+
+/root/bin/login.sh
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160810
+[ -e /etc/nologin ] && rm -rf /etc/nologin && echo "delete /etc/nologin."
+
+[root@CentOS6 bin]# login.sh
+delete /etc/nologin.
+
+read：
+	read从标准输入中读取值，给每个单词分配一个变量，所有剩余单词都被分配给最后一个变量
+	-p :指定要显示的提示
+	-t TIMEOUT：指定用户不输入数据的最长时间
+	例如：read -p “Enter a filename: “ FILE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

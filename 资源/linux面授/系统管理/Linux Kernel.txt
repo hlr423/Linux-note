@@ -1,0 +1,249 @@
+Linux Kernel：
+
+	CentOS 启动流程：POST --> BootLoader(BIOS,MBR) -->Kernel(initrd) --> rootfs --> switch_root --> /sbin/init
+		root (hd0,0)
+		kernel
+		initrd
+
+	ldd命令：
+		ldd - print shared library dependencies
+
+		ldd [option]... FILE
+
+	内核设计体系：单内核、微内核
+		Linux：单内核设计，但充分借鉴了微内核体系的设计的优点；为内核引入了模块化机制
+			内核的组成部分：
+				kernel：内核核心。一般为bzimage，通常位于/boot目录，名称为vmlinuz-VERSION-release
+				kernel object：内核对象，即内核模块，一般放于/lib/modules/VERSION-release/
+					内核模块于内核核心版本一定要严格匹配：
+
+					[ ]：N
+					[M]：Module
+					[*]：Y，编译进内核核心
+
+					内核：动态装载和卸载
+
+				ramdisk：辅助性文件，并非必须，这取决于内核是否能直接驱动rootfs所在的设备
+					目标设备驱动：例如SCSI设备的驱动
+					逻辑设备驱动：例如LVM设备的驱动
+					文件系统：例如xfs文件系统
+
+					ramdisk：是一个简装版的根文件系统
+
+		内核信息获取：
+			uname命令：
+				uname - print system information
+
+				格式：uname [OPTION]...
+					-r：内核的release号
+					-n：主机名
+					-a：显示所有信息
+
+		模块信息获取和管理：
+
+			lsmod命令：
+				lsmod - program to show the status of modules in the Linux Kernel
+
+				显示的内核信息来自于/proc/modules
+
+			modinfo命令：
+				modinfo - program to show information about a Linux Kernel module
+
+				modinfo [ -F field ]  [ -k kernel ]  [ modulename|filename... ]
+					-F field：仅显示指定字段的信息
+					-n：显示文件路径
+
+			modprobe命令：
+				modprobe - program to add and remove modules from the Linux Kernel
+
+				modprobe [-r] module_name
+					模块的动态装载：modeprobe module_name
+					模块的动态卸载：modeprobe -r modele_name
+						网卡模块：e1000
+
+			depmod命令：
+				depmod - program to generate modules.dep and map files
+
+				内核模块依赖关系文件的生成工具
+
+			模块的装载和卸载的另一组命令：
+				insmod命令：
+					insmod [filename] [module options...]
+						filename：模块文件的文件路径
+
+				rmmod命令：
+					rmmod [module_name]
+
+		ramdisk文件的管理：
+			(1) mkinitrd命令：
+				为当前使用中的内核重新制作ramdisk文件：
+					mkinitrd [OPTION...] [<initrd-image>] <kernel-version>
+						--with=<module>：除了默认的模块之外需要装载至initramfs中的模块
+						--preload=<modele>：initramfs所提供的模块需要预先装载的模块
+
+					示例：# mkinitrd /boot/initramfs-$(uname -r).img $(uname -r)
+
+			(2)dracut命令
+				dracut - create initial ramdisk images for preloading modules
+
+					dracut [OPTION...] [<image>[<kernel version>]]
+
+					示例：# bracut /boot/initramfs-$(uname -r).img $(uname -r)
+
+		内核信息输出的伪文件系统：
+			/proc：内核状态和统计信息的输出接口；同时，还提供一个配置接口，/proc/sys
+				参数：
+					只读：信息输出；例如/proc/#/*
+					只写：可接收用户指定一个“新值”来实现对内核某功能或特性的配置；/proc/sys/
+
+						/proc/sys：
+							net/ipv4/ip_forward相当于net.ipv4.ip_forward
+
+						(1)sysctl命令
+								专门用于查看或设定/proc/sys目录下参数的值
+									sys [option] [variable[=value]]
+										查看：
+											# sysctl -a
+											# sysctl variable
+										修改其值：
+											# sysctl -w variable=value
+
+						(2)文件系统命令 (cat,echo)
+							查看：
+								# cat /proc/sys/PATH/TO/SOME_KERNEL_FILE
+							设定：
+								# echo "VALUE" > /proc/sys/PATH/TO/SOME_KERNEL_FILE
+
+						注意：上述两种方式的设定仅对当前运行内核有效
+
+						(3)配置文件：/etc/sysctl.conf ，/etc/sysctl.d/*.conf
+							修改配置文件后，立即生效的方式：
+								sysctl -p [/PATH/TO/CONFIG_FILE]
+
+					内核参数：
+						net.ipv4.ip_forward：核心转发
+						vm.drop_caches：虚拟内存caches
+						kernel.hostname：主机名
+						net.ipv4.icmp_echo_ignore_all：忽略所有ping操作
+							0：开启  	1：关闭
+			/sys目录：
+
+				sysfs：输出内核识别出的各硬件设备的相关属性信息，也有内核对硬件特殊的可设置参数，对此些参数的修改，即可定制硬件设备工作特性
+
+				udev：同读取/sys目录下的硬件设备信息按需为各硬件设备创建文件：udev是用户空间程序；专用工具：devadmin,hotplug
+
+				udev为设备创建设备文件时，会读取其事先定义好的规则文件，一般在/etc/udev/rule.d/目录下，以及/usr/lib/udev/rules.d/目录下
+
+编译内核：
+
+	程序包的编译安装：
+		./configure ，make ，make install
+
+	前提：开发环境(开发工具、开发库)，头文件：/usr/include
+
+	开源：源代码-->可执行格式
+		发行版：以“通用”的目标；
+			“通用”意味安装了许多多余的东西
+
+	前提：
+		(1)准备好开发环境
+		(2)获取到目标主机上硬件设备的相关信息
+		(3)获取到目标主机系统功能的相关信息，例如要启用的文件系统
+		(4)获取内核源代码包：www.kernel.org
+
+		准备开发环境：
+			CentOS 6.8 / 7:
+				包组：
+					Development Tools
+					Server Platform Development
+
+		获取目标主机上硬件设备的相关信息：
+			CPU：
+				# cat /proc/info
+				# lscpu
+				# x86info -a   //需先安装x86info这个包
+
+			PCI设备：
+				# lspci
+					-v   -vv
+
+				# lsusb
+					-v 	 -vv
+
+				# lsblk
+
+			了解全部硬件设备信息：
+				# hal-device
+
+		内核编译过程：
+			步骤：
+				# tar xf linux-3.10.67.tar.xz -C /usr/src
+				# cd /usr/src
+				# ln -s linux-3.10.67 linux
+				# cd linux
+
+				# make menuconfig  		//配额制内心选项
+					可cp /boot/config-3.10.0-327.el7.x86_64 ./config  作为一个模版进行修改
+				# make [-j#]   		//编译内核
+					-j：启动多个线程进行编译
+				# make modules_install  	//安装内核模块
+				# make install  		//安装内核
+
+				重启系统，选择使用新内核
+
+			screen命令：
+				防止因远程网络波动，造成安装软件或编译软件失败
+				在screen中运行的命令，即使终端端口，依旧不会被kill
+				打开screen： # screen
+				拆除screen： Ctrl+a,d
+					拆除screen是释放出终端来，用screen在后台运行，而不是关闭screen
+				列出screen： # screen -ls
+				链接至screen： # screen -r SCREEN_ID
+				关闭screen： # exit
+
+		过程的详细说明：
+			(1)配置内核选项
+				系统编译内核的参数参考文件：
+					redhat：/boot/config-VERSION-release
+					other linux：/proc/config.gz
+
+				支持“更新”模式进行配置；在已有的.config文件的基础之上进行“修改”配置
+					(a) make config：基于命令行以遍历的方式去配置内核中可配置的每个选项
+					(b) make menuconfig：基于cureses的文本配置窗口
+						需要cureses-devel包的支持
+							yum -y install ncurses-devel
+					(c) make gconfig：基于GTK开发环境的窗口界面；安装包组“桌面平台开发”
+					(d) make xonfig：基于QT开发环境的窗口界面
+				支持“全新配置”模式进行配置：
+					(a) make defconfig：基于内核为目标平台提供的“默认”配置为模版进行配置
+					(b) make alinoconfig：所有选项均为“no”
+
+			(2)编译
+				(a)多线程编译：
+					make [-j #]
+
+				(b)编译内核中的一部分代码：
+					(i)只编译某个子目录中的相关代码
+						# cd /usr/src/linux
+						# make path/to/dir/
+
+
+					(ii)只编译一个特定的模块
+						# cd /usr/src/linux
+						# make path/to/dir/file.ko
+							file.ko文件是不存在的，但每一个file文件都有个隐藏的fike.ko文件
+							编译好的模块要自己手动cp到/lib/modules/kernel/目录下
+
+				(c)如何交叉编译：
+					目标平台于当前编译操作所在的平台不同
+
+					# make ARCH=arch_name
+
+					要获取特定平台的使用帮助：
+						# make ARCH=arch_name help
+
+			(3)如何在执行过程编译操作的内核原代码树上重新编译：
+				事先清理操作：
+					# make clean：清理编译生成的绝大多数文件，但会保留config，及编译外部模块所需要的文件
+					# make mrproper：清理编译生成的所有文件，包括配置生成的config文件及某些备份文件
+					# make distclean：相当于mrproper。额外清理各种patches以及编译器备份文件

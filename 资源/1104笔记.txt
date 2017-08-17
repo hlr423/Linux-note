@@ -1,0 +1,148 @@
+回顾：
+	zabbix server <--> zabbix agent
+	zabbix db：存储数据；
+	zabbix web：监控、Inventory、Reports、Configuration、Administration
+	zabbix proxy：代理；
+
+ZABBIX（3）
+
+	自定义key：在zabbix agent端的配置文件中由用户通过UserParameter指令定义用户自定义参数；
+		UserParamter=<key>,<command>
+		UserParamter=<key[*]>,<command> $1...$9
+
+		注意：类似awk命令自带$1...$9，需要改写为$$1, $$2, ...$$9；
+
+		UserParameter=system.memory.free,awk '/^MemFree/{print $2}' /proc/meminfo
+		UserParameter=system.memory.usage[*],awk '/^$1/{print $$2}' /proc/meminfo
+
+		UserParameter=nginx.status[*],/usr/bin/nginxstatus.sh $1
+
+			脚本示例
+				#!/bin/bash
+				#
+				host='127.0.0.1'
+				port='80'
+				statusurl='/ngxstatus'
+
+				active() {
+					curl -s http://${host}:${port}${statusurl} | awk '/^Active/{print $3}'
+				}
+
+				accepts() {
+					curl -s http://${host}:${port}${statusurl} | awk 'NR==3{print $1}'
+				}
+
+				handled() {
+					curl -s http://${host}:${port}${statusurl} | awk 'NR==3{print $2}'
+				}
+
+				requests() {
+					curl -s http://${host}:${port}${statusurl} | awk 'NR==3{print $3}'
+				}
+
+				reading() {
+					curl -s http://${host}:${port}${statusurl} | awk 'NR==4{print $2}'
+				}
+
+				writing() {
+					curl -s http://${host}:${port}${statusurl} | awk 'NR==4{print $4}'
+				}
+
+				waiting() {
+					curl -s http://${host}:${port}${statusurl} | awk 'NR==4{print $6}'
+				}
+
+				$1
+
+		课外练习：监控php-fpm的各状态指标；
+
+	主动/被动 检测：
+		被动监控：
+		主动监控：
+			ServerActive=
+			Hostname=
+
+	基于SNMP监控：
+
+		SNMP：简单网络管理协议；基于UDP协议；
+
+			读(get, getnext), 写(set)， 陷阱（trap）
+
+			161/udp(agent), 162/udp
+
+			v1: 1989
+			v2c: 1993
+			v3: 1998
+
+			MIB: Management Information Base
+			OID: Object ID
+
+	zabbix proxy：
+		(1) 准备数据库服务器；
+
+		(2) 安装
+			zabbix-proxy-mysql-3.0.2-1.el7.x86_64.rpm  zabbix-get-3.0.2-1.el7.x86_64.rpm
+
+		(3) 生成数据库
+			/usr/share/doc/zabbix-proxy-mysql-3.0.2/schema.sql.gz
+
+			mysql zabbix_proxy < /usr/share/doc/zabbix-proxy-mysql-3.0.2/schema.sql
+
+		(4) 配置
+			# grep "^####" zabbix_proxy.conf
+			############ GENERAL PARAMETERS #################
+			######### PROXY SPECIFIC PARAMETERS #############
+			############ ADVANCED PARAMETERS ################
+			####### LOADABLE MODULES #######
+			####### TLS-RELATED PARAMETERS #######
+
+			Server=
+				Zabbix Server主机地址；
+			DBHost=
+			DBName=
+			DBUser=
+			DBPass=
+
+			ConfigFrequency=
+			DataSenderFrequency=
+
+		(5) 在server端添加此proxy
+			Administration --> proxies
+
+			Active：Proxy主动向server发起配置信息同步请求；
+			Passive：由Server端向Proxy发送配置信息；
+
+		(6) 添加hosts时，选择使用指定的proxy进行监控；
+
+
+		注意：
+			(1) 在server添加的Proxy的名称，要与proxy的配置文件中Hostname的值保持一致；
+			(2) 通过proxy监控的主机，agent要授权proxy有监控权限；
+				server=Proxy_Server_IP
+
+	zabbix performance tuning：
+		NVPS：New Value Per Second
+			100w/m, 15000/s
+
+		zabbix服务器进程数量调整：
+			alerter, discoverer, escalator, http poller, housekeeper, poller, trapper, configration syncer, ipmi poller, ...
+
+			StartPollers=50
+			StartPingers=10
+			...
+			StartDBSyncers=2
+			...
+
+		数据库优化：
+			分表：
+				history_*
+				trend*
+				events*
+
+		建议：
+			Database：历史数据不要保存太长时间；尽量让数据缓存数据库服务器内存中；
+			触发器的表达式：减少使用min(), max(), avg()；尽量使用last(), nodata()；
+			数据收集：polling较慢时，减少使用snmp/agentless/agent, 尽量使用trapping方式，即agent(active)；
+			数据类型：文本型数据处理速度较慢，尽量少收集类型为text或string或log型的数据，多使用numeric型数据；
+
+	课外作业：ansible实现zabbix server、zabbix agent及proxy部署；

@@ -1,0 +1,176 @@
+修改昨天10，11，12(代码有问题，1.1.1.1.不报错)，13建议不同的变量名(易读性差) ，14 题的代码，减少冗余
+	超过%多少，最后用[] 来测试，如果使用grep来匹配可适应性差
+
+选择分支
+	if
+
+	case  :离散的数值用case可以减少使用if的 -o -a 的选择。
+
+
+判断正整数的代码有问题，checkint.sh
+
+文件查找
+
+locate
+	依赖与事先构建好的数据库查找
+		系统自动实现（周期性任务）
+		手动更新数据库（updatedb）
+	工作特性
+		查找数度快
+		模糊查找
+		非实时查找
+		搜索的是文件的全路径，不仅仅是文件名
+		可能只搜索用户具备读取和执行权限的目录
+
+	locate [OPTION]... PATTERN...
+		-b:只匹配路径中的基名符合pattern的
+		-c:统计共出现多少个符合查找条件的，而不是显示文件
+		-r:支持使用基本正则表达式BRE
+
+	注意：数据库构建过程需要遍历整个根文件系统，极消耗资源
+
+find
+	实时查找工具，通过遍历指定路径下文件系统层级结构完成文件查找
+	工作特性：
+		查找速度快
+		精确查找
+		实时查找
+		可能只搜索用户具备读取和执行权限的目录
+
+	find [OPTIONS] [查找路径] [查找条件] [处理动作]
+		查找的路径：指定具体搜索目标的起始路径，默认为当前目录
+		查找条件：指定查找的标准，比如文件名，大小，属主，属组，权限等等，默认是指定路径下所有文件
+		处理动作：找到符合查找条件的文件后的操作，比如删除，默认为输出只标准输出
+
+	查找条件：
+		根据文件名查找：
+			-name "patter" :精确查找符合patter的文件，要模糊查找可以使用通配符
+			-iname "patter" :忽略大小写
+				支持glob风格的通配符
+			-inum n :按inode查找
+			-links n :链接数为n
+			-samefile name :相同inode号的文件
+			-regex "patter" :基于正则表达式，以PATTERN匹配整个文件路径字符串，而不仅仅是文件名称
+
+		根据文件从属关系查找：
+			-user USERNAME :查找指定USERNAME的所有文件
+			-group GROUPNAME :查找指定GROUPNAME的所有文件
+			-nouser :查找没有USERNAME的所有文件
+			-nogroup ：查找没有GROUPNAME的所有文件
+			-uid UID :查找指定UID的所有文件
+			-gid GID :查找指定GID的所有文件
+
+		根据文件的类型查找：
+			-type TYPE:
+				f:普通文件
+				d:目录文件
+				b:块设备
+				c:字符设备
+				l:符号链接文件
+				S:套接字文件
+				p:管道文件
+
+		组合测试：
+			与：-a  find命令的默认逻辑
+			或：-o
+			非：-not,!
+
+			重要公式：(德摩根定律)
+				!A -a !B = !(A -o B)
+				!A -o !B = !(A -a B)
+			//解释说明
+
+练习：找出/tmp目录下属主为非root的所有文件
+find /tmp ! -user root
+
+找出/tmp目录下文件中不包括fstab字符串的文件
+find /tmp ! -name "*fstab*"
+
+找出/tmp目录下属组不是root，而且文件名不包括fstab字符串的文件
+find /tmp -not \( -user root -o -name "*fstab*" \)
+find /tmp -not -user root -a -not -name "*fstab*"
+
+		根据文件大小查找：
+			-size [+|-]#UNIT
+				常用单位：k，M，G
+				#UNIT：（#-1，#]
+				+#UNIT：（#，oo）
+				-#UNIT：[0，#）
+			//插图
+
+		根据时间戳查找：
+			以“天”为单位：
+				-atime [+|-]#
+					#：（#-1，#]  :过去的实际#为负数的
+					+#：（#，oo）
+					-#：[0，#）
+			//插图
+				-mtime
+				-ctime
+
+			以“分钟”为单位
+				-amin
+				-mmin
+				-tmin
+
+		根据文件的权限查找：
+			-perm [/|-]mode
+				mode：精确权限匹配
+				/mode：文件的任何一类用户（u.g.o）的任何权限中的任何以为（r.w.x）符合条件即满足，9位权限之间存在“或”关系
+				-mode：文件的每一类用户（u.g.o）的权限中的名义为同时满足(符合)添加才能匹配，9位权限之间存在“与”关系
+					mode权限中没给的权限，其文件位权限可有可无
+
+			例如：
+				find -perm 755 会匹配权限模式恰好是755 的文件
+				find -perm +222 只要当任意人有写权限才会匹配
+				find -perm -222 只有当每个人都有写权限时才会匹配
+
+		处理动作：
+			-print：输出至标准输出，默认的动作
+			-ls：类似与对查找到的文件执行了“ls -l”命令
+			-delete：删除查找到的文件
+			-fls /path/to/somefile：把查找到的文件以长格式的信息保存至指定的文件中
+			-ok COMMAND {}\; :对查找到的每个文件执行由COMMAND指定的命令，每次操作由用户进行确认
+			-exec COMMAND {}\; :对查找到的每个文件执行由COMMAND指定的命令，不与用户交互
+				{}：用于引用查找到的文件名称自身
+
+	注意：find 传递查找到的文件至后面指定的命令时，先查找到所有符合条件的文件，并一次性传递给后面的命令；有些命令不能接受过多的参数，此时命令执行可能会失败，另一中方法可规避此问题
+		find | xargs COMMAND
+
+查找/var 目录下属主为root，且属组为mail 的所有文件
+find /var -user root -user mail -type f
+
+查找/var 目录下不属于root 、lp 、gdm 的所有文件
+find /var -not \( -user root -o -user lp -o -user gdm \) -type f
+
+查找/var 目录下最近一周内其内容修改过，同时属主不为root ，也不是postfix 的文件
+find /var -mtime -7 -not \( -user root -o -user postfix \) -type f
+find /var -mtime -7 -not -user root -a -not -user postfix -type f
+
+查找当前系统上没有属主或属组，且最近一个周内曾被访问过的文件
+find / -nouser -nogroup -atime -7 -type f
+
+查找/etc 目录下大于1M 且类型为普通文件的所有文件
+find /etc -size +1M -type f
+
+查找/etc 目录下所有用户都没有写权限的文件
+find /etc -not -perm 222 -type f
+
+查找/etc 目录下至少有一类用户没有执行权限的文件
+find /etc -not -perm 111 -type f
+
+查找/etc/init.d 目录下，所有用户都有执行权限，且其它用户有写权限的文件
+find /etc/init.d/ -perm 113 -type f
+
+find /etc -path "/etc/sane.d" -a -prune -o -name "*.conf" -print
+	查看除/etc/sane.d目录下的所有.conf文件
+
+prune  剪切
+剪切掉-path匹配的路径
+
+
+
+
+
+
+

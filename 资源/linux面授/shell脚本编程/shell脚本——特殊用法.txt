@@ -1,0 +1,150 @@
+循环的特殊用法
+
+while循环的特殊用法之遍历文件的每一行
+	while read line; do
+		循环体
+	done < /PATH/FROM/SOMEFILE
+	  依次读取/PATH/FROM/SOMEFILE文件中的每一行，且将行赋值给变量line，从而实现对文件的增删改
+
+扫描/etc/passwd 文件每一行，如发现GECOS 字段为空，则填充用户名和单位电话为62985600 ，并提示该用户的GECOS信息修改成功。
+#!/bin/bash
+#description if user no gecos add something to gecos
+#version 0.1
+#author gaomeng
+#date 20160819
+#
+while read line ; do
+	gecos=`echo $line | cut -d: -f5`
+	if [ -z $gecos ] &> /dev/null ; then
+		username=`echo $line | cut -d: -f1`
+		usermod -c "$username 62985600" $username
+		echo "$username gecos is changed."
+	fi
+done < /etc/passwd
+
+[root@CentOS6 bin]# getent passwd gao
+gao:x:500:500::/home/gao:/bin/bash
+[root@CentOS6 bin]# addgecos.sh
+abrt gecos is changed.
+ntp gecos is changed.
+postfix gecos is changed.
+gdm gecos is changed.
+tcpdump gecos is changed.
+hlr gecos is changed.
+gao gecos is changed.
+hadoop gecos is changed.
+test gecos is changed.
+[root@CentOS6 bin]# getent passwd gao
+gao:x:500:500:gao 62985600:/home/gao:/bin/bash
+
+
+C语言风格的for循环：
+	双小括号方法，即((…))格式，代替shell中的in LIST 菜单
+		单纯用(( ))也可重定义变量值，比如 a=5; ((a++))可将$a重定义为6
+
+	for 循环的C语言风格：
+		for ((控制变量的初始化; 退出此for循环的条件; 控制变量的修正表达式))
+		do
+			循环体
+		done
+
+	控制变量初始化：仅在运行到循环代码段时执行一次
+	控制变量的修正表达式：每轮循环结束会先进行控制变量修正运算，而后再做退出for循环的条件判断，若满足条件则退出循环，若不满足则继续循环
+
+
+select  循环与菜单
+	select variable in list
+	do
+		循环体命令
+	done
+
+select循环主要用于创建菜单，按数字顺序排列的示菜单项将显示在标准错误上，并显示PS3提示符，等待用户输入，用户也可在脚本中修改PS3提示符，使之更加人性化
+用户输入菜单列表中的某个数字，执行数字后所相应的命令
+用户输入被保存在内置变量REPLY中，可以在语句中打印此变量
+select是个无限循环，因此要记住用break命令退出循环，或用exit命令终止脚本。也可以按 ctrl+c退出循环。
+select经常和case联合使用
+与for循环类似，可以省略 in list，此时使用位置参量
+
+例如：
+#!/bin/bash
+#description show select
+#version 0.1
+#authre gaomeng
+#date 20160819
+#
+select list in gongbaojiding hongshaorou huobaofeichang shaopaigu
+do
+	echo $list
+done
+
+[root@CentOS6 bin]# select.sh
+1) gongbaojiding
+2) hongshaorou
+3) huobaofeichang
+4) shaopaigu
+#? 1
+gongbaojiding
+#? 2
+hongshaorou
+#? 3
+huobaofeichang
+#? 4
+shaopaigu
+#? 5
+
+#? 6
+
+#? ^C
+
+
+#!/bin/bash
+#description show select
+#version 0.3
+#authre gaomeng
+#date 20160819
+#
+PS3="What do you want:"
+select list in gongbaojiding hongshaorou huobaofeichang shaopaigu
+do
+	case $list in
+	gongbaojiding)
+		echo "$list is 20￥"
+		exit;;
+	hongshaorou)
+		echo "$list is 30￥"
+		exit;;
+	huobaofeichang)
+		echo "$list is 25￥"
+		exit;;
+	shaopaigu)
+		echo "$list is 40￥"
+		exit;;
+	*)
+		echo "no the list, please choice other."
+	esac
+done
+
+
+[root@CentOS6 bin]# select.sh
+1) gongbaojiding
+2) hongshaorou
+3) huobaofeichang
+4) shaopaigu
+What do you want:1
+gongbaojiding is 20￥
+[root@CentOS6 bin]# select.sh
+1) gongbaojiding
+2) hongshaorou
+3) huobaofeichang
+4) shaopaigu
+What do you want:4
+shaopaigu is 40￥
+[root@CentOS6 bin]# select.sh
+1) gongbaojiding
+2) hongshaorou
+3) huobaofeichang
+4) shaopaigu
+What do you want:8
+no the list, please choice other.
+What do you want:3
+huobaofeichang is 25￥

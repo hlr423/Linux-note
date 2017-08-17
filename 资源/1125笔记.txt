@@ -1,0 +1,285 @@
+编程语言：
+	硬件级：微码编程，汇编语言
+	系统级：C，C++，...
+	应用级：Java, PHP, Python, Ruby, Perl, C#, ...
+		Python： PVM
+			Standard Library
+				Web Framework：Django, Flask, ...
+		Java：JVM，JDK
+		bash：bash explainer
+		...
+
+	程序：指令+数据
+		过程式编程：以指令为中心，数据服务于代码；
+		对象式编程：以数据为中心，指令服务于数据；
+			对象，方法（method）
+
+	Java：
+		Sun, Green Project, Oak,  James Gosling;
+		1995：Java 1.0, Write once, Run Anywhere;
+		1996：JDK（Java Development Kit），包含类库、开发工具(javac)、JVM（SUN Classic VM）
+			JDK 1.0,  Applet, AWT
+		1997：JDK 1.1
+		1998: JDK  1.2
+			Sun分拆Java技术为三个方向：
+				J2SE：Standard Edition
+				J2EE：Enterprise Edition
+				J2ME：Mobile Edition
+
+			代表性技术：EJB，java plugin, Swing, JIT(Just In Time，即时编译)
+
+		2000：JDK 1.3
+			HotSpot VM
+		2002：JDK 1.4
+
+		2006：Sun开源了Java技术，GPL，建立一个称为OpenJDK组织；
+			Java 2 SE, Java 2 EE, Java 2 ME
+
+		2011：JDK 1.7
+		2014：JDK 1.8
+		2016：JDK 1.9
+
+	Java代码的运行：
+		*.java(source code) --> javac --> *.class(bytecode)
+			jvm：class loader，加载程序的类文件，及程序的类文件依赖到的其它的类文件而后运行； 整个运行表现为一个jvm进程；
+				threads；
+
+	java技术体系：
+		Java编程语言
+		Java Class文件格式
+		Java API
+		Java VM
+			class loader
+			执行引擎
+
+		JVM运行时区域：
+			方法区：线程； 用于存储被JVM加载的class信息、常量、静态变量、方法等；
+			堆：是jvm所管理的内存中占用空间最大的一部分；也是GC管理的主要区域；存储对象；
+			Java栈：线程私有，存储 线程自己的局部变量；
+			PC寄存器：线程私有的内存空间，程序的指令指针；
+			本地方法栈：
+
+	总结：
+		Java 2 SE: JDK
+		Java 2 EE:
+			JDK + Servlet, JSP, EJB, JMS, JMX, JavaMail, ...
+
+			商业实现：
+				BEA（oracle）：WebLogic
+				IBM：WebSphere
+				Oracle: oc4j
+				...
+
+	安装JDK
+		了解当前的java环境：
+			 ~]# java  -version
+
+		OpenJDK
+			java-VERSION-openjdk：
+				The OpenJDK runtime environment.
+			java-VERSION-openjdk-headless：
+				 The OpenJDK runtime environment without audio and video support.
+			java-VERSION-openjdk-devel：
+				The OpenJDK development tools.
+
+			注意：多版本并存时，可使用 alternatives命令设定默认使用的版本；
+
+			yum -y install java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-headless.x86_64 java-1.8.0-openjdk-devel.x86_64
+
+			声明JAVA_HOME的路径
+			vim /etc/profile.d/java.sh
+			export JAVA_HOME=/usr
+
+		Oracle JDK：
+			安装相应版本的rpm包；
+				jdk-VERSION-OS-ARCH.rpm
+				例如:jdk-1.8.0_25-linux-x64.rpm
+
+			rpm -ivh jdk-1.8.0_25-linux-x64.rpm
+
+			声明JAVA_HOME的路径
+			vim /etc/profile.d/java.sh
+			export JAVA_HOME=/usr/java/latest
+			export PATH=${JAVA_HOME}:$PATH
+
+
+		注意：安装完成后，要配置JAVA_HOME环境变量，指向java的安装路径；
+			OpenJDK：
+				JAVA_HOME=/usr
+			Oracle JDK:
+				JAVA_HOME=/usr/java/jdk_VERSION
+
+
+
+	Java 2 EE：
+		CGI: Common Gateway Interface
+
+		Servlet：
+			类库；web app；
+			Servlet container, Servlet Engine
+
+		JSP: Java Server Page
+			<html>
+				<title>TITLE</title>
+				<body>
+					<h1>...</h1>
+					<%
+						... java code...
+					%>
+				</body>
+			</html>
+
+			jsp -->jasper--> .java --> javac --> .class
+
+			注意：基于jasper将静态输出的数据转为java代码进行输出；
+
+		Web Container：
+			Servlet Container
+
+			Java Web Server：JWS
+			ASF：JServ
+
+				Tomcat 3.x
+				Tomcat 4.x
+					Catalina
+
+				http://tomcat.apache.org/
+
+			商业实现：
+				WebSphere, WebLogic, Oc4j, Glassfish, Geronimo, JOnAS, JBoss, ...
+			开源实现：
+				Tomcat, Jetty, Resin, ...
+
+			Tomcat： Java 2 EE技术体系的不完整实现；
+
+	Tomcat：
+		使用java语言编写：
+
+		Tomcat的核心组件：server.xml
+			<Server>
+				<Service>
+					<connector/>
+					<connector/>
+					...
+					<Engine>
+						<Host>
+							<Context/>
+							<Context/>
+							...
+						</Host>
+						<Host>
+							...
+						</Host>
+						...
+					</Engine>
+				</Service>
+			</Server>
+
+			每一个组件都由一个Java“类”实现，这些组件大体可分为以下几个类型：
+				顶级组件：Server
+				服务类组件：Service
+				连接器组件：http, https, ajp
+				容器类：Engine, Host, Context
+				被嵌套类：valve, logger, realm, loader, manager, ...
+				集群类组件：listener, cluster, ...
+
+		安装Tomcat:
+			Base Repo：
+				tomcat, tomcat-lib, tomcat-admin-webapps, tomcat-webapps, tomcat-docs-webapp
+
+					yum install tomcat tomcat-lib tomcat-admin-webapps tomcat-webapps tomcat-docs-webapp
+
+			Tomcat binary release：
+				# tar xf apache-tomcat-VERSION.tar.gz  -C /usr/local/
+				# cd /usr/local
+				# ln -sv apache-tomcat-VERSION  tomcat
+
+
+				/etc/profile.d/tomcat.sh
+					export CATALINA_BASE=/usr/local/tomcat
+					export PATH=$CATALINA_BASE/bin:$PATH
+
+	tomcat程序环境：
+
+		tomcat的目录结构
+			bin：脚本，及启动时用到的类；
+			conf：配置文件目录；
+			lib：库文件，Java类库，jar；
+			logs：日志文件目录；
+			temp：临时文件目录；
+			webapps：webapp的默认目录；
+			work：工作目录；
+
+		rpm包安装的程序环境：
+			配置文件：/etc/tomcat
+			webapps存放位置：/var/lib/tomcat/webapps/
+				examples
+				manager
+				host-manager
+				docs
+
+		tomcat的配置文件：
+			server.xml：主配置文件；
+			web.xml：每个webapp只有“部署”后才能被访问，它的部署方式通常由web.xml进行定义，其存放位置为WEB-INF/目录中；此文件为所有的webapps提供默认配置；
+			context.xml：每个web都可以专用的配置文件，它通常由专用的配置文件context.xml来定义，其存放位置为WEB-INF/目录中；此文件为所有的webapps提供默认配置；
+			tomcat-users.xml：用户认证的账号和密码文件；
+			catalina.policy：当使用-security选项启动tomcat时，用于为tomcat设置安全策略；
+			catalina.properties：Java属性的定义文件，用于设定类加载器路径，以及一些与JVM调优相关参数；
+			logging.properties：日志系统相关的配置；
+
+		# catalina.sh --help
+			debug             Start Catalina in a debugger
+			debug -security   Debug Catalina with a security manager
+			jpda start        Start Catalina under JPDA debugger
+			run               Start Catalina in the current window
+			run -security     Start in the current window with security manager
+			start             Start Catalina in a separate window
+			start  -security   Start in a separate window with security manager
+			stop              Stop Catalina, waiting up to 5 seconds for the process to end
+			stop n            Stop Catalina, waiting up to n seconds for the process to end
+			stop -force       Stop Catalina, wait up to 5 seconds and then use kill -KILL if still running
+			stop n -force     Stop Catalina, wait up to n seconds and then use kill -KILL if still running
+			configtest        Run a basic syntax check on server.xml - check exit code for result
+			version           What version of tomcat are you running?
+
+		JSP WebAPP的组织结构：
+			/: webapps的根目录
+				index.jsp：主页；
+				WEB-INF/：当前webapp的私有资源路径；通常用于存储当前webapp的web.xml和context.xml配置文件；
+				META-INF/：类似于WEB-INF/；
+				classes/：类文件，当前webapp所提供的类；
+				lib/：类文件，当前webapp所提供的类，被打包为jar格式；
+
+		webapp归档格式：
+			.war：webapp
+			.jar：EJB的类打包文件；
+			.rar：资源适配器类打包文件；
+			.ear：企业级webapp；
+
+	部署(deploy)webapp的相关操作：
+		deploy：将webapp的源文件放置于目标目录(网页程序文件存放目录)，配置tomcat服务器能够基于web.xml和context.xml文件中定义的路径来访问此webapp；将其特有的类和依赖的类通过class loader装载至JVM；
+			部署有两种方式：
+				自动部署：auto deploy
+				手动部署:
+					冷部署：把webapp复制到指定的位置，而后才启动tomcat；
+					热部署：在不停止tomcat的前提下进行部署；
+						部署工具：manager、ant脚本、tcd(tomcat client deployer)等；
+		undeploy：反部署，停止webapp，并从tomcat实例上卸载webapp；
+		start：启动处于停止状态的webapp；
+		stop：停止webapp，不再向用户提供服务；其类依然在jvm上；
+		redeploy：重新部署；
+
+	手动提供一测试类应用，并冷部署：
+		# mkidr  -pv  /usr/local/tomcat/webapps/test/{classes,lib,WEB-INF}
+		创建文件/usr/local/tomcat/webapps/test/index.jsp
+			<%@ page language="java" %>
+			<%@ page import="java.util.*" %>
+			<html>
+				<head>
+					<title>Test Page</title>
+				</head>
+				<body>
+					<% out.println("hello world");
+					%>
+				</body>
+			</html>

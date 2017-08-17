@@ -1,0 +1,253 @@
+程序包编译安装：
+	源码包：name-VERSION-release.src.rpm
+		rpm由源码包安装后，使用rpmbuild命令制作成二进制格式的rpm包，而后再安装
+	源代码--> 预处理--> 编译(gcc)--> 汇编--> 链接--> 执行
+	源代码组织格式：
+		多文件：文件中的代码之间，很可能存在跨文件依赖关系
+	C 、C++ ：make ( 项目管理器，configure --> Makefile.in --> makefile)
+	java: maven
+
+
+	C代码编译安装三步骤：
+		1、./configure：
+			(1)通过选项传递参数，指定启用特性、安装路径等；执行时会参考用户的指定以及makefile.in 文件生成makefile
+			(2)检查依赖到的外部环境
+		2、make：
+			根据makefile文件，构建应用程序
+		3、make install:
+			复制文件到相应路径
+
+		开发工具：
+		autoconf：生成configure 脚本
+		automake：生成Makefile.in
+
+		注意：安装前查看INSTALL，README
+
+	开源程序源代码的获取：
+		官方自建站点：
+			apache.org (ASF)
+			mariadb.org
+			...
+		代码托管：
+			SourceForge.net
+			Github.com
+			code.google.com
+		c/c++ 编译器: gcc (GNU C Complier)
+
+	编译C源代码：
+		前提：提供开发工具及开发环境
+		开发工具：make, gcc等
+		开发环境：开发库，头文件
+			glibc：标准库
+		通过“包组”提供开发组件
+			CentOS:
+				"Development Tools",
+				"Server Platform Development"
+
+		第一步：configure 脚本
+			选项：指定安装位置、指定启用的特性
+			--help:  获取其支持使用的选项（进入到解压的文件中执行命令）
+			选项分类：
+				安装路径设定：
+				--prefix=/PATH：指定默认安装位置, 默认为/usr/local/
+				--sysconfdir=/PATH：配置文件安装位置
+
+				Optional Features：可选特性
+				--disable-FEATURE
+				--enable-FEATURE[=ARG]
+
+				Optional Packages：可选包,
+				--with-PACKAGE[=ARG], 依赖包
+				--without-PACKAGE, 禁用依赖关系
+
+		第二步：make
+
+		第三步：make install
+
+	安装后的配置：
+		(1)  二进制程序目录导入至PATH 环境变量中；
+			编辑文件/etc/profile.d/NAME.sh
+			export PATH=/PATH/TO/BIN:$PATH
+		(2)  导入库文件路径
+			编辑/etc/ld.so.conf.d/NAME.conf
+				添加新的库文件所在目录至此文件中；
+			让系统重新生成缓存：
+				ldconfig [-v]
+		(3)导入头文件
+			基于链接的方式导出头文件至/usr/include文件中
+			2种实现方式，导出整个目录为1个符号链接，导出每个文件为符号链接
+				ln -sv
+		(4)导入帮助手册
+			编辑/etc/man.config|man_db.conf 文件
+			添加一个MANPATH
+
+	注以下shell脚本问自己手动编写，如若出现任何问题，本人概不负责
+	编译安装后自动配置脚本：（自动完成上述4步操作）
+
+	#!/bin/bash
+	#desricptino auto make dir of configue make make install
+	#version 0.1
+	#author gaomeng
+	#date 20160822
+	#
+	read -p "Please input service dir path: " dir
+	if [ -e $dir ];then
+		echo "dir is exist."
+	else
+		echo "dir is not exist."
+		exit
+	fi
+
+	bindir=$dir/bin
+	libdir=$dir/lib
+	includedir=$dir/include
+	mandir=$dir/man
+
+	if [ -e $bindir ];then
+		echo "bin dir is exist."
+	else
+		echo "bin dir is not exist."
+		exit
+	fi
+
+	if [ -e $libdir ];then
+		echo "lib dir is exist."
+	else
+		echo "lib dir is not exist."
+		exit
+	fi
+
+	if [ -e $includedir ];then
+		echo "include dir is exist."
+	else
+		echo "include dir is not exist."
+		exit
+	fi
+
+	if [ -e $mandir ];then
+		echo "man dir is exist."
+	else
+		echo "man dir is not exist."
+		exit
+	fi
+
+	name=`basename $dir`
+	if [ -e /etc/profile.d/$name.sh ]; then
+		echo "/etc/profile.d/${name}.sh is exist."
+		exit
+	else
+		touch /etc/profile.d/${name}.sh
+		echo "PATH=$bindir:$PATH" >> /etc/profile.d/${name}.sh
+		echo -e "\033[42;31mplease execute: source /etc/profile.d/http.sh\033[0m"
+		echo "/etc/profile.d/${name}.sh add success."
+	fi
+
+	if [ -e /etc/ld.so.conf.d/${name}.conf ]; then
+		echo "/etc/ld.so.conf.d/${name}.conf is exist."
+		exit
+	else
+		#touch /etc/profile.d/${name}.conf
+		echo "$libdir" >> /etc/ld.so.conf.d/${name}.conf
+		ldconfig
+		echo "/etc/ld.so.conf.d/${name}.conf add success."
+	fi
+
+	if [ -e /usr/include/${name} ]; then
+		echo "/usr/include/${name} is exist."
+		exit
+	else
+		ln -sv $includedir /usr/include/${name}
+		echo "/usr/include/${name} add success."
+	fi
+
+	echo "MANPATH $mandir" >> /etc/man.config
+	echo "$mandir add in /etc/man.config."
+
+	自动卸载脚本：（自动删除上述4步所建目录和安装文件目录）
+
+	#!/bin/bash
+	#description
+	#version 0.1
+	#auther gaomeng
+	#date 20160823
+	#
+	read -p "Please input service dir path: " dir
+	if [ -e $dir ];then
+		echo "dir is exist."
+	else
+		echo "dir is not exist."
+		read -p "you want go or exit,please input <y|n>" ans
+		case $ans in
+		[yY]|[yY][sS][eE])
+			;;
+		[nN]|[nN][oO])
+			exit;;
+		*)
+			exit;;
+		esac
+	fi
+
+	name=`basename $dir`
+	if [ -e /etc/profile.d/$name.sh ]; then
+		echo "/etc/profile.d/${name}.sh is exist."
+		rm -f /etc/profile.d/${name}.sh
+		echo "/etc/profile.d/${name}.sh is deleted."
+	else
+		echo "/etc/profile.d/${name}.sh is not exist."
+	fi
+
+	if [ -e /etc/ld.so.conf.d/${name}.conf ]; then
+		echo "/etc/ld.so.conf.d/${name}.conf is exist."
+		rm -f /etc/ld.so.conf.d/${name}.conf
+		echo "/etc/ld.so.conf.d/${name}.conf is deletes."
+	else
+		echo "/etc/ld.so.conf.d/${name}.conf is not exist."
+	fi
+
+	if [ -e /usr/include/${name} ]; then
+		echo "/usr/include/${name} is exist."
+		rm -f /usr/include/${name}
+		echo "/usr/include/${name} is deletes."
+	else
+		echo "/usr/include/${name} is exist."
+	fi
+
+	sed -i "s@MANPATH /usr/local/${name}/man@@" /etc/man.config
+	fgrep "s@MANPATH /usr/local/${name}/man@@" /etc/man.config
+	echo "${name}/man delete from /etc/man.config."
+
+	rm -rf $dir
+
+
+作业：源码安装http2.2.29
+[root@CentOS6 ~]# lftp 10.1.0.1/pub
+cd ok, cwd=/pub
+lftp 10.1.0.1:/pub> cd Sources/sources/httpd/
+lftp 10.1.0.1:/pub/Sources/sources/httpd> get httpd-2.2.29.tar.bz2
+5625498 bytes transferred
+lftp 10.1.0.1:/pub/Sources/sources/httpd> bye
+[root@CentOS6 ~]# tar xf httpd-2.2.29.tar.bz2
+[root@CentOS6 ~]# cd httpd-2.2.29
+[root@CentOS6 httpd-2.2.29]# ./configure prefix=/usr/local/apache2
+[root@CentOS6 httpd-2.2.29]# make
+[root@CentOS6 httpd-2.2.29]# make install
+[root@CentOS6 httpd-2.2.29]# which apachectl    //apachectl的二进制程序路径
+/usr/sbin/apachectl
+[root@CentOS6 httpd-2.2.29]# /root/makeautoadd.sh
+Please input service dir path: /usr/local/apache2
+dir is exist.
+bin dir is exist.
+lib dir is exist.
+include dir is exist.
+man dir is exist.
+please execute: source /etc/profile.d/http.sh
+/etc/profile.d/apache2.sh add success.
+/etc/ld.so.conf.d/apache2.conf add success.
+`/usr/include/apache2' -> `/usr/local/apache2/include'
+/usr/include/apache2 add success.
+/usr/local/apache2/man add in /etc/man.config.
+[root@CentOS6 httpd-2.2.29]# source /etc/profile.d/apache2.sh
+[root@CentOS6 httpd-2.2.29]# which apachectl   //apachectl的二进制程序路径改变了
+/usr/local/apache2/bin/apachectl
+[root@CentOS6 httpd-2.2.29]# echo "ServerName localhost:80" >> /usr/local/apache2/conf/httpd.conf
+[root@CentOS6 httpd-2.2.29]# apachectl start

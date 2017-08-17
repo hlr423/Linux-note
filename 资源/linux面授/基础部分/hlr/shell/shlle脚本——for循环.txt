@@ -1,0 +1,463 @@
+流程控制：
+	顺序执行
+	选择执行
+	循环执行
+
+循环执行：
+	将某代码段重复运行多次
+	重复运行多少次：
+	循环次数事先已知
+	循环次数事先未知
+	有进入条件和退出条件
+
+for循环
+	for  变量名  in  列表;do
+		循环体
+	done
+
+	执行机制
+		依次将列表中的元素赋值给“变量名”;每次赋值后即执行一次循环体;直到列表中的元素耗尽，循环结束
+
+	列表生成方式：
+		(1)直接给出列表
+		(2)整数列表：
+			(a){start..end}
+				{start..end..step}
+			(b)$(seq [start [step]] end)
+		(3)返回列表的命令
+			$(COMMAND)
+		(4)使用glob，如：*.sh
+		(5)变量引用；
+			$@, $*
+
+创建无限循环
+	while true; do
+		循环体
+	done
+
+	until false; do
+		循环体
+	Done
+
+
+练习: 用for实现
+1、判断/var/目录下所有文件的类型
+#!/bin/bash
+#description Input /var file type
+#version 0.1
+#author gaomeng
+#date 20160816
+for file in /var/* ;do
+	if [ -h $file ] ;then
+		echo "$file is link file."
+	elif [ -f $file ] ;then
+		echo "$file is common file."
+	elif [ -d $file ] ;then
+		echo "$file is dir file"
+	elif [ -b $file ] ;then
+		echo "$file is block file."
+	elif [ -c $file ] ;then
+		echo "$file is char file."
+	elif [ -S $file ] ;then
+		echo "$file is socket file."
+	elif [ -p $file ] ;then
+		echo "$file is pipe file."
+	else
+		echo "$file is other file."
+	fi
+done
+
+2、 添加10个用户user1-user10 ，密码同用户名
+#!/bin/bash
+#description add 10 new users
+#version 0.1
+#author gaomeng
+#date 20160816
+for id in {1..10};do
+	if id user$id &> /dev/null ;then
+		echo "user$id is exist."
+	else
+		useradd user$id
+		echo user$id | passwd --stdin user$id &> /dev/null
+		echo "Add user$id succeed."
+	fi
+done
+
+3、/etc/rc.d/rc3.d 目录下分别有多个以K开头和以S开头的文件；分别读取每个文件，以K 开头的文件输出为文件加stop，以S 开头的文件输出为文件名加start；“ “K34filename stop”，“S66filename start”
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+for file in `ls /etc/rc.d/rc3.d`;do
+	if echo $file | grep -q "^S" ;then
+		echo "$file start"
+	elif echo $file | grep -q "^K" ;then
+		echo "$file stop"
+	fi
+done
+
+4、写一个脚本，提示输入正整数n的值，计算1+2+3+…n的总和
+#!/bin/bash
+#desvription Input 1-N sum
+#version 0.1
+#author gaomeng
+#date 20160816
+read -p "Input one number: " id
+for num in $(seq $id) ;do
+	let sum+=num
+done
+echo "1 and $id sum: $sum"
+
+5、写一个脚本，提示请输入网络地址，如192.168.0.0 ，判断输入的网段中主机在线状态
+#!/bin/bash
+#description
+#version 0.1
+#author gm
+#date 20160815
+
+#read -p "Input one ip address: " ip_addr
+ip_addr=$1
+echo $ip_addr | grep -qE "^(\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>.){3}\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>$"
+if [ $? -eq 0 ];then
+	echo "this is a useful ip"
+else
+	echo "this is not useful ip"
+	exit 20
+fi
+ip=`echo $ip_addr | cut -d. -f1,2,3 `
+for IP in {0..255};do
+	ping -c1 -W1 $ip.$IP &> /dev/null && echo "$ip.$IP is up"
+done
+
+6、打印九九乘法表
+#!/bin/bash
+#description Input 9*9
+#version 0.1
+#author gaomeng
+#date 20160816
+for i in {1..9};do
+	for j in $(seq 1 $i) ;do
+		echo -n -e "$j*$i=$[i*j]\t"
+	done
+	echo
+done
+
+while循环
+
+	while CONDITION; do
+		循环体
+	done
+
+	CONDITION
+		循环控制条件；进入循环之前，先做一次判断
+		每一次循环之后会再次做判断；条件为“true” ，则执行一次循环
+		直到条件测试状态为“false” 终止循环
+		因此：CONDTION 一般应该有循环控制变量；而此变量的值会在循环体中不断地被修改
+		进入条件：CONDITION为true
+		退出条件：CONDITION为false
+
+练习：用while实现
+1 、求100 以内所有正整数之和
+#!/bin/bash
+#description sum 1 to 100
+#version 0.1
+#author gaomeng
+#date 20160816
+i=100
+while [ $i -gt 0 ] ; do
+	let sum+=i
+	let i--
+done
+echo "sum=$sum"
+
+2 、通过ping 命令探测172.16.250.1-254 范围内的所有主机的在线状态，统计在线主机和离线主机各多少。
+#!/bin/bash
+#description ping network ip
+#version 0.1
+#author gaomeng
+#date 20160816
+ip=`echo $1 | cut -d. -f1-3`
+i=254
+while [ $i -gt 0 ] ; do
+	ping -c1 -W1 $ip.$i &> /dev/null && echo "$ip.$i is up." && let up++
+	let i--
+done
+let down=254-up
+echo "up is $up, down is $down"
+
+3、打印九九乘法表
+#!/bin/bash
+#description Input 9*9
+#version 0.1
+#author gaomeng
+#date 20160816
+i=1
+while [ $i -le 9 ] ; do
+	j=1
+	while [ $j -le $i ] ; do
+		echo -ne "$j*$i=$[$j*$i]\t"
+		let j++
+	done
+	echo
+	let i++
+done
+
+4、利用变量RANDOM 生成10 个随机数字，输出这个10 数字，并显示其中的最大者和最小者
+#!/bin/bash
+#author goameng
+#version 0.2
+#description: random 10 number. Input max min number
+#date 20160816
+max=$RANDOM
+min=$max
+echo $max
+i=9
+while [ $i -gt 0 ];do
+	num=$RANDOM
+	echo $num
+	if [ $num -gt $max ];then
+		max=$num;
+	elif [ $num -lt $min ];then
+		min=$num;
+	fi
+	let i--
+done
+echo "max number is: $max"
+echo "min number is: $min"
+
+5、打印国际象棋棋盘
+#!/bin/bash
+#version 0.1
+#author gaomeng
+#description pintf chess
+#date 20160816
+i=8
+while [ $i -gt 0 ];do
+	j=8
+	while [ $j -gt 0 ];do
+		sum=$[$i+$j]
+		if `let sum%=2`;then
+			echo -ne "\033[41m  \033[0m"
+		else
+			echo -ne "\033[42m  \033[0m"
+		fi
+		let j--
+	done
+	echo
+	let i--
+done
+
+until
+
+	until CONDITION; do
+		循环体
+	done
+	进入条件：CONDITION为false
+	退出条件：CONDITION为true
+	用于循环体中
+
+循环控制语句continue
+	continue [N]
+		提前结束N层循环，而直接进入当前层+N层的循环进行条件判断；不写默认为跳过本次循环
+
+while CONDTIITON1; do
+	CMD1
+	...
+	if CONDITION2; then
+		continue
+	fi
+	CMDn
+	...
+done
+
+循环控制语句break
+	break [N]
+	提前跳出N层循环，不写默认为跳出当前循环
+
+while CONDTIITON1; do
+	CMD1
+	...
+	if CONDITION2; then
+		break
+	fi
+	CMDn
+...
+done
+
+用until实现下列作业
+1、每隔3秒钟到系统上获取已经登录的用户的信息；如果发现用户hacker登录，则将登录时间和主机记录于日志/var/log/login.log
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+read -p "please one username: " user
+until who | grep "^$user\>" &> /dev/null ;do
+	sleep 3
+done
+
+echo "$user is logining system."
+
+logintime=`date +%F-%T`
+host_ip=`who | grep "^$user\>" | cut -d"(" -f2 | cut -d")" -f1`
+echo "$user is login on $host_ip,time is $logintime." >> /var/log/login.log
+
+ttynum=`who | grep "^$user\>" | tr -s ' '| cut -d' ' -f2`
+
+until ! who | grep "^$user\>" &> /dev/null ;do
+	echo "please logout system." > /dev/$ttynum
+	sleep 1
+done
+
+echo "$user is logout system."
+
+2、随机生成10以内的数字，实现猜字游戏，提示比较大或小，相等则退出
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+real_num=$[$RANDOM%10]
+read -p "please one number on 1 to 10: " num
+until [ $num -eq $real_num ] ;do
+	if [ $num -gt $real_num ] ;then
+		echo "your number > realnum."
+	else
+		echo "your number < realnum."
+	fi
+	read -p "please one number on 1 to 10: " num
+done
+echo "you are good."
+
+3、编写脚本，求100以内所有正整数之和
+#!/bin/bash
+#description sum 1 to 100
+#version 0.1
+#author gaomeng
+#date 20160816
+i=100
+until [ $i -eq 0 ] ; do
+	let sum+=i
+	let i--
+done
+echo "1 to 100 sum=$sum"
+
+4、编写脚本，通过ping命令探测172.16.250.1-254范围内的所有主机的在线状态，统计在线主机和离线主机各多少。
+#!/bin/bash
+#description ping network ip
+#version 0.1
+#author gaomeng
+#date 20160816
+ip=`echo $1 | cut -d. -f1-3`
+i=254
+until [ $i -eq 0 ]; do
+	ping -c1 -w1 $ip.$i &> /dev/null && let up-ip++
+	let i--
+done
+let down-ip=254-upip
+echo "up host is $up-ip. down host is $down-ip"
+
+5、编写脚本，打印九九乘法表
+#!/bin/bash
+#description Input 9*9
+#version 0.1
+#author gaomeng
+#date 20160816
+i=1
+until [ $i -eq 10 ]; do
+	j=1
+	until [ $j -gt $i ];do
+		echo -en "$j*$i=$[$i*$j]\t"
+		let j++
+	done
+	echo
+	let i++
+done
+
+6、编写脚本，利用变量RANDOM生成10个随机数字，输出这个10数字，并显示其中的最大者和最小者
+#!/bin/bash
+#description random 10 number, Input max number and min number
+#version 0.1
+#author gaomeng
+#date 20160816
+max=$RANDOM
+min=$max
+i=9
+echo "RANDOM 10 number is:"
+echo "$max"
+until [ $i -eq 0 ];do
+	num=$RANDOM
+	echo "$num"
+	if [ $num -gt $max ]; then
+		max=$num
+	elif [ $num -lt $min ]; then
+		min=$num
+	fi
+	let i--
+done
+echo "max number is: $max . min number is $min ."
+
+7、编写脚本，实现打印国际象棋棋盘
+#!/bin/bash
+#description Input chess
+#version 0.1
+#author goameng
+#date 20160816
+i=8
+until [ $i -eq 0 ];do
+	j=8
+	until [ $j -eq 0 ];do
+		sum=$[i+j]
+		if `let sum%=2` ;then
+			echo -en "\033[41m  \033[0m"
+		else
+			echo -en "\033[42m  \033[0m"
+		fi
+		let j--
+	done
+	echo
+	let i--
+done
+
+8、打印等腰三角形
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+read -p "please input line number: " sumline
+line=1
+num=$sumline
+until [ $num -eq 0 ] ;do
+	num1=$[sumline-line]
+	until [ $num1 -eq 0 ]; do
+		echo -n " "
+		let num1--
+	done
+	num2=$[2*line-1]
+	until [ $num2 -eq 0 ]; do
+		echo -n "*"
+		let num2--
+	done
+	echo
+	let line++
+	let num--
+done
+line=$[sumline-1]
+num=$[sumline-1]
+until [ $num -eq 0 ] ;do
+	num1=$[sumline-line]
+	until [ $num1 -eq 0 ]; do
+		echo -n " "
+		let num1--
+	done
+	num2=$[2*line-1]
+	until [ $num2 -eq 0 ]; do
+		echo -n "*"
+		let num2--
+	done
+	echo
+	let line--
+	let num--
+done

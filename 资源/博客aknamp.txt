@@ -1,0 +1,485 @@
+实战作业：
+	(1) 主/备模型的keepalived+nginx
+	(2) httpd+php+php-mysql
+	(3) mysql-server或mariadb-server
+		拥有testdb库，并允许testuser对其拥有所有权限
+
+实验环境：
+主机1：10.1.43.1  		CentOS6系统  作为keepalived+nginx的主机
+主机2：10.1.43.2  		CentOS6系统  作为keepalived+nginx的主机
+主机3：10.1.43.3		CentOS6系统  作为amp的主机
+主机4：10.1.43.101 		CentOS7系统  作为amp的主机
+主机5：10.1.43.4 		CentOS6系统  作为ansible的主机
+
+实验拓扑：
+
+
+实验先决条件：
+配置ansible基于ssh会话进行
+1、生成ssh会话的密钥
+[root@node4 ~]# ssh-keygen
+Generating public/private rsa key pair.
+Enter file in which to save the key (/root/.ssh/id_rsa):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Passphrases do not match.  Try again.
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in y.
+Your public key has been saved in y.pub.
+The key fingerprint is:
+53:10:3d:da:7b:9b:21:f2:60:0c:d0:d8:98:96:32:c1 root@node1
+The key's randomart image is:
++--[ RSA 2048]----+
+| ... B  oo       |
+|  E B o  .o      |
+|   + .   o..     |
+|      . ...      |
+|       oS  .     |
+|        =.o o    |
+|       . + o +   |
+|          . o    |
+|                 |
++-----------------+
+
+2、修改/etc/hosts文件
+[root@node4 ~]# cat /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.1.43.1 	node1
+10.1.43.2 	node2
+10.1.43.3 	node3
+10.1.43.101	node11
+
+3、修改/etc/ansible/hosts文件：
+[root@node4 ~]# cat /etc/ansible/hosts
+[websrvs]
+10.1.43.3
+10.1.43.101
+
+[knsrvs]
+10.1.43.1  STATE=MASTER PRI=100
+10.1.43.2  STATE=BACKUP PRI=98
+
+
+4、cp会话密钥到所有的node节点主机
+[root@node4 ~]# ssh-copy-id node1    #node2,3,11节点的cp同此处
+The authenticity of host 'node1 (10.1.43.1)' can't be established.
+RSA key fingerprint is ae:28:af:a3:ae:b5:35:cc:93:90:54:30:92:17:e9:65.
+Are you sure you want to continue connecting (yes/no)? yes
+/usr/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
+/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
+root@node1's password:       #输入node1节点的密码
+
+Number of key(s) added: 1
+
+Now try logging into the machine, with:   "ssh 'node1'"
+and check to make sure that only the key(s) you wanted were added.
+
+4、安装keepalived和nginx服务，以便ansible过程中需要使用起配置文件
+[root@node4 ~]# yum -y install keepalived
+[root@node4 ~]# rpm -ivh nginx-1.10.0-1.el6.ngx.x86_64.rpm   #此nginx包从nginx官网获的
+
+
+实验过程：
+1、配置各roles
+[root@node4 ~]# cd /etc/ansible/roles/
+[root@node4 roles]# pwd
+/etc/ansible/roles
+[root@node4 roles]# tree ./
+./
+├── amp
+│   ├── default
+│   ├── files
+│   │   └── db.sh
+│   ├── handlers
+│   ├── meta
+│   ├── tasks
+│   │   └── main.yml
+│   ├── templates
+│   └── vars
+├── keepalived
+│   ├── default
+│   ├── files
+│   │   └── keepalived.conf.j2
+│   ├── handlers
+│   │   └── main.yml
+│   ├── meta
+│   ├── tasks
+│   │   └── main.yml
+│   ├── templates
+│   └── vars
+└── nginx
+    ├── default
+    ├── files
+    │   └── default.conf.j2
+    ├── handlers
+    │   └── main.yml
+    ├── meta
+    ├── tasks
+    │   └── main.yml
+    ├── templates
+    │   └── nginx.conf.j2
+    └── vars
+
+keepalived的配置：
+
+[root@node4 roles]# cat keepalived/tasks/main.yml
+- name: install keepalived package
+  yum: name=keepalived
+- name: copy keepalived conf file
+  template: src=keepalived.conf.j2 dest=/etc/keepalived/keepalived.conf
+  tags: keepalivedconf
+  notify: restart keepalived server
+- name: start keepalived server
+  service: name=keepalived state=started enabled=on
+
+
+[root@node4 roles]# cat keepalived/handlers/main.yml
+- name: restart keepalived server
+  service: name=keepalived state=restarted
+
+
+[root@node4 roles]# cat keepalived/files/keepalived.conf.j2
+! Configuration File for keepalived
+
+global_defs {
+   notification_email {
+		root@localhost
+   }
+   notification_email_from keepalived@localhost
+   smtp_server 127.0.0.1
+   smtp_connect_timeout 30
+   router_id node1
+   vrrp_mcast_group4 224.0.43.100
+}
+
+vrrp_script ngx_server {
+	script "killall -0 nginx"
+	interval 1
+	weight -5
+}
+
+vrrp_instance VI_1 {
+	state {{ STATE }}
+	interface eth0
+	virtual_router_id 43
+	priority {{ PRI }}
+	advert_int 1
+	track_script ngx_server
+	authentication {
+		auth_type PASS
+		auth_pass 571f97b2
+	}
+	virtual_ipaddress {
+		10.1.43.100/16 dev eth0
+	}
+}
+
+nginx的配置：
+
+[root@node4 roles]# cat nginx/tasks/main.yml
+- name: install nginx package
+  yum: name=nginx
+- name: copy configure file
+  template: src=nginx.conf.j2 dest=/etc/nginx/nginx.conf
+  tags: ngxconf
+  notify: reload nginx server
+- name: copy default file
+  copy: src=default.conf.j2 dest=/etc/nginx/conf.d/default.conf
+  tags: ngxconf
+  notify: reload nginx server
+- name: start nginx server
+  service: name=nginx state=started enabled=on
+
+
+[root@node4 roles]# cat nginx/templates/nginx.conf.j2
+user 	nginx;
+worker_processes  {{ ansible_processor_vcpus }};
+
+pid 	/var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+	upstream amp {
+		server 10.1.43.3;
+		server 10.1.43.101;
+	}
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    # Load config files from the /etc/nginx/conf.d directory
+    # The default server is in conf.d/default.conf
+    include /etc/nginx/conf.d/*.conf;
+
+}
+
+
+[root@node4 roles]# cat nginx/files/default.conf.j2
+server {
+    listen       80 default_server;
+    server_name  _;
+
+    include /etc/nginx/default.d/*.conf;
+
+    location / {
+        root   /usr/share/nginx/html;
+		proxy_pass http://amp;
+        index  index.html index.htm;
+    }
+
+    error_page  404              /404.html;
+    location = /404.html {
+        root   /usr/share/nginx/html;
+    }
+
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+
+}
+
+
+amp的配置：
+
+[root@node4 roles]# cat amp/tasks/main.yml
+- name: install apache-php-mysql some package on CentOS 6
+  yum: name={{ item }}
+  with_items:
+    - httpd
+    - mysql-server
+    - php
+    - php-mysql
+  when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '6'
+
+- name: install apache-php-mysql some package on CentOS 7
+  yum: name={{ item }}
+  with_items:
+    - httpd
+    - mariadb-server
+    - php
+    - php-mysql
+  when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
+
+- name: start apm server
+  service: name={{ item }} state=started enabled=on
+  with_items:
+    - httpd
+    - mysqld
+  when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '6'
+
+- name: start apm server
+  service: name={{ item }} state=started enabled=on
+  with_items:
+    - httpd
+    - mariadb
+  when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
+
+- name: create DB
+  script: db.sh
+
+
+[root@node4 roles]# cat amp/files/db.sh
+#!/bin/bash
+#
+
+mysql -e " CREATE DATABASE testdb"
+mysql -e " GRANT ALL ON testdb.* TO 'testuser'@'localhost' IDENTIFIED BY 'gm'"
+mysql -e " GRANT ALL ON testdb.* TO 'testuser'@'127.0.0.1' IDENTIFIED BY 'gm'"
+
+
+2、创建主配置文件，并且调用roles：
+[root@node4 ~]# cat aknamp.yaml
+- hosts: knsrvs
+  remote_user: root
+  roles:
+  - keepalived
+  - nginx
+
+- hosts: websrvs
+  remote_user: root
+  roles:
+  - amp
+
+
+3、运行此yaml文件
+[root@node4 ~]# ansible-playbook aknamp.yaml
+
+PLAY [knsrvs] ****************************************************************
+
+GATHERING FACTS ***************************************************************
+ok: [10.1.43.1]
+ok: [10.1.43.2]
+
+TASK: [keepalived | install keepalived package] *******************************
+changed: [10.1.43.1]
+changed: [10.1.43.2]
+
+TASK: [keepalived | copy keepalived conf file] ********************************
+changed: [10.1.43.1]
+changed: [10.1.43.2]
+
+TASK: [keepalived | start keepalived server] **********************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+TASK: [nginx | install nginx package] *****************************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+TASK: [nginx | copy configure file] *******************************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+TASK: [nginx | copy default file] *********************************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+TASK: [nginx | start nginx server] ********************************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+NOTIFIED: [keepalived | restart keepalived server] ****************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+NOTIFIED: [nginx | reload nginx server] ***************************************
+changed: [10.1.43.2]
+changed: [10.1.43.1]
+
+PLAY [websrvs] **************************************************************
+
+GATHERING FACTS ***************************************************************
+ok: [10.1.43.3]
+ok: [10.1.43.101]
+
+TASK: [amp | install apache-php-mysql some package on CentOS 6] ***************
+skipping: [10.1.43.101]
+changed: [10.1.43.3] => (item=httpd,mysql-server,php,php-mysql)
+
+TASK: [amp | install apache-php-mysql some package on CentOS 7] ***************
+skipping: [10.1.43.3]
+changed: [10.1.43.101] => (item=httpd,mariadb-server,php,php-mysql)
+
+TASK: [amp | start apm server] ************************************************
+skipping: [10.1.43.101] => (item=httpd)
+skipping: [10.1.43.101] => (item=mysqld)
+changed: [10.1.43.3] => (item=httpd)
+changed: [10.1.43.3] => (item=mysqld)
+
+TASK: [amp | start apm server] ************************************************
+skipping: [10.1.43.3] => (item=httpd)
+skipping: [10.1.43.3] => (item=mariadb)
+changed: [10.1.43.101] => (item=httpd)
+changed: [10.1.43.101] => (item=mariadb)
+
+TASK: [amp | create DB] *******************************************************
+changed: [10.1.43.101]
+changed: [10.1.43.3]
+
+PLAY RECAP ********************************************************************
+10.1.43.1                  : ok=10   changed=9    unreachable=0    failed=0
+10.1.43.101                : ok=5    changed=3    unreachable=0    failed=0
+10.1.43.2                  : ok=10   changed=9    unreachable=0    failed=0
+10.1.43.3                  : ok=5    changed=3    unreachable=0    failed=0
+
+
+4、配置node3和node11的web默认页面：
+[root@node3 ~]# cat /var/www/html/index.html
+<h1>www.gm.com</h1>
+<h2>test page</h2>
+<h2>hello world</h2>
+
+[root@node11 ~]# cat /var/www/html/index.html
+<h1>RS1 CentOS7</h1>
+
+
+5、验证实验结果：
+验证keepalived的虚拟ip地址，是否在node1主机上：
+[root@node1 ~]# ip a l
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 00:50:56:28:be:8a brd ff:ff:ff:ff:ff:ff
+    inet 10.1.43.1/16 brd 10.1.255.255 scope global eth0
+    inet 10.1.43.100/16 scope global secondary eth0
+    inet6 fe80::250:56ff:fe28:be8a/64 scope link tentative dadfailed
+       valid_lft forever preferred_lft forever
+
+验证nginx的调度是否正常：
+[root@node4 ~]# curl 10.1.43.100
+<h1>RS1 CentOS7</h1>
+[root@node4 ~]# curl 10.1.43.100
+<h1>www.gm.com</h1>
+<h2>test page</h2>
+<h2>hello world</h2>
+[root@node4 ~]# curl 10.1.43.100
+<h1>RS1 CentOS7</h1>
+[root@node4 ~]# curl 10.1.43.100
+<h1>www.gm.com</h1>
+<h2>test page</h2>
+<h2>hello world</h2>
+
+验证数据库是否创建成功：
+[root@node3 ~]# mysql -hlocalhost -utestuser -pgm
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 5
+Server version: 5.1.73 Source distribution
+
+Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> SHOW DATABASES;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| testdb             |
++--------------------+
+2 rows in set (0.00 sec)
+
+[root@node11 ~]# mysql -hlocalhost -utestuser -pgm
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 5
+Server version: 5.5.44-MariaDB MariaDB Server
+
+Copyright (c) 2000, 2015, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [(none)]> SHOW DATABASES;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| testdb             |
++--------------------+
+2 rows in set (0.00 sec)
+

@@ -1,0 +1,372 @@
+函数：
+函数function是由若干条shell命令组成的语句块，实现代码重用和模块化编程，即有个功能或模块，我们在代码中会反复使用，则可以写成函数，使用是调用函数即可，而不用多次编写代码
+它与shell程序形式上是相似的，不同的是它不是一个单独的进程，不能独立运行，而是shell程序的一部分。
+函数和shell程序比较相似，区别在于：
+	Shell程序在子Shell中运行
+	而Shell函数在当前Shell中运行。因此在当前Shell中，函数可以对shell中变量进行修改
+
+函数的定义
+函数在使用前必须定义，因此应将函数定义放在脚本开始部分，直至shell首次发现它后才能使用
+定义：
+	函数由两部分组成：函数名和函数体。
+	语法一：
+	function f_name {
+		... 函数体...
+	}
+	语法二：
+	function f_name () {
+		... 函数体...
+	}
+	语法三：
+	f_name() {
+		... 函数体...
+	}
+
+	可在交互式环境下定义函数
+	可将函数放在脚本文件中作为它的一部分
+	可放在只包含函数的单独文件中，在脚本中用source 和. 调用函数
+	可以将经常使用的函数存入函数文件，然后将函数文件载入shell
+	文件名可任意选取，但最好与相关任务有某种联系。例如：functions.main
+	一旦函数文件载入shell，就可以在命令行或脚本中调用函数。可以使用set命令查看所有定义的函数，其输出列表包括已经载入shell的所有函数。
+	若要改动函数，首先用unset命令从shell中删除函数。改动完毕后，再重新载入此文件。
+
+载入函数
+shell脚本中调用一个已创建好函数文件：
+.  filename 或 source filename
+注意：此处< 点> < 空格> < 文件名>
+这里的文件名要带正确路径，绝对路径或者相对路径
+
+
+调用函数：函数只有被调用才会执行；
+	调用函数仅使用其函数名即可
+	函数名出现的地方，会被自动替换为函数代码
+	函数的生命周期：被调用时创建，返回时终止
+
+删除函数
+	使用unset命令完成此功能.
+		unset function_name
+
+函数有两种返回值：
+函数的执行结果返回值：
+	(1) 使用echo或printf命令进行输出
+	(2) 函数体中调用命令的输出结果
+函数的退出状态码：
+	(1) 默认取决于函数中执行的最后一条命令的退出状态码
+	(2) 自定义退出状态码，其格式为：
+		return 从函数中返回，用最后状态命令决定返回值
+		return 0 无错误返回。
+		return 1-255 有错误
+
+函数参数
+函数可以接受参数：
+	传递参数给函数：调用函数时，在函数名后面以空白分隔给定参数列表即可；例如“testfunc arg1 arg2 ...”
+	在函数体中当中，可使用$1, $2, ... 调用这些参数；还可以使用$@, $*, $# 等特殊变量
+	注意：请区分函数中的$1和脚本的$1不同之处
+
+#!/bin/bash
+#description test function $1 $2
+#version 0.1
+#author gaomeng
+#date 20160819
+#
+prin() {
+	echo "prin function \$1 is $1."
+	echo "prin function \$2 is $2."
+}
+
+echo "\$1 is $1."
+echo "\$2 is $2."
+
+prin $2 $1
+[root@CentOS6 bin]# functiontest.sh 3 9
+$1 is 3.
+$2 is 9.
+prin function $1 is 9.
+prin function $2 is 3.
+
+
+函数变量
+	变量作用域：
+		环境变量：当前shell和子shell有效
+		本地变量：只在当前shell 进程有效，为执行脚本会启动专用子shell进程；因此，本地变量的作用范围是当前shell脚本程序文件，包括脚本中的函数。
+		局部变量：函数的生命周期；函数结束时变量被自动销毁
+			注意：如果函数中有局部变量，如果其名称同本地变量，使用局部变量。
+			在函数中定义局部变量的方法
+				local NAME=VALUE
+
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160819
+#
+test1() {
+	echo "test1 name=$name"
+}
+test2() {
+	local name=haha
+	echo "test2 name=$name"
+}
+test3() {
+	name=haha
+	echo "test3 name=$name"
+}
+
+name=gaomeng
+echo "name=$name"
+test1
+echo "name=$name"
+test2
+echo "name=$name"
+test3
+echo "name=$name"
+[root@CentOS6 bin]# bash functiontest1.sh
+name=gaomeng
+test1 name=gaomeng
+name=gaomeng
+test2 name=haha
+name=gaomeng
+test3 name=haha
+name=haha
+
+
+函数递归：
+	函数直接或间接调用自身
+	注意递归层数
+
+
+
+递归实例：
+阶乘是基斯顿·于 卡曼于 1808  年发明的运算符号，是数学术语一个正整数的阶乘（factorial ）是所有小于及等于该数的正整数的积，并且有0 的阶乘为1 。自然数n 的阶乘写作n!
+n!=1 ×2 ×3 ×... ×n
+阶乘亦可以递归方式定义：0!=1 ，n!=(n-1)! ×n
+n!=n(n-1)(n-2)...1
+n(n-1)! = n(n-1)(n-2)!
+
+例：fact.sh
+#!/bin/bash
+#
+fact() {
+if [ $1 -eq 0 -o $1 -eq 1 ]; then
+echo 1
+else
+echo $[$1*$(fact $[$1-1])]
+fi
+}
+fact 5
+
+1 、写一个服务脚本/root/bin/testsrv.sh，完成如下要求
+(1) 脚本可接受参数：start, stop, restart, status
+(2) 如果参数非此四者之一，提示使用格式后报错退出
+(3) 如是start:则 则 创建/var/lock/subsys/ SCRIPT_NAME, 并显示“启动成功”
+考虑：如果事先已经启动过一次，该如何处理？
+(4) 如是stop:则 则 删除/var/lock/subsys/ SCRIPT_NAME, 并显示“停止完成”
+考虑：如果事先已然停止过了，该如何处理？
+(5) 如是restart，则先stop, 再start
+考虑：如果本来没有start ，如何处理？
+(6) 如是status, 则如果/var/lock/subsys/ SCRIPT_NAME文件存在，则显示“ SCRIPT_NAME is running...”
+如果/var/lock/subsys/ SCRIPT_NAME 文件不存在，则显示“ SCRIPT_NAMEis stopped...”
+其中：SCRIPT_NAME 为当前脚本名
+(7) 在所有模式下禁止启动该服务，可用chkconfig 和 和 service 命令管理
+
+
+
+
+
+2 、编写一个脚本/root/bin/copycmd.sh
+(1)  提示用户输入一个可执行命令名称
+(2)  获取此命令所依赖到的所有库文件列表
+(3)  复制命令至某目标目录( 例如/mnt/sysroot) 下的对应路径下
+	如：/bin/bash ==> /mnt/sysroot/bin/bash
+		/usr/bin/passwd ==> /mnt/sysroot/usr/bin/passwd
+(4)  复制此命令依赖到的所有库文件至目标目录下的对应路径下
+	如：/lib64/ld-linux-x86-64.so.2 ==> /mnt/sysroot/lib64/ld-linux-x86-64.so.2
+(5) 每次复制完成一个命令后，不要退出，而是提示用户键入新的要复制的命令，并重复完成上述功能；直到用户输入quit 退出
+
+
+
+
+
+3 、写一个函数实现两个数字做为参数，返回最大值
+#!/bin/bash
+#description input two number, and retuen max number.
+#version 0.1
+#author gaomeng
+#date 20160818
+#
+max(){
+	if [ $1 -gt $2 ]; then
+		echo "max number is: $1"
+	else
+		echo "max number is: $2"
+	fi
+}
+
+read -p "Input first number: " num1
+until echo $num1 | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input first number: " num1
+done
+read -p "Input second number: " num2
+until echo $num2 | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input second number: " num2
+done
+
+max $num1 $num2
+[root@CentOS6 bin]# function3.sh
+Input first number: sdf
+your number error, Input first number: 123
+Input second number: -124
+your number error, Input second number: sdkf
+your number error, Input second number: 100
+max number is: 123
+
+
+
+4 、写一个函数实现数字的加减乘除运算，例如输入 1 + 2 ，，将得出正确结果
+#!/bin/bash
+#desription four arithmetic operation
+#version 0.1
+#author gaomeng
+#date 20160818
+#
+operation() {
+	if [ $2 == "+" ]; then
+		echo "$1+$3=$[$1+$3]"
+	elif [ $2 == "-" ]; then
+		echo "$1-$3=$[$1-$3]"
+	elif [ $2 == "x" ]; then
+		echo "${1}x${3}=$[$1*$3]"
+	elif [ $2 == "/" ]; then
+		echo "$1/$3=$[$1/$3]"
+	else
+		echo "this is error symbol."
+	fi
+}
+
+read -p "Input first number: " num1
+until echo $num1 | grep -qE "^\-?[0-9]+$";do
+	read -p "your number error, Input first number: " num1
+done
+
+i=0
+until [ $i -eq 1 ];do
+	read -p "Input operation symbol( please x instead of * ): " num2
+	[ $num2 == "+" -o $num2 == "-" -o $num2 == "x" -o $num2 == "/" ] &> /dev/null &&	i=1
+done
+
+read -p "Input second number: " num3
+until echo $num3 | grep -qE "^\-?[0-9]+$";do
+	read -p "your number error, Input second number: " num3
+done
+
+operation $num1 $num2 $num3
+[root@CentOS6 bin]# function4.sh
+Input first number: sdf
+your number error, Input first number: 5
+Input operation symbol( please x instead of * ): *
+Input operation symbol( please x instead of * ): x
+Input second number: -4
+5x-4=-20
+
+
+5 、斐波那契数列又称黄金分割数列，因数学家列昂纳多·斐波那契以兔子繁殖为例子而引入，故又称为“兔子数列”，指的是这样一个数列：0 、1 、1 、2 、3 、5 、8 、13 、21 、34 、…… ，斐波纳契数列以如下被以递归的方法定义：F （0 ）=0 ，F （1 ）=1 ，F （n ）=F(n-1)+F(n-2) （n≥2） ）
+写一个函数，求n 阶斐波那契数列
+1   2   3   4   5   6   7    8    9
+1 、1 、2 、3 、5 、8 、13 、21 、34
+
+#!/bin/bash
+#description series of rabbit
+#version 0.3
+#author gaomeng
+#date 20160818
+#
+series() {
+	if [ $1 -eq 0 ]; then
+		sum=0
+	elif [ $1 -eq 1 ];then
+		sum=1
+	else
+		let sum=`series $[$1-1]`+`series $[$1-2]`
+	fi
+	echo "$sum"
+}
+
+read -p "Please input month number: " num
+until echo $num | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input month number: " num
+done
+series $num
+[root@CentOS6 bin]# function5.sh
+Please input month number: -123
+your number error, Input month number: sdf
+your number error, Input month number: 8
+21
+[root@CentOS6 bin]# function5.sh
+Please input month number: 1.02323
+your number error, Input month number: 10
+55
+
+
+
+6 、汉诺塔（又称河内塔）问题是源于印度一个古老传说。大梵天创造世界的时候做了三根金刚石柱子，在一根柱子上从下往上按照大小顺序摞着64片黄金圆盘。大梵天命令婆罗门把圆盘从下面开始按大小顺序重新摆放在另一根柱子上。并且规定，在小圆盘上不能放大圆盘，在三根柱子之间一次只能移动一个圆盘。
+利用函数，实现N片盘的汉诺塔的移动步骤
+#!/bin/bash
+#description hanoi game
+#version 0.2
+#author gaomeng
+#date 20160818
+#
+i=1
+move() {
+	echo -e "$i)\t$1 plate from $2 to $3."
+	let i++
+}
+hanoi() {
+	if [ $1 -eq 1 ]; then
+		move $1 $2 $4
+	else
+		hanoi $[$1-1] $2 $4 $3
+		move $1 $2 $4
+		hanoi $[$1-1] $3 $2 $4
+	fi
+}
+
+read -p "Please input move plate numbers: " num
+until echo $num | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input move plate number: " num
+done
+
+hanoi $num A B C
+[root@CentOS6 bin]# function6.sh
+Please input move plate numbers: 3
+1)	1 plate from A to C.
+2)	2 plate from A to B.
+3)	1 plate from C to B.
+4)	3 plate from A to C.
+5)	1 plate from B to A.
+6)	2 plate from B to C.
+7)	1 plate from A to C.
+[root@CentOS6 bin]# function6.sh
+Please input move plate numbers: 4
+1)	1 plate from A to B.
+2)	2 plate from A to C.
+3)	1 plate from B to C.
+4)	3 plate from A to B.
+5)	1 plate from C to A.
+6)	2 plate from C to B.
+7)	1 plate from A to B.
+8)	4 plate from A to C.
+9)	1 plate from B to C.
+10)	2 plate from B to A.
+11)	1 plate from C to A.
+12)	3 plate from B to C.
+13)	1 plate from A to B.
+14)	2 plate from A to C.
+15)	1 plate from B to C.
+
+
+
+
+
+
+

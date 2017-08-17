@@ -1,0 +1,18 @@
+
+实践作业（博客）：负载均衡一个php应用；
+	测试：(1) 是否需要会话保持；(2) 是否需要共享存储；
+
+课外扩展作业：vip与dip/rip不在同一网段的实验环境设计及配置实现；
+
+Server Platform Development
+
+
+问题：不配置 route add -host 172.16.0.10 -dev lo:0
+
+
+#rsync –avz test.txt rsync@172.16.0.3::backup --password-file=/etc/rsync.passwd11
+
+
+基于rsync的共享，文件莫名变小
+
+

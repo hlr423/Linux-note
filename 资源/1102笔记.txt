@@ -1,0 +1,656 @@
+回顾：keepalived，dhcp
+	keepalived：HA Cluster
+		vrrp协议，ipvs（管理规则、RS的健康状态检测）
+		vrrp_script { ... }
+		vrrp_instance NAME {
+			...
+			track_script { ... }
+			...
+		}
+
+	运维工具：
+		BootStraping：OS installation, pxe, cobbler
+		Configuration：ansible，puppet, saltstack, chef, cfengine, ...
+		Command & Control：ansible, fabric, func, ...
+
+BootStraping（OS install）：
+
+	pxe：preboot excution environment, Intel
+
+		tftp server：
+			# yum install tftp-server tftp
+
+				CentOS 7:
+					systemctl start tftp.socket
+
+				CentOS 6:
+					chkconfig tftp on
+					service xinetd restart
+
+				69/udp
+			默认的文件根目录：/var/lib/tftpboot/
+
+
+	配置PXE环境：
+		CentOS 7：
+			yum  -y install syslinux
+
+			cp /usr/share/syslinux/pxelinux.0  /var/lib/tftpboot/
+			cp /media/cdrom/images/pxeboot/{vmlinuz,initrd.img}  /var/lib/tftpboot
+			cp /usr/share/syslinux/{chain.c32,mboot.c32,menu.c32,memdisk}  /var/lib/tftpboot
+
+			mkdir /var/lib/tftpboot/pxelinux.cfg/
+
+			vim  /var/lib/tftpboot/pxelinux.cfg/default
+				default menu.c32
+					prompt 5
+					timeout 30
+					MENU TITLE CentOS 7 PXE Menu
+
+					LABEL linux
+					MENU LABEL Install CentOS 7 x86_64
+					KERNEL vmlinuz
+					APPEND initrd=initrd.img inst.repo=http://192.168.10.9/centos/7/x86_64
+					LABEL linux_autoinst
+					MENU LABEL Install CentOS 7 x86_64 auto
+					KERNEL vmlinuz
+					APPEND initrd=initrd.img inst.repo=http://192.168.10.9/centos/7/x86_64 ks=http://192.168.10.9/kickstarts/centos7.cfg
+
+
+		CentOS 6:				[root@node2 dhcp]# yum -y install syslinux-nolinux   #提供了/usr/share/syslinux/pxelinux.0文件
+			yum  -y install syslinux
+
+			cp /usr/share/syslinux/pxelinux.0  /var/lib/tftpboot/
+			cp /media/cdrom/images/pxeboot/{vmlinuz,initrd.img}  /var/lib/tftpboot/
+			cp /media/cdrom/isolinux/{boot.msg,vesamenu.c32,splash.jpg}  /var/lib/tftpboot/
+
+			mkdir /var/lib/tftpboot/pxelinux.cfg/
+
+			cp  /media/cdrom/isolinux/isolinux.cfg  /var/lib/tftpboot/pxelinux.cfg/default
+
+			内容如下所示：
+				display boot.msg
+
+				menu background splash.jpg
+				menu title Welcome to CentOS 6.7 MageEdu!
+				menu color border 0 #ffffffff #00000000
+				menu color sel 7 #ffffffff #ff000000
+				menu color title 0 #ffffffff #00000000
+				menu color tabmsg 0 #ffffffff #00000000
+				menu color unsel 0 #ffffffff #00000000
+				menu color hotsel 0 #ff000000 #ffffffff
+				menu color hotkey 7 #ffffffff #ff000000
+				menu color scrollbar 0 #ffffffff #00000000
+
+				label autoinst
+				menu label ^Auto Install CentOS
+				menu default
+				kernel vmlinuz
+				append initrd=initrd.img ks=ftp://192.168.10.16/pub/centos6.cfg
+				label linux
+				menu label ^Install or upgrade an existing system
+				kernel vmlinuz
+				append initrd=initrd.img
+				label vesa
+				menu label Install system with ^basic video driver
+				kernel vmlinuz
+				append initrd=initrd.img nomodeset
+				label rescue
+				menu label ^Rescue installed system
+				kernel vmlinuz
+				append initrd=initrd.img rescue
+				label local
+				menu label Boot from ^local drive
+				localboot 0xffff
+				label memtest86
+				menu label ^Memory test
+				kernel memtest
+				append -
+
+
+Ansible：
+	Configuration、Command and Control
+
+	是什么 ？ SSH-based configuration management, deployment, and task execution system
+
+	运维工具的分类：
+		agent：基于专用的agent程序完成管理功能，puppet, func, zabbix, ...
+		agentless：基于ssh服务完成管理，ansible, fabric, ...
+
+	架构：
+		Ansible Core
+		Modules：
+			Core Modules
+			Customed Modules
+		Host Iventory
+			Files
+			CMDB
+		PlayBooks
+			Hosts
+			roles
+		Connection Plugins：
+
+	特性：
+		模块化：调用特定的模块，完成特定的任务；
+		基于Python语言研发，由Paramiko, PyYAML和Jinja2三个核心库实现；
+		部署简单：agentless；
+		支持自定义模块，使用任意编程语言；
+		强大的playbook机制；
+		幂等性；
+
+	安装及程序环境：
+		程序：
+			ansible
+			ansible-playbook
+			ansible-doc
+		配置文件：
+			/etc/ansible/ansible.cfg
+		主机清单：
+			/etc/ansible/hosts
+		插件目录：
+			/usr/share/ansible_plugins/
+
+	基本使用入门：
+		ansible命令：
+			Usage: ansible <host-pattern> [options]
+
+			常用选项：
+				-m MOD_NAME  -a MOD_ARGS
+
+		配置Host Inventory：
+			/etc/ansible/hosts
+			[group_id]
+			HOST_PATTERN1
+			HOST_PATTERN2
+
+		模块：
+			获取模块列表：ansible-doc -l
+			获取指定模块的使用帮助：ansible-doc -s MOD_NAME
+
+		常用模块：
+			ping：探测目标主机是否存活；
+				ansible all -m ping
+
+			command：在远程主机执行命令；
+				ansible all -m commond -a "ifconfig"
+
+				commond模块:不能理解管道命令，要调用shell模块来执行
+					ansible all -m commond -a "echo 'gmtest' | passwd --stdin centos"
+
+			shell：在远程主机上调用shell解释器运行命令，支持shell的各种功能，例如管道等 ；
+				ansible all -m shell -a "echo 'gmtest' | passwd --stdin centos"
+
+			注意：command和shell模块的核心参数直接为命令本身；而其它模块的参数通常为“key=value”格式；
+
+			copy：Copies files to remote locations.
+				用法：
+					(1) 复制文件
+						-a "src=  dest=  "
+					(2) 给定内容生成文件
+						-a "content=  dest=  "
+							dest中不指文件名，默认随机生成文件名
+
+					其它参数：mode, owner, group, ...
+
+				ansible all -m copy -a "src=/etc/fstab dest=/tmp/test.gm mode =640"
+				ansible all -m copy -a "content='hello\nworld\n' dest=/tmp/test.gm mode =640"
+
+			file：Sets attributes of files
+				用法：
+					(1) 创建目录：
+						-a "path=  state=directory"
+					(2) 创建链接文件：
+						-a "path=  src=  state=link"
+					(3) 删除文件：
+						-a "path=  state=absent“
+
+				ansible all -m file -a "path=/tmp/gm state=directory"
+				ansible all -m file -a "path=/tmp/gm state=absent"
+				ansible all -m file -a "path=/tmp/gm src=/etc/fstab state=link"
+
+			fetch：Fetches a file from remote nodes
+				也可以使用scp命令实现
+
+			cron：Manage cron.d and crontab entries.
+				-a ""
+					minute=
+					hour=
+					day=
+					month=
+					weekday=
+					job=
+					name=
+					user=
+
+					state={present|absent}
+						state=absent+name="STRING"：用于取消此任务计划
+
+				ansible all -m cront cron -a "minute='*/5' job='/usr/sbin/ntpdate 10.1.0.1 &>/dev/null' name='sync time'"
+				ansible all -m cront -a "name='sync time' state='absent'"
+
+			hostname：Manage hostname
+				name=
+
+			yum：Manages packages with the I(yum) package manager
+				-a ""
+					(1) name=  state={present|latest}
+					(2) name=  state=absent
+
+				ansible all -m yum -a "name=httpd"
+				ansible all -m yum -a "name=httpd state=absent"
+
+			service：Manage services.
+				-a ""
+					name=
+					state=
+						started
+						stopped
+						restarted
+						reloaded
+					enabled=  ：是否开机自启动
+					runlevel=
+
+				ansible websrvs -m yum -a "name=httpd "
+				ansible websrvs -m service -a "name=httpd state=start enaled=true"
+				ansible websrvs -m service -a "name=httpd state=started"
+
+			group: Add or remove groups
+				-a ""
+					name=
+					state= # Whether the group should be present or not on the remote host
+					system=
+					gid=
+
+				ansible all -m group -a "name=gm state=present system=fails gid=2000"
+
+			user：Manage user accounts
+				-a ""
+					name=
+					group=
+					groups=
+					comment=
+					uid=
+					system=
+					shell=
+					expires=
+					home=
+
+				ansible all -m user -a "name=gm group=gm groups=tom uid=2000"
+
+			setup：Gathers facts about remote hosts
+
+				ansible 10.1.0.68 -m setup
+
+		YAML：
+			YAML is a data serialization format designed for human readability and  interaction with scripting languages.
+
+			数据结构：
+				key:value
+
+				- item1
+				- item2
+				- item3
+
+				{name:jerry, age:21}
+
+		PlayBook：
+			核心元素：
+				Tasks：任务，由模块定义的操作的列表；
+				Variables：变量
+				Templates：模板，即使用了模板语法的文本文件；
+				Handlers：由特定条件触发的Tasks；
+				Roles：角色；
+
+				playbook的基础组件：
+					Hosts：运行指定任务的目标主机；
+					remote_user：在远程主机以哪个用户身份执行；
+						sudo_user：非管理员需要拥有sudo权限；
+					tasks：任务列表
+						模块，模块参数：
+							格式：
+								(1) action: module arguments
+								(2) module: arguments
+
+				示例1：
+				  - hosts: all
+					remote_user: root
+					tasks:
+					- name: install a group
+					  group: name=mygrp system=true
+					- name: install a user
+					  user: name=user1 group=mygrp system=true
+
+				  - hosts: websrvs
+					remote_user: root
+					tasks:
+					- name: install httpd package
+					  yum: name=httpd
+					- name: start httpd service
+					  service: name=httpd state=started
+
+
+					- hosts: all
+					  remote_user: root
+					  tasks:
+					  - name: create group
+					    group: name=hlr gid=3000 state=presend
+					  - name: create user
+					    user: name=hlr uid=2500 group=hlr
+
+			运行playbook，使用ansible-playbook命令
+				(1) 检测语法
+					ansible-playbook --syntax-check /path/to/playbook.yaml
+				(2) 测试运行
+					ansible-playbook -C /path/to/playbook.yaml
+						--list-hosts
+						--list-tasks
+						--list-tags
+				(3) 运行
+					ansible-playbook  /path/to/playbook.yaml
+						-t TAGS, --tags=TAGS
+						--skip-tags=SKIP_TAGS
+						--start-at-task=START_AT
+
+
+			handlers：由特定条件触发的Tasks；
+				调用及定义方式：
+				tasks：
+				- name: TASK_NAME
+				  module: arguments
+				  notify: HANDLER_NAME
+				handlers:
+				- name: HANDLER_NAME
+				  module: arguments
+
+				示例：
+				  - hosts: websrvs
+				  	remote_user: root
+				  	tasks:
+				  	- name: install httpd package
+				      yum: name=httpd state=latest
+				   	- name: install conf file
+				      copy: src=/root/httpd.conf dest=/etc/httpd/conf/httpd.conf
+				      notify: restart httpd service
+				    - name: start httpd service
+				      service: name=httpd state=started
+				    handlers:
+				    - name: restart httpd service
+				   	  service: name=httpd state=restarted
+
+			tags：给指定的任务定义一个调用标识；
+				- name: NAME
+				  module: arguments
+				  tags: TAG_ID
+
+				- hosts: websrvs
+				  remote_user: root
+				  tasks:
+				  - name: install httpd package
+				    yum: name=httpd
+				  - name: create httpd-conf file
+				    copy: src=/etc/httpd/conf/httpd.conf dest=/etc/httpd/conf/httpd.conf
+				    tags: file_change
+				    notify: reload httpd server
+				  - name: create httpd index.html file
+				    copy: src=/var/www/html/index.html dest=/var/www/html/index.html
+				    tags: file_change
+				    notify: reload httpd server
+				  - name: start httpd server
+				    service: name=httpd state=started enabled=on
+				  handlers:
+				  - name: reload httpd server
+				    shell: service httpd restart
+
+				ansible-playbook -t file_change web.yaml
+					notify只被调用了一次
+
+					-t TAG_ID1,TAG_ID2可以一次调用多个标签
+
+			Variables：
+				类型：
+					内建：
+						(1) facts
+					自定义：
+						(1) 命令行传递；
+							-e VAR=VALUE
+
+							示例：
+							- hosts: websrvs
+							  remote_user: root
+							  tasks:
+							  - name: remove a server package
+							    yum: name={{ pkgname }} state=absent
+
+							使用：ansible-playbook -e pkgname=vsftpd XXX.yaml
+
+						(2) 在hosts Inventory中为每个主机定义专用变量值；
+							(a) 向不同的主机传递不同的变量 ；
+								IP/HOSTNAME variable_name=value
+
+								/etc/ansible/hosts文件中定义
+								[websrvs]
+								10.1.43.2 pkgname=httpd
+								10.1.43.3 pkgname=nginx
+
+								脚本中：
+								- hosts: websrvs
+								  remote_user: root
+								  vars:
+								  - name: remove a server package
+								    yum: name={{ pkgname }} state=absent
+
+
+							(b) 向组内的所有主机传递相同的变量 ；
+								[groupname:vars]
+								variable_name=value
+
+								/etc/ansible/hosts文件中定义
+								[websrvs]
+								10.1.43.2
+								10.1.43.3
+
+								[websrvs:vars]
+								pkgname=vsftpd
+
+								脚本中：
+								- hosts: websrvs
+								  remote_user: root
+								  vars:
+								  - name: remove a server package
+								    yum: name={{ pkgname }} state=absent
+
+						(3) 在playbook中定义<添加在remote_user后面，tasks前面>
+							vars:
+							- var_name: value
+							- var_name: value
+
+							示例：
+							- hosts: websrvs
+							  remote_user: root
+							  vars:
+							  - pkgname: vsftpd
+							  tasks:
+							  - name: remove a server package
+							    yum: name={{ pkgname }} state=absent
+
+							注意：对此配置文件而言，或命令行以-e给出了变量名的值，命令行的优先级更高
+
+						(4) Inventory还可以使用参数：
+							用于定义ansible远程连接目标主机时使用的属性，而非传递给playbook的变量；
+								ansible_ssh_host
+								ansible_ssh_port
+								ansible_ssh_user
+								ansible_ssh_pass
+								ansible_sudo_pass
+								...
+
+						(5) 在角色调用时传递
+							roles:
+							- { role: ROLE_NAME, var: value, ...}
+
+				变量调用：
+					{{ var_name }}
+
+			Templates：模板
+				文本文件，内部嵌套有模板语言脚本（使用模板语言编写）
+
+				Jinja2 is a template engine written in pure Python.  It provides a  Django inspired non-XML syntax but supports inline expressions and an optional sandboxed environment.
+
+				语法：
+					字面量：
+						字符串：使用单引号或双引号；
+						数字：整数、浮点数；
+						列表：[item1, item2, ...]
+						元组：(item1, item2, ...)
+						字典：{key1:value1, key2:value2, ...}
+						布尔型：true/false
+
+					算术运算：
+						+, -, *, /, //, %, **
+
+					比较操作：
+						==, !=, >, <, >=, <=
+
+					逻辑运算：and, or, not
+
+				执行模板文件中的脚本，并生成结果数据流，需要使用template模块；
+					template：
+						-a ""
+							src=
+							dest=
+							mode=
+							onwer=
+							group=
+
+					注意：此模板不能在命令行使用，而只能用于playbook
+
+					示例：
+						/root/nginx.conf.j2文件：
+						worker_processes  {{ ansible_processor_vcpus }};
+							ansible_processor_vcpus：此参数可以使用ansible IP -m setup 获取
+
+						脚本
+					    - hosts: ngxsrvs
+						  remote_user: root
+						  tasks:
+						  - name: install nginx package
+							yum: name=nginx state=latest
+						  - name: install conf file
+							template: src=/root/nginx.conf.j2 dest=/etc/nginx/nginx.conf
+							tags: ngxconf
+							notify: reload nginx service
+						  - nyuame: start nginx service
+							service: name=nginx state=started enabled=true
+						  handlers:
+						  - name: reload nginx service
+							shell: /usr/sbin/nginx -s reload
+
+			条件测试：
+				when语句：在tasks中使用，Jinja2的语法格式；
+
+				    - hosts: all
+					  remote_user: root
+					  tasks:
+					  - name: install nginx package
+						yum: name=nginx state=latest
+					  - name: start nginx service on CentOS6
+						shell: service nginx start
+						when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "6"
+					  - name: start nginx service
+						shell: systemctl start nginx.service
+						when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "7"
+
+					- hosts: mysqlsrvs
+					  remote_user: root
+					  tasks:
+					  - name: install DB package
+					    yum: name=mysql-server
+					    when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '6'
+					  - name: install DB package
+					    yum: name=mariadb-server
+					    when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
+					  - name: start DB service
+					    service: name=mysqld state=started enabled=on
+					    when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '6'
+					  - name: start DB service
+					    service: name=mariadb state=started enabled=on
+					    when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
+
+
+			循环：迭代，需要重复执行的任务；
+				对迭代项的引用，固定变量名为"item”，使用with_item属性给定要迭代的元素；
+					元素：列表
+						字符串
+						字典
+
+				基于字符串列表给出元素示例：
+					    - hosts: websrvs
+						  remote_user: root
+						  tasks:
+						  - name: install packages
+						  	yum: name={{ item }} state=latest
+						  	with_items:
+						  	- httpd
+						  	- php
+						  	- php-mysql
+						  	- php-mbstring
+						  	- php-gd
+
+					- hosts: all
+						  remote_user: root
+						  tasks:
+						  - name: install packages
+						    yum: name={{ item }}
+						    with_items:
+						    - httpd
+						    - php
+						    - php-mysql
+						    - php-gd
+
+				基于字典列表给元素示例：
+					    - hosts: all
+						  remote_user: root
+						  tasks:
+						  - name: create groups
+							group: name={{ item }} state=present
+						  	with_items:
+						  	- groupx1
+						  	- groupx2
+						  	- groupx3
+						  - name: create users
+							user: name={{ item.name }} group={{ item.group }} state=present
+						  	with_items:
+						  	- {name: 'userx1', group: 'groupx1'}
+						  	- {name: 'userx2', group: 'groupx2'}
+						  	- {name: 'userx3', group: 'groupx3'}
+
+		角色：roles
+			以特定的层级目录结构进行组织的tasks、variables、handlers、templates、files等；
+				role_name/
+					files/：存储由copy或script等模块调用的文件；
+					tasks/：此目录中至少应该有一个名为main.yml的文件，用于定义各task；其它的文件需要由main.yml进行“包含”调用；
+					handlers/：此目录中至少应该有一个名为main.yml的文件，用于定义各handler；其它的文件需要由main.yml进行“包含”调用；
+					vars/：此目录中至少应该有一个名为main.yml的文件，用于定义各variable；其它的文件需要由main.yml进行“包含”调用；
+					templates/：存储由template模块调用的模板文本；
+					meta/：此目录中至少应该有一个名为main.yml的文件，定义当前角色的特殊设定及其依赖关系；其它的文件需要由main.yml进行“包含”调用；
+					default/：此目录中至少应该有一个名为main.yml的文件，用于设定默认变量；
+
+			在playbook中调用角色的方法：
+				- hosts: HOSTS
+				  remote_user: USERNAME
+				  roles:
+				  - ROLE1
+				  - ROLE2
+				  - { role: ROLE3, VARIABLE: VALUE, ...}
+				  - { role: ROLE4, when: CONDITION }
+
+
+	博客作业：以上所有内容；
+	实战作业：
+		(1) 主/备模型的keepalived+nginx;
+		(2) httpd+php+php-mysql;
+		(3) mysql-server或mariadb-server；
+			拥有testdb库，并允许testuser对其拥有所有权限；
+
+在node1 10.1.43.1主机上
+

@@ -1,0 +1,865 @@
+1、创建组sales,gid 3000,passwd:centos,sales admins:user2
+将用户user1，user2,user3加入到sales辅助组
+希望user1 创建新文件 默认的所属组为sales
+user2将用户user3从sales组移除
+
+# groupadd -g 3000 sales
+# gpasswd sales
+# useradd -G sales user1
+# useradd -G sales user2
+# useradd -G sales user3
+# gpasswd -A user2 sales
+# su user2
+# gpasswd -d user3 sales
+
+
+2、在/data/testdir里创建的新文件自动属于g1组，组g2的成员如：alice能对这些新文件有读写权限，组g3的成员如：tom只能对新文件有读权限，其它用户（不属于g1,g2,g3）不能访问这个文件夹。
+# mkdir -pv /date/testdir
+# groupadd g1
+# groupadd g2
+# groupadd g3
+# chown :g1 /date/testdir
+# chmod 750 /date/testdir
+# chmod g+s /date/testdir
+# setfacl -Rm d:g:g2:rw /date/testdir
+# setfacl -Rm d:g:g3:r /date/testdir
+# getfacl /date/testdir
+# usermod -g g1 user1
+# usermod -g g2 user2
+
+# usermod -g g3 user3
+# su user1
+$ touch f1
+$ ll
+$ echo xxx > f1
+$ cat f1
+$ exit
+# getfacl f1
+
+
+3、三种权限，三种特殊，acl,chattr 总结
+
+文件权限
+	文件：
+		r: 可使用文件查看类工具获取其内容
+		w: 可修改其内容
+		x: 可以把此文件提请内核启动为一个进程
+	目录：
+		r: 可以使用ls 查看此目录中文件列表
+		w: 可在此目录中创建文件，也可删除此目录中的文件
+		x: 可以使用ls -l 查看此目录中文件列表，可以cd进入此目录
+
+Linux文件系统上的特殊权限
+	SUID, SGID, Sticky
+
+	SUID权限：
+		SUID只作用与可执行的二进制文件上
+		用户运行该程序时，自动继承该程序所属主的权限
+
+	SGID权限：
+		作用在二进制的程序上：
+			用户运行该程序时，自动继承该程序所属组的权限
+		作用在目录上：
+			该目录内新建的文件或目录的所属组自动继承与该文件的所属组
+
+	Sticky权限：
+		防止某些用户对该目录有权限，则胡乱删除该目录下的(属主是自己或属主不是自己)文件
+		在目录设置Sticky位，只有文件的所有者或root可以删除该文件，即除root用户外，其他用户只能删除属主是自己的文件
+
+ACL：访问控制列表 	Access Control List
+	除了文件的所有者，所属组和其它人，可以对更多的用户设置权限
+		比如设置某一用户能以rwx权限访问一指定文件，而其他用户按照u,g,o权限对文件进行访问
+	getfacl file |directory
+		查看文件或目录的访问控制列表
+	setfacl -m u:gao:rx file|directory
+		设置gao用户，对目录或文件，不以u,g,o所对应的权限访问文件，而是以rx权限访问文件
+	setfacl -m d:u:gao:rx directory
+		设置gao用户，对目录及以后该目录下此命令以后创建的文件，以rx权限访问
+	setfacl -M file.acl file|directory
+		以文本的形式，，对多个用户设置某一目录或文件的ACL
+	setfacl -m d:u:gao:rx directory
+		清除指定用户的ACL
+	setfacl -b file1
+		清除文件所有ACL权限
+
+chattr
+	+i 不能删除，改名，更改，只能看
+	+a 不能删除，改名，更改，只能增加
+	+A FILE 锁定文件，可以防止root用户的误操作
+
+
+mkdir -p /data/testdir
+groupadd g1 g2 g3
+chgrp g1 /data/testdir
+chmod g+s /data/testdir
+setfacl -m g:g2:rwx /data/testdir
+setfacl -m d:g:g2:rwx /data/testdir
+cd /date/testdir
+touch f1
+getfacl f1
+ll
+cd ..
+setfacl -m-
+
+550
+
+8月4号作业：
+用正则表达式表示IP地址
+(\<([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\>\.){3}\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>
+
+用正则表达式表示手机号
+"^1[3578][0-9]\{9\}\>"
+
+用正则表达式表示身份证号
+"^[0-9]{6}(19[0-9][0-9]|20(0[0-9]|1[0-6]))(((0[13578]|1[02])(0[1-9]|[12][0-9]|3[01]))|((0[469]|11)(0[1-9]|[12][0-9]|30))|(02(0[1-9]|1[0-9]|2[0-8])))[0-9]{3}([0-9]|[Xx])"
+
+用正则表达式表示邮箱
+"^.*@[[:alnum:]]{2,3}\.com$"
+
+
+
+20160804作业
+4、用正则表达式表示IP地址
+([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5].){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])
+
+5、用正则表达式表示手机号11 13 17 15  18
+echo "13900123456" |grep -E -o "^\b1[3578][0-9]{9}\b"
+
+班长写的：
+egrep "\<13[0-9]{9}|147[0-9]{8}|15([0-3]|[5-9])[0-9]{8}|17[0,7][0-9]{8}|18([0-3]|[5-9])[0-9]{8}\>" tel
+
+6、用正则表达式表示身份证号18
+egrep "\<((1[1-5])|(2[1-3])|(3[1-7])|(4[1-6])|(5[0-4])|(6[1-5])|(71|81|82))([0-9]){4}(19|20)([0-9]){2}((0[1-9])|(1[0-2]))(0[1-9]|([0-9])|(2[0-9])|(3[0-1]))([0-9]){3}([0-9]|X)\>" filename
+
+"^(1[1-5]|2[1-3]|3[1-7]|4[1-6]|5[0-4]|6[1-5]|71|81|82)[0-9]{4}(19[0-9][0-9]|20(0[0-9]|1[0-6]))(((0[13578]|1[02])(0[1-9]|[12][0-9]|3[01]))|((0[469]|11)(0[1-9]|[12][0-9]|30))|(02(0[1-9]|1[0-9]|2[0-8])))[0-9]{3}([0-9]|[Xx])"
+
+7、用正则表达式表示邮箱
+班长：
+egrep "\<([[:alnum:]]+(-|_)*[[:alnum:]]*)\>@([[:lower:]]|[[:digit:]])+\.[[:lower:]]*(\.[[:lower:]]+)*" mail
+
+egrep "\<([[:alnum:]]+(-|_)*[[:alnum:]]*)\>@([[:alnum:]]+\.)+[[:alnum:]]+" mail
+
+
+
+取目录
+echo "/etc/fst/sd/" | sed -r  's#[^/]+/?$##'
+取基名
+echo "/etc/fst/sd" | sed -r  's@(.*)/([^/]+/?)@\2@'
+echo "/etc/fst/sd" | sed   -r 's@(.*/)([^/]+/?)$@\1@'
+
+echo "/etc/fst/sd/" | sed  's@.*\<@@'
+ls *.rpm  |sed -r 's@.*\.(.*)\.rpm$@\1@' | sort | uniq -c
+
+
+
+
+8月8号作业：
+1、如何设置tab缩进为4个字符？
+set tabstop=4
+
+2、复制/etc/rc.d/init.d/functions文件至/tmp 目录；替换/tmp/functions 文件中的/etc/sysconfig/init 为/var/log；
+~]# cp /etc/rc.d/init.d/functions /tmp/
+~]# vim /tmp/functions
+在末行模式下输入：
+	%s@/etc/sysconfig/init@/var/log@g
+
+3、删除/tmp/functions 文件中所有以#开头，且#后面至少有一个空白字符的行的行首的#号；
+在末行模式下输入：
+	:%s@^#\([[:space:]]\+.*\)@\1@
+
+
+20160810作业
+一、脚本
+1、编写脚本/root/bin/systeminfo.sh,示当前主机系统信息，包括主机名，IPv4地址，操作系统版本，内核版本，CPU型号，内存大小，硬盘大小。
+[root@www bin]# cat systeminfo.sh
+#!/bin/bash
+#descripation
+#version 0.1
+#author gaomeng
+#date 20160810
+
+#显示hostname
+echo "this host name is :$(hostname)"
+
+#显示系统ip地址
+ip=`ifconfig | sed -n '2p' |sed  's@.*addr:\(.*\)B.*@\1@'`
+echo "ip address is : $ip"
+unset ip
+
+#显示系统版本
+echo "this system is :$(cat /etc/centos-release)"
+
+#显示内核版本
+echo "this kernel is :$(uname -r)"
+
+#显示cpu型号
+echo "this cpu is :$(lscpu | grep name | sed 's@.*[[:space:]]\+@@')"
+
+#显示内存大小
+echo "this free is : $(free -m | sed -n 2p | tr -s ' ' | cut -d' ' -f2)MB"
+
+#显示硬盘大小
+echo "this Hard disk is :$(lsblk | grep '^sda' | tr -s ' ' | cut -d' ' -f4)"
+[root@www bin]# systeminfo.sh
+this host name is :www.gao.com
+ip address is : 10.1.252.103
+this system is :CentOS release 6.8 (Final)
+this kernel is :2.6.32-642.el6.x86_64
+this cpu is :Graphics
+this free is : 980MB
+this Hard disk is :200G
+
+
+2、编写脚本/root/bin/backup.sh，可实现每日将/etc/目录备份到/root/etcYYYY-mm-dd中
+[root@www bin]# cat backup.sh
+#!/bin/bash
+#description every day cp /etc/* to /root/.
+#version 0.1
+#author gm
+#date 20160810
+
+echo "beginnig copy /etc/* file"
+cp -a /etc /root/etc`date +%F`
+echo "finish copy /etc/* file"
+[root@www bin]# backup.sh
+beginnig copy /etc/* file
+finish copy /etc/* file
+[root@www bin]# ll -d /root/etc2016-08-11/
+drwxr-xr-x. 126 root root 12288 Aug 11 11:17 /root/etc2016-08-11/
+
+3、编写脚本/root/bin/disk.sh,显示当前硬盘分区中空间利用率最大的值
+[root@www bin]# cat disk.sh
+#!/bin/bash
+#description show max shiyonglv of Hard disk
+#version 0.1
+#author gm
+#date 20160810
+
+echo "begin find max shiyonglv of Hard disk"
+
+#find Hard disk is used most
+
+echo "Hard disk is used most :`df | grep -v  "^/dev/sr0" | tr -s ' ' | cut -d' ' -f5 | cut -d% -f1 | sort -nr | head -1`"
+
+echo "END-------------------------"
+[root@www bin]# disk.sh
+begin find max shiyonglv of Hard disk
+Hard disk is used most :26
+END-------------------------
+
+4、编写脚本/root/bin/links.sh,显示正连接本主机的每个远程主机的IPv4地址和连接数，并按连接数从大到小排序
+[root@www bin]# cat links.sh
+#!/bin/bash
+#description  统计远程连接的ip和连接数
+#version 0.1
+#author gm
+#date 20160810
+
+echo "begin find links"
+
+#tongji ip and links
+who | tr -s ' ' | cut -d' ' -f5 | cut -d'(' -f2 | cut -d')' -f1 | sort | uniq -c | sort -rn
+[root@www bin]# links.sh
+begin find links
+      2 10.1.250.25
+      1 :0
+
+5、写一个脚本/root/bin/sumid.sh，计算/etc/passwd文件中的第10个用户和第20用户的ID之和
+[root@www bin]# cat sumid.sh
+#!/bin/bash
+#description /etc/passwd user10 sum user20
+#version 0.1
+#author gm
+#date 20160810
+
+#get user10 uid and user20 uid
+
+id_1=`sed -n '10p' /etc/passwd | cut -d: -f3`
+id_2=`sed -n '20p' /etc/passwd | cut -d: -f3`
+
+#uid10 sum uid20
+
+let sum_id=$id_1+$id_2
+echo "user10 sum user20 = $sum_id"
+
+#unset
+
+unset id_1
+unset id_2
+unset sum_id
+[root@www bin]# sumid.sh
+user10 sum user20 = 180
+
+6、写一个脚本/root/bin/sumspace.sh，传递两个文件路径作为参数给脚本，计算这两个文件中所有空白行之和
+[root@www bin]# cat sumspace.sh
+#!/bin/bash
+#description tongji two file space lines
+#version 0.1
+#author gm
+#date 20160810
+
+#get file space lines
+
+spaceline1=`grep "^[[:space:]]*$" $1 | wc -l | cut -d' ' -f2`
+spaceline2=`grep "^[[:space:]]*$" $2 | wc -l | cut -d' ' -f2`
+
+#sum two files lines
+
+let sumspaceline=$spaceline1+$spaceline2
+echo "space lines is : $sumspaceline"
+
+#unset
+
+unset spaceline1
+unset spaceline2
+unset sumspaceline
+[root@www bin]# sumspace.sh /etc/fstab /etc/rc.d/init.d/functions
+space lines is : 107
+
+7、写一个脚本/root/bin/sumfile.sh,统计/etc, /var, /usr目录中共有多少个一级子目录和文件
+[root@www bin]# cat sumfile.sh
+#!/bin/bash
+#description tongji etc var usr file numbers
+#version 0.1
+#author gm
+#date 20160810
+
+#get etc var usr file numbers
+
+file_etc=`ls -l /etc | wc -l`
+file_var=`ls -l /var | wc -l`
+file_usr=`ls -l /usr | wc -l`
+
+#sum file numbers
+
+file_sum=$[file_etc+file_var+file_usr]
+echo "etc var usr sum file is : $file_sum"
+
+#unset
+
+unset file_sum
+unset file_etc
+unset file_var
+unset file_usr
+[root@www bin]# sumfile.sh
+etc var usr sum file is : 316
+
+8、写一个脚本/root/bin/argsnum.sh，接受一个文件路径作为参数；如果参数个数小于1，则提示用户“至少应该给一个参数”，并立即退出；如果参数个数不小于1，则显示第一个参数所指向的文件中的空白行数
+[root@www bin]# cat argsnum.sh
+#!/bin/bash
+#description file space lines
+#version 0.1
+#author gm
+#date 20160810
+
+#file space lines
+
+[ $# -lt 1 ] &&  echo "please give one argments or more "  || echo " `basename $1` space lines is :`grep -c '^[[:space:]]*$' $1 `"
+[root@www bin]# argsnum.sh
+please give one argments or more
+[root@www bin]# argsnum.sh /etc/fstab
+ fstab space lines is :1
+
+9、写一个脚本/root/bin/hostping.sh，接受一个主机的IPv4地址做为参数，测试是否可连通。如果能ping通，则提示用户“该IP地址可访问”；如果不可ping通，则提示用户“该IP地址不可访问”
+[root@www bin]# cat hostping.sh
+#!/bin/bash
+#description ping ip address
+#version 0.1
+#author gm
+#date 20160810
+
+#get one arg and ping arg
+
+ping $1 -c1 -W1 &> /dev/null && echo "$1 is up" || echo "$1 is down"
+[root@www bin]# hostping.sh 10.1.0.2
+10.1.0.2 is down
+[root@www bin]# hostping.sh 10.1.0.1
+10.1.0.1 is up
+
+10、判断硬盘的每个分区空间和inode的利用率是否大于80，如果是，发邮件通知root磁盘满
+#!/bin/bash
+#description
+#version 0.3
+#author gm
+#date 20160810
+
+#disk or inode is more 80%?
+echo "now: finding more 80% disk or inode."
+use=`( df -i ; df ) | grep 'sd' | tr -s ' ' | cut -d' ' -f5 | cut -d% -f1 | sort -n | tail -1`
+
+[ $use -lt 80 ] && echo "no disk and inode use is more 80%" && exit
+echo "disk or inode user is used 80% or 80%+" > /root/bin/inodeuse.txt && mail -s "System mail,this is every important." root <  /root/bin/inodeuse.txt
+echo "some disk or inode is more 80%, please into mail see."
+
+
+
+11、指定文件做为参数，判断文件是否为.sh后缀，如果是，添加x权限
+[root@www bin]# cat chmod1.sh
+#/bin/bash
+#description give one *.sh add x
+#version 0.1
+#author gm
+#date 20160810
+
+read -p "input one file lujing : " file
+
+#if file is not exist, echo xinxi
+
+[ ! -e $file -o ! -f $file ] &&  echo "please one true file lujing" && exit 20
+
+#if file is exist, test file is .sh file and chmod +x ,else echo xinxi
+
+echo `basename $file` | grep '\.sh$' &> /dev/null && ( chmod +x $file ; echo "chmod `basename $file` add x" ) || echo "`basename $file` is not .sh"
+
+12、判断输入的IP是否为合法IP
+[root@www bin]# cat read3.sh
+#!/bin/bash
+
+read -p "please input one useful ip:" ip_addr
+echo $ip_addr | grep -pE "^(\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>.){3}\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>$"  && echo "this is a useful ip" || echo "this is not useful ip"
+
+13、计算1+2+3+...+100
+#!/bin/bash
+#description 1 until 100 sum.
+#version 0.1
+#author gm
+#date 20160810
+
+echo  "jisuan 1 until 100 sum."
+
+#jisuan 1 dao 100 de sum
+
+num=`seq 1 100`
+num1=`echo $num | tr -t ' ' '+'`
+sum=$[$num1]
+
+echo "1 until 100 sum is :$sum"
+
+#unset
+
+unset sum
+
+
+14、输入起始值A和最后值B，计算从A+（A+1）...+(B-1)+B的总和
+#!/bin/bash
+#description jisuan suiji de two number and two zhijian de number sum.
+#version 0.1
+#author gm
+#date 20160810
+
+#input two number
+echo  "pleaes two numbers; and minnumber dao maxnumber de he"
+read -p "one number is:" num1
+read -p "two number is:" num2
+
+#num1 > num2 exit
+[ $num1 -gt $num2 ] && echo "num1 > num2" && exit 2
+
+#num1 until num2 sum
+sum=`seq -s + $num1 $num2 | bc `
+
+#input sum
+echo "$num1 until $num2 sum  is :$sum"
+
+20160812作业
+查找/var 目录下属主为root，且属组为mail 的所有文件
+find /var -user root -user mail -type f
+
+查找/var 目录下不属于root 、lp 、gdm 的所有文件
+find /var -not \( -user root -o -user lp -o -user gdm \) -type f
+
+查找/var 目录下最近一周内其内容修改过，同时属主不为root ，也不是postfix 的文件
+find /var -mtime -7 -not \( -user root -o -user postfix \) -type f
+find /var -mtime -7 -not -user root -a -not -user postfix -type f
+
+查找当前系统上没有属主或属组，且最近一个周内曾被访问过的文件
+find / -nouser -nogroup -atime -7 -type f
+
+查找/etc 目录下大于1M 且类型为普通文件的所有文件
+find /etc -size +1M -type f
+
+查找/etc 目录下所有用户都没有写权限的文件
+find /etc -not -perm 222 -type f
+
+查找/etc 目录下至少有一类用户没有执行权限的文件
+find /etc -not -perm 111 -type f
+
+查找/etc/init.d 目录下，所有用户都有执行权限，且其它用户有写权限的文件
+find /etc/init.d/ -perm 113 -type f
+
+
+
+20160816作业
+一、用until实现下列作业
+1、每隔3秒钟到系统上获取已经登录的用户的信息；如果发现用户hacker登录，则将登录时间和主机记录于日志/var/log/login.log
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+read -p "please one username: " user
+until who | grep "^$user\>" &> /dev/null ;do
+	sleep 3
+done
+
+echo "$user is logining system."
+
+logintime=`date +%F-%T`
+host_ip=`who | grep "^$user\>" | cut -d"(" -f2 | cut -d")" -f1`
+echo "$user is login on $host_ip,time is $logintime." >> /var/log/login.log
+
+ttynum=`who | grep "^$user\>" | tr -s ' '| cut -d' ' -f2`
+
+until ! who | grep "^$user\>" &> /dev/null ;do
+	echo "please logout system." > /dev/$ttynum
+	sleep 1
+done
+
+echo "$user is logout system."
+
+2、随机生成10以内的数字，实现猜字游戏，提示比较大或小，相等则退出
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+real_num=$[$RANDOM%10]
+read -p "please one number on 1 to 10: " num
+until [ $num -eq $real_num ] ;do
+	if [ $num -gt $real_num ] ;then
+		echo "your number > realnum."
+	else
+		echo "your number < realnum."
+	fi
+	read -p "please one number on 1 to 10: " num
+done
+echo "you are good."
+
+3、编写脚本，求100以内所有正整数之和
+#!/bin/bash
+#description sum 1 to 100
+#version 0.1
+#author gaomeng
+#date 20160816
+i=100
+until [ $i -eq 0 ] ; do
+	let sum+=i
+	let i--
+done
+echo "1 to 100 sum=$sum"
+
+4、编写脚本，通过ping命令探测172.16.250.1-254范围内的所有主机的在线状态，统计在线主机和离线主机各多少。
+#!/bin/bash
+#description ping network ip
+#version 0.1
+#author gaomeng
+#date 20160816
+ip=`echo $1 | cut -d. -f1-3`
+i=254
+until [ $i -eq 0 ]; do
+	ping -c1 -w1 $ip.$i &> /dev/null && let up-ip++
+	let i--
+done
+let down-ip=254-upip
+echo "up host is $up-ip. down host is $down-ip"
+
+5、编写脚本，打印九九乘法表
+#!/bin/bash
+#description Input 9*9
+#version 0.1
+#author gaomeng
+#date 20160816
+i=1
+until [ $i -eq 10 ]; do
+	j=1
+	until [ $j -gt $i ];do
+		echo -en "$j*$i=$[$i*$j]\t"
+		let j++
+	done
+	echo
+	let i++
+done
+
+6、编写脚本，利用变量RANDOM生成10个随机数字，输出这个10数字，并显示其中的最大者和最小者
+#!/bin/bash
+#description random 10 number, Input max number and min number
+#version 0.1
+#author gaomeng
+#date 20160816
+max=$RANDOM
+min=$max
+i=9
+echo "RANDOM 10 number is:"
+echo "$max"
+until [ $i -eq 0 ];do
+	num=$RANDOM
+	echo "$num"
+	if [ $num -gt $max ]; then
+		max=$num
+	elif [ $num -lt $min ]; then
+		min=$num
+	fi
+	let i--
+done
+echo "max number is: $max . min number is $min ."
+
+7、编写脚本，实现打印国际象棋棋盘
+#!/bin/bash
+#description Input chess
+#version 0.1
+#author goameng
+#date 20160816
+i=8
+until [ $i -eq 0 ];do
+	j=8
+	until [ $j -eq 0 ];do
+		sum=$[i+j]
+		if `let sum%=2` ;then
+			echo -en "\033[41m  \033[0m"
+		else
+			echo -en "\033[42m  \033[0m"
+		fi
+		let j--
+	done
+	echo
+	let i--
+done
+
+8、打印等腰三角形
+#!/bin/bash
+#description
+#version 0.1
+#author gaomeng
+#date 20160816
+read -p "please input line number: " sumline
+line=1
+num=$sumline
+until [ $num -eq 0 ] ;do
+	num1=$[sumline-line]
+	until [ $num1 -eq 0 ]; do
+		echo -n " "
+		let num1--
+	done
+	num2=$[2*line-1]
+	until [ $num2 -eq 0 ]; do
+		echo -n "*"
+		let num2--
+	done
+	echo
+	let line++
+	let num--
+done
+line=$[sumline-1]
+num=$[sumline-1]
+until [ $num -eq 0 ] ;do
+	num1=$[sumline-line]
+	until [ $num1 -eq 0 ]; do
+		echo -n " "
+		let num1--
+	done
+	num2=$[2*line-1]
+	until [ $num2 -eq 0 ]; do
+		echo -n "*"
+		let num2--
+	done
+	echo
+	let line--
+	let num--
+done
+
+9、安装centos6.7,用centos6.8kernel升级
+原内核：
+[root@CentOS6 ~]# uname -r
+2.6.32-642.el6.x86_64
+
+​下载kernel镜像：
+[root@CentOS6 ~]# lftps
+cd ok, cwd=/pub
+lftp 10.1.0.1:/pub> cd Sources/6.x86_64/kernel(CentOS6.5)/
+lftp 10.1.0.1:/pub/Sources/6.x86_64/kernel(CentOS6.5)> ls
+-rwxr--r--    1 500      500      29038424 Nov 24  2013 kernel-2.6.32-431.el6.x86_64.rpm
+-rwxr--r--    1 500      500       2235524 Nov 24  2013 kernel-abi-whitelists-2.6.32-431.el6.noarch.rpm
+-rwxr--r--    1 500      500       9167492 Nov 24  2013 kernel-devel-2.6.32-431.el6.x86_64.rpm
+-rwxr--r--    1 500      500      11015536 Nov 24  2013 kernel-doc-2.6.32-431.el6.noarch.rpm
+-rwxr--r--    1 500      500      13601072 Nov 24  2013 kernel-firmware-2.6.32-431.el6.noarch.rpm
+-rwxr--r--    1 500      500       2970072 Nov 24  2013 kernel-headers-2.6.32-431.el6.x86_64.rpm
+lftp 10.1.0.1:/pub/Sources/6.x86_64/kernel(CentOS6.5)> get kernel-2.6.32-431.el6.x86_64.rpm
+29038424 bytes transferred in 2 seconds (11.13M/s)
+lftp 10.1.0.1:/pub/Sources/6.x86_64/kernel(CentOS6.5)> bye
+
+安装kernel：
+[root@CentOS6 ~]# rpm -ivh --force kernel-2.6.32-431.el6.x86_64.rpm
+Preparing...                ########################################### [100%]
+   1:kernel                 ########################################### [100%]
+
+重启电脑：
+
+20160818
+一、作业
+1、斐波那契数列又称黄金分割数列，因数学家列昂纳多・斐波那契以兔子繁殖为例子而引入，故又称为“兔子数列”，指的是这样一个数列：0、1、1、2、3、5、8、13、21、34、……，斐波纳契数列以如下被以递归的方法定义：F（0）=0，F（1）=1，F（n）=F(n-1)+F(n-2)（n≥2）
+写一个函数，求n阶斐波那契数列
+1   2   3   4   5   6   7    8    9
+1 、1 、2 、3 、5 、8 、13 、21 、34
+
+#!/bin/bash
+#description series of rabbit
+#version 0.3
+#author gaomeng
+#date 20160818
+#
+series() {
+	if [ $1 -eq 0 ]; then
+		sum=0
+	elif [ $1 -eq 1 ];then
+		sum=1
+	else
+		let sum=`series $[$1-1]`+`series $[$1-2]`
+	fi
+	echo "$sum"
+}
+
+read -p "Please input month number: " num
+until echo $num | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input month number: " num
+done
+series $num
+[root@CentOS6 bin]# function5.sh
+Please input month number: -123
+your number error, Input month number: sdf
+your number error, Input month number: 8
+21
+[root@CentOS6 bin]# function5.sh
+Please input month number: 1.02323
+your number error, Input month number: 10
+55
+
+
+2、汉诺塔（又称河内塔）问题是源于印度一个古老传说。大梵天创造世界的时候做了三根金刚石柱子，在一根柱子上从下往上按照大小顺序摞着64片黄金圆盘。大梵天命令婆罗门把圆盘从下面开始按大小顺序重新摆放在另一根柱子上。并且规定，在小圆盘上不能放大圆盘，在三根柱子之间一次只能移动一个圆盘。
+利用函数，实现N片盘的汉诺塔的移动步骤
+#!/bin/bash
+#description hanoi game
+#version 0.2
+#author gaomeng
+#date 20160818
+#
+i=1
+move() {
+	echo -e "$i)\t$1 plate from $2 to $3."
+	let i++
+}
+hanoi() {
+	if [ $1 -eq 1 ]; then
+		move $1 $2 $4
+	else
+		hanoi $[$1-1] $2 $4 $3
+		move $1 $2 $4
+		hanoi $[$1-1] $3 $2 $4
+	fi
+}
+
+read -p "Please input move plate numbers: " num
+until echo $num | grep -qE "^[0-9]+$";do
+	read -p "your number error, Input move plate number: " num
+done
+
+hanoi $num A B C
+[root@CentOS6 bin]# function6.sh
+Please input move plate numbers: 3
+1)	1 plate from A to C.
+2)	2 plate from A to B.
+3)	1 plate from C to B.
+4)	3 plate from A to C.
+5)	1 plate from B to A.
+6)	2 plate from B to C.
+7)	1 plate from A to C.
+[root@CentOS6 bin]# function6.sh
+Please input move plate numbers: 4
+1)	1 plate from A to B.
+2)	2 plate from A to C.
+3)	1 plate from B to C.
+4)	3 plate from A to B.
+5)	1 plate from C to A.
+6)	2 plate from C to B.
+7)	1 plate from A to B.
+8)	4 plate from A to C.
+9)	1 plate from B to C.
+10)	2 plate from B to A.
+11)	1 plate from C to A.
+12)	3 plate from B to C.
+13)	1 plate from A to B.
+14)	2 plate from A to C.
+15)	1 plate from B to C.
+
+
+20160822作业
+1、冒泡法对数组内数据排序
+#!/bin/bash
+#description Bubble sort
+#version 0.1
+#author gaomeng
+#date 20160823
+#
+declare -a string
+for i in {0..9};do
+	string[$i]=$[$RANDOM%100+1]
+done
+echo ${string[*]}
+for i in {0..8};do
+	for (( j=i+1 ; j<=9 ; j++ )) ;do
+		if [ ${string[$i]} -lt ${string[$j]} ];then
+			t=${string[$i]}
+			string[$i]=${string[$j]}
+			string[$j]=$t
+		fi
+	done
+done
+echo ${string[*]}
+
+[root@CentOS6 bin]# string1.sh
+37 83 64 42 74 59 38 19 83 25
+83 83 74 64 59 42 38 37 25 19
+[root@CentOS6 bin]# string1.sh
+52 6 63 71 67 88 88 12 76 80
+88 88 80 76 71 67 63 52 12 6
+[root@CentOS6 bin]# string1.sh
+92 20 92 94 11 97 46 100 2 44
+100 97 94 92 92 46 44 20 11 2
+[root@CentOS6 bin]# string1.sh
+64 33 19 44 16 83 5 100 13 40
+100 83 64 44 40 33 19 16 13 5
+
+
+2、源码安装http2.2.29
+[root@CentOS6 ~]# lftp 10.1.0.1/pub
+cd ok, cwd=/pub
+lftp 10.1.0.1:/pub> cd Sources/sources/httpd/
+lftp 10.1.0.1:/pub/Sources/sources/httpd> get httpd-2.2.29.tar.bz2
+5625498 bytes transferred
+lftp 10.1.0.1:/pub/Sources/sources/httpd> bye
+[root@CentOS6 ~]# tar xf httpd-2.2.29.tar.bz2
+[root@CentOS6 ~]# cd httpd-2.2.29
+[root@CentOS6 httpd-2.2.29]# ./configure prefix=/usr/local/apache2
+[root@CentOS6 httpd-2.2.29]# make
+[root@CentOS6 httpd-2.2.29]# make install
+[root@CentOS6 httpd-2.2.29]# which apachectl    //apachectl的二进制程序路径
+/usr/sbin/apachectl
+[root@CentOS6 httpd-2.2.29]# /root/makeautoadd.sh
+Please input service dir path: /usr/local/apache2
+dir is exist.
+bin dir is exist.
+lib dir is exist.
+include dir is exist.
+man dir is exist.
+please execute: source /etc/profile.d/http.sh
+/etc/profile.d/apache2.sh add success.
+/etc/ld.so.conf.d/apache2.conf add success.
+`/usr/include/apache2' -> `/usr/local/apache2/include'
+/usr/include/apache2 add success.
+/usr/local/apache2/man add in /etc/man.config.
+[root@CentOS6 httpd-2.2.29]# source /etc/profile.d/apache2.sh
+[root@CentOS6 httpd-2.2.29]# which apachectl   //apachectl的二进制程序路径改变了
+/usr/local/apache2/bin/apachectl
+[root@CentOS6 httpd-2.2.29]# echo "ServerName localhost:80" >> /usr/local/apache2/conf/httpd.conf
+[root@CentOS6 httpd-2.2.29]# apachectl start
+
+

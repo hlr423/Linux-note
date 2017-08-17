@@ -1,0 +1,364 @@
+实践作业：
+	(1) 动静分离discuzx，动静都要基于负载均衡实现
+	(2) 进一步测试在haproxy和后端主机之间添加varnish缓存
+	(3) 给出拓扑设计
+	(4) haproxy的设定要求
+		(a) 启动stats
+		(b) 自定义403、502和503的错误页
+		(c) 各组后端主机选择合适的调度方法
+		(d) 记录好日志
+		(e) 使用keepalived高可用haproxy
+
+
+(1)动静分离discuzx，动静都要基于负载均衡实现
+第一步：提供动态主机，nfs主机和数据库主机
+nfs主机和数据库主机：
+[root@node3 ~]# yum -y install mysql-server
+[root@node3 ~]# service mysqld start
+[root@node3 ~]# mysql
+mysql> CREATE DATABASE discuz;     #创建Discuz软件的数据库
+mysql> GRANT ALL ON discuz.* TO 'gm'@'10.1.43.1' IDENTIFIED BY 'gm625'   #授权gm用户能访问discuz数据库
+mysql> GRANT ALL ON discuz.* TO 'gm'@'10.1.43.2' IDENTIFIED BY 'gm625'
+mysql> GRANT ALL ON discuz.* TO 'gm'@'127.0.0.1' IDENTIFIED BY 'gm625'
+mysql> GRANT ALL ON discuz.* TO 'gm'@'localhost' IDENTIFIED BY 'gm625'
+
+[root@node3 ~]# cat /etc/exports
+/www 	10.1.43.0/24(rw)
+/www/upload/data 172.16.0.0/24(rw)
+[root@node3 ~]# mkdir /www
+[root@node3 ~]# cp Discuz_X3.2_SC_UTF8.zip /www   #Discuz_X3.2_SC_UTF8.zip软件请自行从网上获取
+[root@node3 ~]# cd /www
+[root@node3 www]# setfacl -m u:apache:rwx /www   #注意若此主机上无apache用户，请参照动态主机上的apache用户的uid和gid来进行创建新用户，或者安装httpd包，但不启动httpd服务，也会创建apache用户
+[root@node3 www]# upzip Discuz_X3.2_SC_UTF8.zip
+[root@node3 www]# cd upload
+[root@node3 upload]# chmod a+w config/ data/ uc_client/ uc_server/ -R
+[root@node3 upload]# service rpcbind start
+[root@node3 upload]# service nfs start
+
+动态主机：
+yum -y install httpd php php-mysql
+vim /etc/httpd/conf/httpd.conf   #修改配置文件中的LogFormat的参数以便记录真实的前端主机
+......
+LogFormat "%{X-Forwarded-For}i %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+......
+service httpd start
+mount.nfs 10.1.43.3:/www /var/www/html
+
+第二步：提供一台haproxy主机
+安装和配置haproxy主机
+yum -y install haproxy
+[root@node3 ~]# cat /etc/haproxy/haproxy.cfg
+#---------------------------------------------------------------------
+# Example configuration for a possible web application.  See the
+# full configuration options online.
+#
+#   http://haproxy.1wt.eu/download/1.4/doc/configuration.txt
+#
+#---------------------------------------------------------------------
+
+#---------------------------------------------------------------------
+# Global settings
+#---------------------------------------------------------------------
+global
+    # to have these messages end up in /var/log/haproxy.log you will
+    # need to:
+    #
+    # 1) configure syslog to accept network log events.  This is done
+    #    by adding the '-r' option to the SYSLOGD_OPTIONS in
+    #    /etc/sysconfig/syslog
+    #
+    # 2) configure local2 events to go to the /var/log/haproxy.log
+    #   file. A line like the following can be added to
+    #   /etc/sysconfig/syslog
+    #
+    #    local2.*                       /var/log/haproxy.log
+    #
+    log         127.0.0.1 local2
+
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    maxconn     4000
+    user        haproxy
+    group       haproxy
+    daemon
+
+    # turn on stats unix socket
+    stats socket /var/lib/haproxy/stats
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 3000
+
+#---------------------------------------------------------------------
+# main frontend which proxys to the backends
+#---------------------------------------------------------------------
+frontend  main *:80
+    acl url_static       path_beg       -i /static /images /javascript /stylesheets
+    acl url_static       path_end       -i .jpg .gif .png .css .js
+
+#   use_backend static          if url_static   #先注释掉此静态调度，安装好Discuz程序后，在启用此调度
+    default_backend             amp
+
+    errorfile 502 /var/www/html/502.html    #重定义错误页面
+    errorfile 503 /var/www/html/503.html
+    errorfile 404 /var/www/html/404.html
+
+    option forwardfor if-none    #向后端服务器发送请求报文的ip地址
+    rspdel Server.*
+
+#---------------------------------------------------------------------
+# static backend for serving up images, stylesheets and such
+#---------------------------------------------------------------------
+backend static
+    balance     roundrobin
+    server      static 10.1.43.104:80 check   #varnish主机的ip地址
+
+#---------------------------------------------------------------------
+# round robin balancing between the various backends
+#---------------------------------------------------------------------
+backend amp
+    balance     leastconn       #动态资源基于leastconn
+    cookie  ampsrvs insert nocache indirect
+    server  amp1 10.1.43.1:80 check cookie amp1   #动态主机的ip地址
+    server  amp2 10.1.43.2:80 check cookie amp2   #动态主机的ip地址
+
+listen stats *:9090
+    stats enable
+    stats uri /admin
+    stats auth gao:gaomeng
+    stats realm test\ page\ admin
+    stats admin if TRUE
+    stats hide-version
+    stats refresh 30
+[root@node3 ~]# cat /var/www/html/[45]*.html
+you request page is not exsist    #404页面
+Bad Gateway    #503页面
+all service is down    #504页面
+[root@node3 ~]# systemctl start haproxy
+
+启动rsyslog日志记录：
+[root@node3 ~]# cat /etc/rsyslog.conf
+# Provides UDP syslog reception   #启动了tcp和udp的端口
+$ModLoad imudp
+$UDPServerRun 514
+
+# Provides TCP syslog reception
+$ModLoad imtcp
+$InputTCPServerRun 514
+
+......
+# Save boot messages also to boot.log    #新增了一个local2的信道，用于收集haproxy的日志
+local7.*                                                /var/log/boot.log
+local2.*                                                /var/log/haproxy.log
+[root@node3 ~]# systemctl start rsyslog
+
+第三步：启动浏览器安装Discuz程序
+注意：安装过程中
+主机地址：10.1.43.3
+数据库名：discuz
+用户：gm
+密码：gm625
+
+第四步：提供varnish主机和静态主机
+varnish主机：
+yum -y install varnish
+[root@CentOS7 varnish]# vim varnish.params
+......
+VARNISH_LISTEN_PORT=80    #修改varnish主机监听的端口，以便能响应httpd服务的请求
+......
+[root@CentOS7 varnish]# cat default.vcl
+#
+# This is an example VCL file for Varnish.
+#
+# It does not do anything by default, delegating control to the
+# builtin VCL. The builtin VCL is called when there is no explicit
+# return statement.
+#
+# See the VCL chapters in the Users Guide at https://www.varnish-cache.org/docs/
+# and http://varnish-cache.org/trac/wiki/VCLExamples for more examples.
+
+# Marker to tell the VCL compiler that this VCL has been adapted to the
+# new 4.0 format.
+vcl 4.0;
+import directors;
+
+# Default backend definition. Set this to point to your content server.
+backend amp1 {
+    .host = "172.16.0.2";
+    .port = "80";
+}
+
+backend amp2 {
+    .host = "172.16.0.3";
+    .port = "80";
+}
+
+sub vcl_init {    #定义后端静态主机和起调度方法
+    new ampsrvs = directors.round_robin();
+    ampsrvs.add_backend(amp1);
+    ampsrvs.add_backend(amp2);
+}
+
+sub vcl_recv {
+    # Happens before we check if we have this in cache already.
+    #
+    # Typically you clean up the request here, removing cookies you don't need,
+    # rewriting the request, etc.
+    set req.backend_hint = ampsrvs.backend( );   #请用定义的后端主机组
+    if ( req.url ~ "\.(png|swf|txt|png|gif|jpg|css|js|htm|html|png|css)$" ) {
+		unset req.http.cookie;    #或请求为静态主机去掉cookie
+    }
+
+    if ( req.url ~ "^/{images|static|javascript|stylesheets}" ) {
+		unset req.http.cookie;
+    }
+}
+
+sub vcl_backend_response {
+    # Happens after we have read the response headers from the backend.
+    #
+    # Here you clean the response headers, removing silly Set-Cookie headers
+    # and other mistakes your backend does.
+    if (beresp.http.cache-control !~ "s-maxage") {
+		if (bereq.url ~ "(?i)\.(jpg|jpeg|png|gif|css|js)$") {
+		    unset beresp.http.Set-Cookie;
+		    set beresp.ttl = 3600s;
+		}
+    }
+}
+
+sub vcl_deliver {
+    # Happens when we have all the pieces we need, and are about to send the
+    # response to the client.
+    #
+    # You can do accounting or modifying the final object here.
+    if (obj.hits>0) {
+		set resp.http.X-Cache = "HIT via " + server.ip;
+    } else {
+		set resp.http.X-Cache = "MISS via " + server.ip;
+    }
+}
+[root@CentOS7 ~]# systemctl start varnish
+
+静态主机：
+yum -y install httpd
+vim /etc/httpd/conf/httpd.conf   #修改配置文件中的LogFormat的参数以便记录真实的前端主机
+......
+LogFormat "%{X-Forwarded-For}i %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+......
+systemctl start httpd
+mount.nfs 172.16.0.4:/www/upload/data /var/www/html/upload/data
+
+启用haproxy配置文件中的此行数据，把前面的#去掉，然后重启haproxy服务
+#   use_backend static          if url_static
+
+多次访问Discuz论坛，观察其静态资源的响应报文中的X-Cache值是否如下所示：
+X-Cache:HIT via 10.1.43.104   #表示其命中了varnish的缓存
+
+
+第五步：提供2台keepalived+haproxy主机
+在上述的haproxy主机上配置keepalived主机，然后把haproxy和keepalived主机的配置复制到另一台主机上，完成2台keepalived和haproxy主机的配置
+[root@node3 ~]# yum -y install keepalived
+[root@node3 ~]# cat /etc/keepalived/keepalived.conf
+! Configuration File for keepalived
+
+global_defs {
+   notification_email {
+       root@localhost
+   }
+   notification_email_from keepalived@localhost
+   smtp_server 127.0.0.1
+   smtp_connect_timeout 30
+   router_id LVS_DEVEL
+   vrrp_mcast_group4 224.0.43.200
+}
+
+vrrp_script chk_nginx {
+    script "pidof haproxy"
+    interval 1
+    weight -5
+}
+
+vrrp_instance VI_1 {
+    state MASTER     #在第2台主机上改成BACKUP
+    interface eno16777736
+    virtual_router_id 18
+    priority 100     #在第2台主机上改成98
+    advert_int 2
+    authentication {
+        auth_type PASS
+        auth_pass 9a735491
+    }
+    virtual_ipaddress {
+	10.1.43.100/16 dev eno16777736
+    }
+    track_script {
+        chk_nginx
+    }
+}
+
+vrrp_instance VI_2 {
+    state BACKUP     #在第2台主机上改成MASTER
+    interface eno16777736
+    virtual_router_id 19
+    priority 98      #在第2台主机上改成100
+    advert_int 2
+    authentication {
+        auth_type PASS
+        auth_pass 1a735491
+    }
+    virtual_ipaddress {
+	10.1.43.200/16 dev eno16777736
+    }
+    track_script {
+        chk_nginx
+    }
+}
+
+
+(2)
+(3)
+(4)
+
+
+
+
+
+
+
+成都中科大旗软件有限公司
+
+
+熟练掌握linux系统，精通shell脚本，熟悉linux集群，LB的lvs、nginx、haproxy，HA的keepalived
+
+web网站部署
+部署一个基于keepalived+haproxy的动静分离站
+
+keepalived和haproxy结合来调度后端的web主机，动静分离web站点，动静都要基于负载均衡实现，并在haproxy和后端静态主机之间添加varnish缓存
+
+
+1、负责服务器部署，安装centos系统以及apache,php,mysql,varnish,nginx,lvs,keepalibed,ansible,zabbix等软件
+2、配置防火墙的访问控制策略
+3、配置ansible的role，实现对批量部署keepalived+nginx调度多台后端的lamp主机
+4、部署keepalived+haproxy+varnish，动静分离来调度网页资源
+5、对数据进行备份
+6、配置zabbix，监控主机
+7、搭建ftp,samba,dhcp等服务
